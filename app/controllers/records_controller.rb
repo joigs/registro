@@ -35,7 +35,6 @@ class RecordsController < ApplicationController
             {
               id: i["id"],
               fecha: i["ins_date"],
-              observaciones: i["observations"],
               principal: i["principal"]
             }
           end
@@ -72,7 +71,6 @@ class RecordsController < ApplicationController
           {
             id: i["id"],
             fecha: i["ins_date"],
-            observaciones: i["observations"],
             principal: i["principal"]
           }
         end
