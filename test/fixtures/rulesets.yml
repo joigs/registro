@@ -1,0 +1,5 @@
+one:
+  group: asc
+  rule: asc
+  created_at: <%= Time.now %>
+  updated_at: <%= Time.now %>

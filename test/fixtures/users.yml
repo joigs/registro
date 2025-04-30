@@ -1,0 +1,9 @@
+admin:
+  username: admin
+  email: admin@example.com
+  password_digest: <%= BCrypt::Password.create("123456") %>
+  admin: true
+  real_name: "Administrador Principal"
+  profesion: "Administrador"
+  created_at: <%= Time.now %>
+  updated_at: <%= Time.now %>

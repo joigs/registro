@@ -1,0 +1,5 @@
+one:
+  rut: "11111111-1"
+  name: "Principal Test"
+  created_at: <%= Time.now %>
+  updated_at: <%= Time.now %>

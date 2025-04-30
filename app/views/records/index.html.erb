@@ -1,0 +1,42 @@
+<h1 class="text-3xl font-bold mb-4">Facturaciones</h1>
+
+<% if @facturacions.any? %>
+  <table class="min-w-full border-collapse border border-gray-300">
+    <thead>
+    <tr>
+      <th class="border border-gray-300 px-4 py-2">ID</th>
+      <th class="border border-gray-300 px-4 py-2">Número</th>
+      <th class="border border-gray-300 px-4 py-2">Fecha Inspección</th>
+      <th class="border border-gray-300 px-4 py-2">Empresa</th>
+      <th class="border border-gray-300 px-4 py-2">Inspecciones</th>
+    </tr>
+    </thead>
+    <tbody>
+    <% @facturacions.each do |facturacion| %>
+      <tr>
+        <td class="border border-gray-300 px-4 py-2"><%= facturacion[:id] %></td>
+        <td class="border border-gray-300 px-4 py-2"><%= facturacion[:numero] %></td>
+        <td class="border border-gray-300 px-4 py-2"><%= facturacion[:fecha_inspeccion] %></td>
+        <td class="border border-gray-300 px-4 py-2"><%= facturacion[:empresa] %></td>
+        <td class="border border-gray-300 px-4 py-2">
+          <% if facturacion[:inspecciones].any? %>
+            <ul class="list-disc list-inside">
+              <% facturacion[:inspecciones].each do |inspeccion| %>
+                <li>
+                  <strong>Fecha:</strong> <%= inspeccion[:fecha] %>,
+                  <strong>Observaciones:</strong> <%= inspeccion[:observaciones] %>,
+                  <strong>Principal:</strong> <%= inspeccion[:principal] %>
+                </li>
+              <% end %>
+            </ul>
+          <% else %>
+            No hay inspecciones
+          <% end %>
+        </td>
+      </tr>
+    <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>No se encontraron facturaciones.</p>
+<% end %>

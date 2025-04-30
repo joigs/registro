@@ -1,0 +1,40 @@
+<div id="<%= dom_id user %>" class="max-w-4xl mx-auto p-6 bg-gray-900 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+  <div class="text-gray-300 space-y-2">
+    <div class="tracking-wide text-2xl font-bold text-gray-300 mb-8">      <%= user.username %>
+    </div>
+
+
+
+    </div>
+    <p class="text-gray-400 mt-2">
+      <strong class="text-gray-200">Nombre real:</strong>
+      <%= user.real_name %>
+    </p>
+
+    <p class="text-gray-400 mt-2">
+      <strong class="text-gray-200">Rol:</strong>
+
+      <% if user.admin %>
+        Administrador
+      <% else %>
+        Usuario
+      <% end %>
+    </p>
+
+
+
+
+    <p class="text-gray-400 mt-2">
+      <strong class="text-gray-200">Correo electrónico:</strong>
+      <%= user.email %>
+    </p>
+
+
+
+
+    <div class="mt-4">
+      <% if controller_name == 'users' && action_name == 'index' %>
+        <%= link_to 'Mostrar usuario', user_path(user), class: "inline-block px-6 py-2 border border-blue-800 text-blue-400 font-medium text-xs leading-tight uppercase rounded hover:bg-blue-800 hover:text-white focus:outline-none focus:ring-0 transition duration-150 ease-in-out", 'data-turbo-frame': "_top" %>
+      <% end %>
+    </div>
+  </div>

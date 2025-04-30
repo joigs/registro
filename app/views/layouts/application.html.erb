@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Registro de Ventas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <%= stylesheet_link_tag "https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" %>
+    <%= javascript_include_tag "https://cdn.jsdelivr.net/npm/flatpickr" %>
+    <%= javascript_include_tag "https://npmcdn.com/flatpickr/dist/l10n/es.js" %>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <link rel="manifest" crossorigin="use-credentials"
+          href="/manifest.json" />
+
+    <%= stylesheet_link_tag "tailwind", "inter-font", "data-turbo-track": "reload" %>
+
+    <%= stylesheet_link_tag "application" , "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "https://unpkg.com/slim-select@latest/dist/slimselect.css", "data-turbo-tracl": "reload" %>
+    <%= javascript_importmap_tags %>
+    <%= javascript_include_tag 'application', 'data-turbo-track': 'reload' %>
+
+    <%= stylesheet_link_tag 'https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css', media: 'all', 'data-turbo-track': 'reload' %>
+    <%= javascript_include_tag 'https://cdn.jsdelivr.net/npm/simple-datatables@latest', defer: true %>
+
+
+    <link rel="shortcut icon" href="<%= asset_path 'cropped-favicon.png' %>" type="image/png">
+
+  </head>
+
+  <body style="background-color: #d1cddc;">
+  <%= render 'shared/flash' %>
+    <%= yield %>
+
+  </body>
+</html>

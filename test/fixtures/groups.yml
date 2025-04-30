@@ -1,0 +1,13 @@
+asc:
+  number: 1
+  name: "Grupo Ascensor"
+  type_of: "ascensor"
+  created_at: <%= Time.now %>
+  updated_at: <%= Time.now %>
+
+extra:
+  number: 2
+  name: "Grupo Extra"
+  type_of: "ascensor"
+  created_at: <%= Time.now %>
+  updated_at: <%= Time.now %>

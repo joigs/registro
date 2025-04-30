@@ -1,0 +1,70 @@
+<% if @facturacion.nil? %>
+  <h2 style="color: red;">No se pudo obtener la facturación</h2>
+<% else %>
+  <h1>Detalle Facturación <%= @facturacion["id"] %></h1>
+
+  <p><strong>Number:</strong> <%= @facturacion["number"] %></p>
+  <p><strong>Name:</strong> <%= @facturacion["name"] %></p>
+  <p><strong>Fecha Inspección (más reciente):</strong> <%= @facturacion["fecha_inspeccion"] %></p>
+  <p><strong>Factura:</strong> <%= @facturacion["factura"] %></p>
+  <p><strong>Precio:</strong> <%= @facturacion["precio"] %></p>
+  <p><strong>Empresa:</strong> <%= @facturacion["empresa"] %></p>
+
+  <hr>
+
+  <h2>Inspecciones de esta Facturación</h2>
+  <table border="1">
+    <thead>
+    <tr>
+      <th>Number</th>
+      <th>Place</th>
+      <th>ins_date</th>
+      <th>inf_date</th>
+      <th>validation</th>
+      <th>result</th>
+      <th>created_at</th>
+      <th>updated_at</th>
+      <th>state</th>
+      <th>item_id</th>
+      <th>principal_id</th>
+      <th>rerun</th>
+      <th>name</th>
+      <th>cambio</th>
+      <th>region</th>
+      <th>comuna</th>
+      <th>facturacion_id</th>
+      <th>Empresa</th>
+    </tr>
+    </thead>
+    <tbody>
+    <% inspections = @facturacion["inspections"] || [] %>
+    <% inspections.each do |ins| %>
+      <tr>
+        <td><%= ins["number"] %></td>
+        <td><%= ins["place"] %></td>
+        <td><%= ins["ins_date"] %></td>
+        <td><%= ins["inf_date"] %></td>
+        <td><%= ins["validation"] %></td>
+        <td><%= ins["result"] %></td>
+        <td><%= ins["created_at"] %></td>
+        <td><%= ins["updated_at"] %></td>
+        <td><%= ins["state"] %></td>
+        <td><%= ins["item_id"] %></td>
+        <td><%= ins["principal_id"] %></td>
+        <td><%= ins["rerun"] %></td>
+        <td><%= ins["name"] %></td>
+        <td><%= ins["cambio"] %></td>
+        <td><%= ins["region"] %></td>
+        <td><%= ins["comuna"] %></td>
+        <td><%= ins["facturacion_id"] %></td>
+
+        <td>
+          <% if ins["principal"] %>
+            <%= ins["principal"]["name"] %>
+          <% end %>
+        </td>
+      </tr>
+    <% end %>
+    </tbody>
+  </table>
+<% end %>

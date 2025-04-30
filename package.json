@@ -1,0 +1,21 @@
+{
+  "name": "evaluacion",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:css": "tailwindcss -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css",
+    "build:css:watch": "tailwindcss -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joigs/evaluacion.git"
+  },
+  "private": true,
+  "dependencies": {
+    "@rails/request.js": "^0.0.9",
+    "flowbite": "^2.5.1",
+    "simple-datatables": "^9.2.2"
+  }
+}

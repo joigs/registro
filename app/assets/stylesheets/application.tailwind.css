@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+
+@layer components {
+  .btn-primary {
+    @apply py-2 px-4 bg-blue-200;
+  }
+}
+
+*/
+
+.btn {
+    @apply w-full px-6 py-3 text-sm font-medium leading-5 text-center text-white rounded-md shadow-sm;
+}
+
+.btn-blue {
+    @apply bg-blue-500;
+}
+
+.btn-green {
+    @apply bg-green-500;
+}
+
+/* Ensure buttons have the same width and height */
+@media (min-width: 640px) {
+    .btn {
+        @apply min-w-[140px] h-[50px];
+    }
+}
+
+@layer utilities {
+    .error {
+        @apply border-2 border-red-500 animate-pulse; /* Pulse animation for visibility */
+        @apply shadow-lg; /* Soft shadow for depth */
+    }
+
+    .error-message {
+        @apply text-red-500 text-sm mt-1 font-medium; /* Style for error messages */
+        @apply flex items-center space-x-2; /* Flexbox for alignment */
+    }
+
+    .error-icon {
+        @apply w-4 h-4 inline-block; /* Icon size */
+    }
+}
+
+.hidden {
+    display: none;
+}
+
