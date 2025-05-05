@@ -1,70 +1,156 @@
-<% if @facturacion.nil? %>
-  <h2 style="color: red;">No se pudo obtener la facturación</h2>
-<% else %>
-  <h1>Detalle Facturación <%= @facturacion["id"] %></h1>
+<turbo-frame id="facturacion_frame">
+  <div class="bg-gray-800">
+    <!-- Cabecera -->
+    <div class="bg-gray-900 py-6 px-8 shadow-lg rounded-lg text-center">
+      <% if @facturacion %>
+        <h1 class="text-3xl font-bold text-white">
+          Facturación #<%= @facturacion.number %> – <%= @facturacion.name %>
+        </h1>
+      <% else %>
+        <h2 class="text-xl font-bold text-red-500">No se pudo obtener la facturación</h2>
+      <% end %>
+    </div>
 
-  <p><strong>Number:</strong> <%= @facturacion["number"] %></p>
-  <p><strong>Name:</strong> <%= @facturacion["name"] %></p>
-  <p><strong>Fecha Inspección (más reciente):</strong> <%= @facturacion["fecha_inspeccion"] %></p>
-  <p><strong>Factura:</strong> <%= @facturacion["factura"] %></p>
-  <p><strong>Precio:</strong> <%= @facturacion["precio"] %></p>
-  <p><strong>Empresa:</strong> <%= @facturacion["empresa"] %></p>
+    <% if @facturacion %>
+      <!-- Datos básicos -->
+      <div class="mx-auto px-6 text-gray-200 mt-6 space-y-2 text-sm">
+        <p><strong>Empresa:</strong> <%= @facturacion.empresa %></p>
+        <p><strong>Factura:</strong>  <%= @facturacion.factura.presence  || 'Pendiente' %></p>
+        <p><strong>Precio:</strong>   <%= number_to_currency(@facturacion.precio, unit: "$", delimiter: ".", precision: 0) %></p>
+        <p><strong>Fecha inspección:</strong> <%= format_date(@facturacion.fecha_inspeccion) %></p>
+        <p><strong>Entregado:</strong> <%= format_date(@facturacion.entregado) %></p>
+        <p><strong>Resultado:</strong> <%= @facturacion.resultado %></p>
+      </div>
 
-  <hr>
+      <!-- Tabla de inspecciones -->
+      <div class="mx-auto px-6 text-gray-200 mt-8">
+        <div class="overflow-x-auto table-responsive">
+          <table id="inspections-table" class="table-auto w-full text-white">
+            <thead class="bg-gray-800">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"> <div class="ml-6">Fecha</div></th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"><div class="ml-6">Dirección</div></th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"><div class="ml-6">Estado</div></th>
+              <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider"><div class="ml-6">Empresa</div></th>
+            </tr>
+            </thead>
 
-  <h2>Inspecciones de esta Facturación</h2>
-  <table border="1">
-    <thead>
-    <tr>
-      <th>Number</th>
-      <th>Place</th>
-      <th>ins_date</th>
-      <th>inf_date</th>
-      <th>validation</th>
-      <th>result</th>
-      <th>created_at</th>
-      <th>updated_at</th>
-      <th>state</th>
-      <th>item_id</th>
-      <th>principal_id</th>
-      <th>rerun</th>
-      <th>name</th>
-      <th>cambio</th>
-      <th>region</th>
-      <th>comuna</th>
-      <th>facturacion_id</th>
-      <th>Empresa</th>
-    </tr>
-    </thead>
-    <tbody>
-    <% inspections = @facturacion["inspections"] || [] %>
-    <% inspections.each do |ins| %>
-      <tr>
-        <td><%= ins["number"] %></td>
-        <td><%= ins["place"] %></td>
-        <td><%= ins["ins_date"] %></td>
-        <td><%= ins["inf_date"] %></td>
-        <td><%= ins["validation"] %></td>
-        <td><%= ins["result"] %></td>
-        <td><%= ins["created_at"] %></td>
-        <td><%= ins["updated_at"] %></td>
-        <td><%= ins["state"] %></td>
-        <td><%= ins["item_id"] %></td>
-        <td><%= ins["principal_id"] %></td>
-        <td><%= ins["rerun"] %></td>
-        <td><%= ins["name"] %></td>
-        <td><%= ins["cambio"] %></td>
-        <td><%= ins["region"] %></td>
-        <td><%= ins["comuna"] %></td>
-        <td><%= ins["facturacion_id"] %></td>
-
-        <td>
-          <% if ins["principal"] %>
-            <%= ins["principal"]["name"] %>
-          <% end %>
-        </td>
-      </tr>
+            <tbody class="bg-gray-700 divide-y divide-gray-600">
+            <% @facturacion.inspections.each do |ins| %>
+              <tr class="bg-gray-800 border-b border-gray-700">
+                <td class="px-6 py-4 whitespace-normal"><%= format_date(ins.ins_date) %></td>
+                <td class="px-6 py-4 whitespace-normal"><%= "#{ins.region}. #{ins.comuna}" %></td>
+                <td class="px-6 py-4 whitespace-normal"><%= ins.state.presence || '—' %></td>
+                <td class="px-6 py-4 whitespace-normal"><%= ins.principal["name"].presence || '—' %></td>
+              </tr>
+            <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
     <% end %>
-    </tbody>
-  </table>
-<% end %>
+  </div>
+
+  <!-- === JS simple‑datatables (idéntico patrón al index) === -->
+  <script>
+      (function () {
+          document.addEventListener("turbo:before-cache", () => {
+              const tableEl = document.getElementById("inspections-table");
+              if (tableEl && tableEl._dataTableInstance) {
+                  tableEl._dataTableInstance.destroy();
+                  delete tableEl._dataTableInstance;
+              }
+          });
+
+          function initInspectionsTable() {
+              const tableEl = document.getElementById("inspections-table");
+              if (
+                tableEl &&
+                !tableEl._dataTableInstance &&
+                typeof simpleDatatables !== "undefined" &&
+                simpleDatatables.DataTable
+              ) {
+                  // Todas las columnas son filtrables, así que no excluimos ninguna
+                  const dataTable = new simpleDatatables.DataTable(tableEl, {
+                      labels: {
+                          placeholder: "Buscar...",
+                          perPage: "Registros por pág.",
+                          noRows: "No hay datos para mostrar",
+                          noResults: "No hay resultados que coincidan con tu búsqueda",
+                          info: "Mostrando {start} a {end} de {rows} entradas"
+                      },
+                      tableRender: function (_data, table, type) {
+                          if (type === "print") return table;
+
+                          // Aplique estilos Tailwind a cabeceras y filas
+                          table.childNodes[0].childNodes.forEach((row) => {
+                              if (!row.attributes) row.attributes = {};
+                              row.attributes.class =
+                                (row.attributes.class || "") + " bg-gray-800 text-white";
+                              row.childNodes.forEach((th) => {
+                                  if (!th.attributes) th.attributes = {};
+                                  th.attributes.class =
+                                    (th.attributes.class || "") + " bg-gray-800 text-white";
+                              });
+                          });
+
+                          // Fila de filtros
+                          const tHead = table.childNodes[0];
+                          const firstRow = tHead.childNodes[0];
+                          const filterHeaders = {
+                              nodeName: "TR",
+                              attributes: { class: "search-filtering-row bg-gray-800 text-white" },
+                              childNodes: firstRow.childNodes.map((_th, index) => {
+                                  return {
+                                      nodeName: "TH",
+                                      attributes: { style: "padding-top: 1rem;" },
+                                      childNodes: [
+                                          {
+                                              nodeName: "INPUT",
+                                              attributes: {
+                                                  class:
+                                                    "datatable-input text-white placeholder-gray-400 bg-gray-700 border-gray-600 w-full",
+                                                  type: "search",
+                                                  "data-columns": "[" + index + "]",
+                                                  placeholder: "Filtrar"
+                                              }
+                                          }
+                                      ]
+                                  };
+                              })
+                          };
+                          tHead.childNodes.push(filterHeaders);
+                          return table;
+                      }
+                  });
+                  tableEl._dataTableInstance = dataTable;
+              }
+          }
+
+          document.addEventListener("turbo:load", initInspectionsTable);
+          document.addEventListener("turbo:frame-load", (e) => {
+              if (e.target.id === "facturacion_frame") initInspectionsTable();
+          });
+      })();
+  </script>
+
+  <!-- Estilos adicionales (igual que en index) -->
+  <style>
+      .dataTable-table tbody td { color: #fff !important; }
+      .datatable-ascending, .datatable-descending {
+          background-color: #539DED !important; color: #fff !important;
+      }
+      #inspections-table thead th button.datatable-sorter {
+          background: transparent !important; border: none !important; color: #fff !important;
+      }
+      #inspections-table thead th button.datatable-sorter:hover {
+          color: #1d4ed8 !important;
+      }
+      #inspections-table .datatable-selector,
+      #inspections-table .datatable-input {
+          background-color: #f2f2f2 !important; color: #000 !important;
+          border: 1px solid #ccc !important; border-radius: 4px; padding: 0.25rem 0.5rem;
+      }
+      #inspections-table .datatable-input::placeholder { color: #888; }
+  </style>
+</turbo-frame>

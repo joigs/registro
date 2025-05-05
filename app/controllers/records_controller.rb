@@ -6,14 +6,10 @@ class RecordsController < ApplicationController
 
     base_url = 'https://vertical.chcert.cl/api/v1/facturacions'
 
-    year    = params[:year]
-    month   = params[:month]
-    empresa = params[:empresa]
-
     query_params = {}
-    query_params[:year]    = year    if year.present?
-    query_params[:month]   = month   if month.present?
-    query_params[:empresa] = empresa if empresa.present?
+    query_params[:year]    = params[:year]    if params[:year].present?
+    query_params[:month]   = params[:month]   if params[:month].present?
+    query_params[:empresa] = params[:empresa] if params[:empresa].present?
 
     response = HTTParty.get(
       base_url,
@@ -21,65 +17,90 @@ class RecordsController < ApplicationController
       query:   query_params
     )
 
+    require 'ostruct'
 
-    if response.code == 200
-      raw_data = JSON.parse(response.body)
-
-      @facturacions = raw_data.map do |f|
-        {
-          id: f["id"],
-          numero: f["number"],
-          fecha_inspeccion: f["fecha_inspeccion"],
-          empresa: f["empresa"],
-          inspecciones: (f["inspections"] || []).map do |i|
-            {
-              id: i["id"],
-              fecha: i["ins_date"],
-              principal: i["principal"]
-            }
-          end
-        }
+    @facturacions =
+      if response.code == 200
+        JSON.parse(response.body).map do |f|
+          OpenStruct.new(
+            id:               f['id'],
+            number:           f['number'],
+            name:             f['name'],
+            solicitud:        f['solicitud'],
+            emicion:          f['emicion'],
+            entregado:        f['entregado'],
+            resultado:        f['resultado'],
+            oc:               f['oc'],
+            fecha_entrega: f['fecha_entrega'],
+            factura:          f['factura'],
+            fecha_inspeccion: f['fecha_inspeccion'],
+            empresa:          f['empresa'],
+            precio:           f['precio'],
+            inspections:      (f['inspections'] || []).map do |i|
+              OpenStruct.new(
+                id:    i['id'],
+                ins_date: i['ins_date'],
+                state: i['state'],
+                principal: i['principal'],
+                comuna: i['comuna'],
+                region: i['region']
+              )
+            end
+          )
+        end
+      else
+        []
       end
-    else
-      @facturacions = []
-      puts "Error: #{response.code} - #{response.body}"
-    end
 
   end
+
 
 
   def show
     require 'httparty'
     require 'json'
+    require 'ostruct'
 
     url = "https://vertical.chcert.cl/api/v1/facturacions/#{params[:id]}"
     response = HTTParty.get(
       url,
-      headers: { 'X-API-KEY' => ENV['VERTICAL_API_KEY'] },
-
+      headers: { 'X-API-KEY' => ENV['VERTICAL_API_KEY'] }
     )
 
     if response.code == 200
-      raw_data = JSON.parse(response.body)
+      f = JSON.parse(response.body)
 
-      @facturacion = {
-        id: raw_data["id"],
-        numero: raw_data["number"],
-        fecha_inspeccion: raw_data["fecha_inspeccion"],
-        empresa: raw_data["empresa"],
-        inspecciones: (raw_data["inspections"] || []).map do |i|
-          {
-            id: i["id"],
-            fecha: i["ins_date"],
-            principal: i["principal"]
-          }
+      @facturacion = OpenStruct.new(
+        id:               f['id'],
+        number:           f['number'],
+        name:             f['name'],
+        solicitud:        f['solicitud'],
+        emicion:          f['emicion'],
+        entregado:        f['entregado'],
+        resultado:        f['resultado'],
+        oc:               f['oc'],
+        fecha_entrega:    f['fecha_entrega'],
+        factura:          f['factura'],
+        fecha_inspeccion: f['fecha_inspeccion'],
+        empresa:          f['empresa'],
+        precio:           f['precio'],
+        inspections:      (f['inspections'] || []).map do |i|
+          OpenStruct.new(
+            id:        i['id'],
+            ins_date:  i['ins_date'],
+            state:     i['state'],
+            principal: i['principal'],
+            comuna:    i['comuna'],
+            region:    i['region']
+          )
         end
-      }
+      )
     else
-      @facturacion = nil
-      puts "Error: #{response.code} - #{response.body}"
+      flash[:alert] = "Error al obtener la facturación del API (#{response.code})."
+      redirect_to records_path
     end
   end
+
 
   # GET /records/export_excel
   def export_excel
