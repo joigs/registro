@@ -1,0 +1,57 @@
+<table>
+  <thead>
+  <tr>
+    <th>Nombre</th>
+    <th>Identificador</th>
+    <th>Tipo</th>
+    <th>Unidad</th>
+    <th>Clase Plantilla</th>
+    <th>Mandante</th>
+    <th>Empresa</th>
+    <th>Fecha Revisión</th>
+    <th>Fecha Informe</th>
+    <th>Activo Padre</th>
+    <th>Facturación</th>
+    <th>Valor UF</th>
+    <th>Valor</th>
+  </tr>
+  </thead>
+  <tbody>
+  <% [
+       {
+         nombre: "UVC442", identificador: "UVC442", tipo: "Vehículo menor", unidad: "Cosecha",
+         clase_plantilla: "CARRO COMEDOR", mandante: "COSECHA", empresa: "Forestal Millalemu y Cia Ltda",
+         fecha_revision: "5-2025", fecha_informe: "02/05/25", activo_padre: "UVC442",
+         facturacion: "02/05/25", valor_uf: 38.2, valor: 56500
+       },
+       {
+         nombre: "R-07", identificador: "JJ1337", tipo: "Movilidad Industrial", unidad: "Transportes Químicos",
+         clase_plantilla: "Semi-remolque químicos", mandante: "Oxy Chile", empresa: "INMOB.E INVERS. POLYKARPO S.A.",
+         fecha_revision: "5-2025", fecha_informe: "05/05/25", activo_padre: "JJ1337",
+         facturacion: "05/05/25", valor_uf: 37.9, valor: 48100
+       },
+       {
+         nombre: "JE6877", identificador: "JE6877", tipo: "Movilidad Industrial", unidad: "Transportes Químicos",
+         clase_plantilla: "Semi-remolque químicos", mandante: "Oxy Chile", empresa: "TRANSPORTES BRETTI LIMITADA",
+         fecha_revision: "5-2025", fecha_informe: "02/05/25", activo_padre: "PPBS22",
+         facturacion: "02/05/25", valor_uf: 36.5, valor: 49800
+       }
+     ].each do |vehiculo| %>
+    <tr>
+      <td><%= vehiculo[:nombre] %></td>
+      <td><%= vehiculo[:identificador] %></td>
+      <td><%= vehiculo[:tipo] %></td>
+      <td><%= vehiculo[:unidad] %></td>
+      <td><%= vehiculo[:clase_plantilla] %></td>
+      <td><%= vehiculo[:mandante] %></td>
+      <td><%= vehiculo[:empresa] %></td>
+      <td><%= vehiculo[:fecha_revision] %></td>
+      <td><%= vehiculo[:fecha_informe] %></td>
+      <td><%= vehiculo[:activo_padre] %></td>
+      <td><%= vehiculo[:facturacion] %></td>
+      <td><%= vehiculo[:valor_uf] %></td>
+      <td><%= number_to_currency(vehiculo[:valor], unit: "CLP $") %></td>
+    </tr>
+  <% end %>
+  </tbody>
+</table>

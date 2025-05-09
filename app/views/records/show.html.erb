@@ -4,7 +4,7 @@
     <div class="bg-gray-900 py-6 px-8 shadow-lg rounded-lg text-center">
       <% if @facturacion %>
         <h1 class="text-3xl font-bold text-white">
-          Facturación #<%= @facturacion.number %> – <%= @facturacion.name %>
+          Cotización N°<%= @facturacion.number %> – <%= @facturacion.name %>
         </h1>
       <% else %>
         <h2 class="text-xl font-bold text-red-500">No se pudo obtener la facturación</h2>
@@ -12,17 +12,15 @@
     </div>
 
     <% if @facturacion %>
-      <!-- Datos básicos -->
       <div class="mx-auto px-6 text-gray-200 mt-6 space-y-2 text-sm">
         <p><strong>Empresa:</strong> <%= @facturacion.empresa %></p>
         <p><strong>Factura:</strong>  <%= @facturacion.factura.presence  || 'Pendiente' %></p>
-        <p><strong>Precio:</strong>   <%= number_to_currency(@facturacion.precio, unit: "$", delimiter: ".", precision: 0) %></p>
+        <p><strong>Precio:</strong>   <%= number_to_currency(@facturacion.precio, unit: " UF", delimiter: ".", precision: 0) %></p>
         <p><strong>Fecha inspección:</strong> <%= format_date(@facturacion.fecha_inspeccion) %></p>
         <p><strong>Entregado:</strong> <%= format_date(@facturacion.entregado) %></p>
         <p><strong>Resultado:</strong> <%= @facturacion.resultado %></p>
       </div>
 
-      <!-- Tabla de inspecciones -->
       <div class="mx-auto px-6 text-gray-200 mt-8">
         <div class="overflow-x-auto table-responsive">
           <table id="inspections-table" class="table-auto w-full text-white">
@@ -51,7 +49,6 @@
     <% end %>
   </div>
 
-  <!-- === JS simple‑datatables (idéntico patrón al index) === -->
   <script>
       (function () {
           document.addEventListener("turbo:before-cache", () => {
@@ -70,7 +67,6 @@
                 typeof simpleDatatables !== "undefined" &&
                 simpleDatatables.DataTable
               ) {
-                  // Todas las columnas son filtrables, así que no excluimos ninguna
                   const dataTable = new simpleDatatables.DataTable(tableEl, {
                       labels: {
                           placeholder: "Buscar...",
@@ -82,7 +78,6 @@
                       tableRender: function (_data, table, type) {
                           if (type === "print") return table;
 
-                          // Aplique estilos Tailwind a cabeceras y filas
                           table.childNodes[0].childNodes.forEach((row) => {
                               if (!row.attributes) row.attributes = {};
                               row.attributes.class =
@@ -94,7 +89,6 @@
                               });
                           });
 
-                          // Fila de filtros
                           const tHead = table.childNodes[0];
                           const firstRow = tHead.childNodes[0];
                           const filterHeaders = {
@@ -134,7 +128,6 @@
       })();
   </script>
 
-  <!-- Estilos adicionales (igual que en index) -->
   <style>
       .dataTable-table tbody td { color: #fff !important; }
       .datatable-ascending, .datatable-descending {

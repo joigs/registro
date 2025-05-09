@@ -32,6 +32,7 @@ Rails.application.routes.draw do
       get :export_excel
     end
   end
-
+  resources :movils, only: [:index, :show], path: '/movils'
+  resources :evaluacions, only: [:index, :show], path: '/evaluacions'
 
 end
