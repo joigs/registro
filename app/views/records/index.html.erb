@@ -1,10 +1,78 @@
 <turbo-frame id="facturacions_frame">
   <div class="bg-gray-800">
     <div class="bg-gray-900 py-6 px-8 shadow-lg rounded-lg text-center">
-      <h1 class="text-3xl font-bold text-white">Cotizaciones</h1>
+      <h1 class="text-3xl font-bold text-white">Transporte Vertical</h1>
     </div>
 
     <div class="mx-auto px-6 text-gray-200 mt-6">
+
+
+      <turbo-frame id="facturacions_frame">
+
+        <!-- ①  Filtros -------------------------------------------------------->
+        <div data-controller="filters" class="px-6 mt-4">
+          <form data-filters-target="form"
+                action="<%= records_path %>"
+                method="get"
+                data-turbo-frame="facturacions_frame"
+                class="flex flex-wrap gap-4 items-end bg-gray-900 p-4 rounded-lg shadow">
+
+            <!-- Año ----------------------------------------------------------->
+            <div>
+              <label for="year" class="block text-sm text-gray-300 mb-1">Año</label>
+              <select id="year" name="year"
+                      data-action="change->filters#submit"
+                      class="bg-gray-700 text-white rounded px-3 py-2">
+                <option value="">Todos</option>
+                <% (@filter_options["anios"] || []).each do |y| %>
+                  <option value="<%= y %>" <%= "selected" if params[:year].to_s == y.to_s %>>
+                    <%= y %>
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <!-- Mes ----------------------------------------------------------->
+            <div>
+              <label for="month" class="block text-sm text-gray-300 mb-1">Mes</label>
+              <select id="month" name="month"
+                      data-action="change->filters#submit"
+                      class="bg-gray-700 text-white rounded px-3 py-2">
+                <option value="">Todos</option>
+                <% months = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
+                <% (@filter_options["meses"] || []).each do |m| %>
+                  <option value="<%= m %>" <%= "selected" if params[:month].to_s == m.to_s %>>
+                    <%= "#{m.to_s.rjust(2,'0')} – #{months[m-1]}" %>
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <!-- Empresa ------------------------------------------------------->
+            <div>
+              <label for="empresa" class="block text-sm text-gray-300 mb-1">Empresa</label>
+              <select id="empresa" name="empresa"
+                      data-action="change->filters#submit"
+                      class="bg-gray-700 text-white rounded px-3 py-2">
+                <option value="">Todas</option>
+                <% (@filter_options["empresas"] || []).each do |e| %>
+                  <option value="<%= e %>" <%= "selected" if params[:empresa] == e %>>
+                    <%= e %>
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <!-- Botón invisible para submit manual si alguien desactiva JS ---->
+            <button type="submit" class="hidden"></button>
+          </form>
+        </div>
+
+        <!-- ②  Tabla original … (no cambia nada, la conservas tal cual) ------>
+        …
+      </turbo-frame>
+
+
       <div class="overflow-x-auto table-responsive mt-6">
         <table id="facturacions-table" class="table-auto w-full text-white">
           <thead class="bg-gray-800">
@@ -35,35 +103,36 @@
             <% empresa = facturacion.empresa %>
             <tr class="bg-gray-800 border-b border-gray-700">
               <td class="px-6 py-4 whitespace-normal break-words font-semibold">
-                N°<%= link_to("#{facturacion.number}", record_path(facturacion.id),data: { turbo_frame: "_top" }) %>
+                <%= link_to("N°#{facturacion.number}", record_path(facturacion.id),data: { turbo_frame: "_top" }, class: "text-blue-400 hover:text-blue-600") %>
               </td>
 
               <td class="px-6 py-4 whitespace-normal break-words">
-                <%= link_to("#{facturacion.name}", record_path(facturacion.id),data: { turbo_frame: "_top" }) %>
-              </td>
-
-              <td class="px-6 py-4 whitespace-normal break-words"><%= inspeccion %></td>
-
-              <td class="px-6 py-4 whitespace-normal break-words">
-                <%= "#{cerradas_insp}/#{total_insp}" %>
+                <%= link_to("#{facturacion.name}", record_path(facturacion.id),data: { turbo_frame: "_top" }, class: "text-blue-400 hover:text-blue-600") %>
               </td>
 
               <td class="px-6 py-4 whitespace-normal break-words">
-                <%= facturacion.fecha_entrega.presence || 'Pendiente' %>
+                <p class="text-white"><%=inspeccion %>
+              </td>
+              <td class="px-6 py-4 whitespace-normal break-words">
+                <p class="text-white"> <%= "#{cerradas_insp}/#{total_insp}" %></p>
               </td>
 
               <td class="px-6 py-4 whitespace-normal break-words">
-                <%= facturacion.factura.presence || 'Pendiente' %>
+                <p class="text-white"> <%= facturacion.fecha_entrega.presence || 'Pendiente' %> </p>
               </td>
 
               <td class="px-6 py-4 whitespace-normal break-words">
-                <%= precio.presence || 'Pendiente' %>
+                <p class="text-white">  <%= facturacion.factura.presence || 'Pendiente' %> </p>
+              </td>
+
+              <td class="px-6 py-4 whitespace-normal break-words">
+                <p class="text-white"> <%= precio.presence || 'Pendiente' %> </p>
               </td>
 
 
 
               <td>
-                <%=
+                <p class="text-white">  <%=
                     grouped = facturacion.inspections.group_by { |ins| [ins["region"], ins["comuna"]] }
                     lines = grouped.map do |(region, comuna), ins_arr|
                       if ins_arr.size > 1
@@ -74,12 +143,12 @@
                     end
 
                     lines.join("<br>").html_safe
-                %>
+                %> </p>
               </td>
 
 
               <td class="px-6 py-4 whitespace-normal break-words">
-                <%= empresa.presence || 'Desconocida' %>
+                <p class="text-white"> <%= empresa.presence || 'Desconocida' %> </p>
               </td>
 
 

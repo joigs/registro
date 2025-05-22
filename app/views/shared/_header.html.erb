@@ -1,0 +1,30 @@
+<div class="mt-4">
+  <div class="bg-gray-800 w-full">
+
+    <div class="flex items-center justify-center relative p-2 border-b border-gray-700">
+      <%= link_to raw('<svg class="h-5 w-5 text-blue-600 inline-block mr-2 align-middle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home'), home_path,
+                  class: "text-xl font-bold text-blue-600 hover:text-blue-500 transition" %>
+
+      <% if Current.user %>
+        <%= link_to 'Cerrar sesión',
+                    session_path(Current.user.id),
+                    class: "absolute right-4 text-lg text-red-600 hover:text-red-500 transition",
+                    data: { controller: "logout-confirmation", action: "click->logout-confirmation#deleteSession", delete_confirmation_redirect_url_value: home_path } %>
+      <% end %>
+    </div>
+
+    <% active_controller = controller.controller_name %>
+
+    <nav class="flex justify-center gap-8 py-3">
+      <%= link_to 'Transporte Vertical', records_path,
+                  class: "px-6 py-3 rounded-lg text-xl font-semibold #{active_controller == 'records'      ? 'bg-blue-600 text-white' : 'text-blue-300 hover:bg-blue-600 hover:text-white'} transition" %>
+
+      <%= link_to 'Movilidad',        movils_path,
+                  class: "px-6 py-3 rounded-lg text-xl font-semibold #{active_controller == 'movils'       ? 'bg-blue-600 text-white' : 'text-blue-300 hover:bg-blue-600 hover:text-white'} transition" %>
+
+      <%= link_to 'Evaluación de Competencias', evaluacions_path,
+                  class: "px-6 py-3 rounded-lg text-xl font-semibold #{active_controller == 'evaluacions' ? 'bg-blue-600 text-white' : 'text-blue-300 hover:bg-blue-600 hover:text-white'} transition" %>
+    </nav>
+
+  </div>
+</div>

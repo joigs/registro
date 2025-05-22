@@ -12,13 +12,71 @@
     </div>
 
     <% if @facturacion %>
-      <div class="mx-auto px-6 text-gray-200 mt-6 space-y-2 text-sm">
-        <p><strong>Empresa:</strong> <%= @facturacion.empresa %></p>
-        <p><strong>Factura:</strong>  <%= @facturacion.factura.presence  || 'Pendiente' %></p>
-        <p><strong>Precio:</strong>   <%= number_to_currency(@facturacion.precio, unit: " UF", delimiter: ".", precision: 0) %></p>
-        <p><strong>Fecha inspección:</strong> <%= format_date(@facturacion.fecha_inspeccion) %></p>
-        <p><strong>Entregado:</strong> <%= format_date(@facturacion.entregado) %></p>
-        <p><strong>Resultado:</strong> <%= @facturacion.resultado %></p>
+      <div class="px-6 lg:px-12 mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="bg-gray-900 rounded-xl shadow-lg p-6 flex flex-col">
+          <span class="text-gray-400 uppercase text-xs tracking-wide mb-1">Empresa</span>
+          <span class="text-xl font-semibold text-white break-words"><%= @facturacion.empresa %></span>
+        </div>
+
+        <div class="bg-gray-900 rounded-xl shadow-lg p-6 flex flex-col">
+          <span class="text-gray-400 uppercase text-xs tracking-wide mb-1">Factura</span>
+          <span class="text-xl font-semibold text-white"><%= @facturacion.factura.presence || 'Pendiente' %></span>
+        </div>
+
+        <!-- Tarjeta de Precio -->
+        <div class="bg-gray-900 rounded-xl shadow-lg p-6">
+          <span class="text-gray-400 uppercase text-xs tracking-wide">Precio</span>
+
+          <!-- 2 columnas con divisor -->
+          <div class="mt-3 grid grid-cols-2 divide-x divide-gray-700 text-center">
+            <!-- Columna UF -->
+            <div class="pr-4">
+      <span class="text-2xl font-bold text-white">
+        <%= number_with_precision(@facturacion.precio,
+                                  precision: 2,
+                                  delimiter: ".") %> <% if @facturacion.precio %> UF <% end %>
+      </span>
+            </div>
+
+            <!-- Columna Pesos -->
+            <div class="pl-4">
+      <span class="text-2xl font-bold text-white">
+        <%= number_to_currency(@facturacion.pesos,
+                               unit: "$ ",
+                               delimiter: ".",
+                               precision: 0) %>
+      </span>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="bg-gray-900 rounded-xl shadow-lg p-6 flex flex-col">
+          <span class="text-gray-400 uppercase text-xs tracking-wide mb-1">Fecha inspección</span>
+          <span class="text-xl font-semibold text-white"><%= format_date(@facturacion.fecha_inspeccion) %></span>
+        </div>
+
+        <div class="bg-gray-900 rounded-xl shadow-lg p-6 flex flex-col">
+          <span class="text-gray-400 uppercase text-xs tracking-wide mb-1">Entregado</span>
+          <span class="text-xl font-semibold text-white"><%= format_date(@facturacion.entregado) %></span>
+        </div>
+
+        <div class="bg-gray-900 rounded-xl shadow-lg p-6 flex flex-col">
+          <span class="text-gray-400 uppercase text-xs tracking-wide mb-1">Resultado</span>
+          <% resultado_color = case @facturacion.resultado
+                               when 'N/A'        then 'text-gray-400'
+                               when 'En espera'  then 'text-yellow-400'
+                               when 'Aceptado'   then 'text-green-400'
+                               when 'Rechazado'  then 'text-red-400'
+                               when 'Relleno'    then 'text-indigo-400'
+                               else                    'text-gray-400'
+                               end %>
+
+          <span class="text-xl font-semibold <%= resultado_color %>">
+  <%= @facturacion.resultado %>
+</span>
+
+        </div>
       </div>
 
       <div class="mx-auto px-6 text-gray-200 mt-8">
@@ -36,10 +94,10 @@
             <tbody class="bg-gray-700 divide-y divide-gray-600">
             <% @facturacion.inspections.each do |ins| %>
               <tr class="bg-gray-800 border-b border-gray-700">
-                <td class="px-6 py-4 whitespace-normal"><%= format_date(ins.ins_date) %></td>
-                <td class="px-6 py-4 whitespace-normal"><%= "#{ins.region}. #{ins.comuna}" %></td>
-                <td class="px-6 py-4 whitespace-normal"><%= ins.state.presence || '—' %></td>
-                <td class="px-6 py-4 whitespace-normal"><%= ins.principal["name"].presence || '—' %></td>
+                <td class="px-6 py-4 whitespace-normal"><p class="text-white"><%= format_date(ins.ins_date) %></p></td>
+                <td class="px-6 py-4 whitespace-normal"><p class="text-white"><%= "#{ins.region}. #{ins.comuna}" %></p></td>
+                <td class="px-6 py-4 whitespace-normal"><p class="text-white"><%= ins.state.presence || '—' %></p></td>
+                <td class="px-6 py-4 whitespace-normal"><p class="text-white"><%= ins.principal["name"].presence || '—' %></p></td>
               </tr>
             <% end %>
             </tbody>

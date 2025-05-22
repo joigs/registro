@@ -3,21 +3,35 @@ class RecordsController < ApplicationController
   def index
     require 'httparty'
     require 'json'
+    require "ostruct"
 
     base_url = 'https://vertical.chcert.cl/api/v1/facturacions'
+    api_key    = ENV["VERTICAL_API_KEY"]
 
-    query_params = {}
+    meta_resp = HTTParty.get(
+      base_url,
+      headers: { 'X-API-KEY' => api_key },
+      query:   { meta: 1 }
+    )
+
+    @filter_options =
+      if meta_resp.code == 200
+        JSON.parse(meta_resp.body)
+      else
+        { "anios" => [], "meses" => (1..12).to_a, "empresas" => [] }
+      end
+    query_params           = {}
     query_params[:year]    = params[:year]    if params[:year].present?
     query_params[:month]   = params[:month]   if params[:month].present?
     query_params[:empresa] = params[:empresa] if params[:empresa].present?
 
     response = HTTParty.get(
       base_url,
-      headers: { 'X-API-KEY' => ENV['VERTICAL_API_KEY'] },
+      headers: { "X-API-KEY" => api_key },
       query:   query_params
     )
-
-    require 'ostruct'
+    Rails.logger.info "META_STATUS=#{meta_resp.code}"
+    Rails.logger.info "META_BODY=#{meta_resp.body.truncate(120)}"
 
     @facturacions =
       if response.code == 200
@@ -96,7 +110,7 @@ class RecordsController < ApplicationController
         end
       )
     else
-      flash[:alert] = "Error al obtener la facturación del API (#{response.code})."
+      flash[:alert] = "Error al obtener las ventas de transporte vertical (#{response.code})."
       redirect_to records_path
     end
   end
@@ -144,7 +158,7 @@ class RecordsController < ApplicationController
       send_file output_file, filename: "facturaciones_#{timestamp}.xlsx"
 
     else
-      flash[:alert] = "Error al obtener facturaciones del API."
+      flash[:alert] = "Error al obtener las ventas de transporte vertical."
       redirect_to records_path
     end
   end
