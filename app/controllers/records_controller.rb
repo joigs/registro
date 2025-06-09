@@ -103,6 +103,8 @@ class RecordsController < ApplicationController
         inspections:      (f['inspections'] || []).map do |i|
           OpenStruct.new(
             id:        i['id'],
+            number:   i['number'],
+            name:     i['name'],
             ins_date:  i['ins_date'],
             state:     i['state'],
             principal: i['principal'],
