@@ -25,7 +25,6 @@ export default class extends Controller {
             const url = `${this.url}?page=${page}`;
             Turbo.visit(url, { frame: 'items' });
         } else {
-            // Usar SweetAlert en lugar del alert tradicional
             Swal.fire({
                 icon: "warning",
                 title: "Página inválida",

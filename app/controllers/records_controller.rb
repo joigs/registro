@@ -50,6 +50,7 @@ class RecordsController < ApplicationController
             fecha_inspeccion: f['fecha_inspeccion'],
             empresa:          f['empresa'],
             precio:           f['precio'],
+            pesos:            to_pesos(f['precio'], f['fecha_inspeccion']),
             inspections:      (f['inspections'] || []).map do |i|
               OpenStruct.new(
                 id:    i['id'],
@@ -98,6 +99,7 @@ class RecordsController < ApplicationController
         fecha_inspeccion: f['fecha_inspeccion'],
         empresa:          f['empresa'],
         precio:           f['precio'],
+        pesos:            to_pesos(f['precio'], f['fecha_inspeccion']),
         inspections:      (f['inspections'] || []).map do |i|
           OpenStruct.new(
             id:        i['id'],
@@ -161,5 +163,19 @@ class RecordsController < ApplicationController
       flash[:alert] = "Error al obtener las ventas de transporte vertical."
       redirect_to records_path
     end
+  end
+
+
+  private
+  def to_pesos(precio_uf, fecha_str)
+    return nil if precio_uf.blank? || fecha_str.blank?
+
+    fecha = Date.parse(fecha_str) rescue nil
+    return nil unless fecha
+
+    iva   = Iva.find_by(year: fecha.year, month: fecha.month)
+    return nil unless iva
+
+    precio_uf.to_f * iva.valor
   end
 end

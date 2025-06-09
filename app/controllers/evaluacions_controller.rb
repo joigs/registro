@@ -5,7 +5,7 @@ require "json"
 class EvaluacionsController < ApplicationController
   FACTURACIONS_API_URL = ENV.fetch(
     "FACTURACIONS_API_URL",
-    "http://127.0.0.1:3000/api/v1/facturacions"
+    "http://137.184.74.221:8082//api/v1/facturacions"
   ).freeze
 
   before_action :set_api_key!
