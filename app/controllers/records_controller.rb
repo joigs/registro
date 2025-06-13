@@ -130,13 +130,11 @@ class RecordsController < ApplicationController
     month    = params[:month]
     empresa  = params[:empresa]
 
-    # Armar query
     query_params = {}
     query_params[:year]    = year    if year.present?
     query_params[:month]   = month   if month.present?
     query_params[:empresa] = empresa if empresa.present?
 
-    # Llamada a la API
     response = HTTParty.get(
       base_url,
       headers: { 'X-API-KEY' => ENV['VERTICAL_API_KEY'] },
@@ -150,7 +148,6 @@ class RecordsController < ApplicationController
         inspecciones = (f['inspections'] || [])
         total_ins    = inspecciones.size
         cerradas     = inspecciones.count { |i| i['state'] == 'Cerrado' }
-        # Ubicación: "Región. Comuna xN" o sin "x1"
         ubicaciones = inspecciones
                         .group_by { |i| [i['region'], i['comuna']] }
                         .map { |(r,c), arr| arr.size > 1 ? "#{r}. #{c} x#{arr.size}" : "#{r}. #{c}" }
@@ -175,10 +172,12 @@ class RecordsController < ApplicationController
       output_dir  = Rails.root.join("tmp")
       FileUtils.mkdir_p(output_dir)
       output_file = output_dir.join("facturaciones_#{timestamp}.xlsx").to_s
+      python_bin  = Rails.root.join("ventas","bin","python").to_s
+
       script_path = Rails.root.join("app","scripts","generate_excel.py").to_s
 
       stdout, stderr, status = Open3.capture3(
-        "python3", script_path,
+        python_bin, script_path,
         data_json, output_file
       )
 

@@ -52,7 +52,6 @@ def main():
     ws.freeze_panes = "A2"
 
     wb.save(output_file)
-    print(f"Archivo Excel generado en: {output_file}")
 
 if __name__ == "__main__":
     main()

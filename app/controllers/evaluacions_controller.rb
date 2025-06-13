@@ -57,9 +57,10 @@ class EvaluacionsController < ApplicationController
     tmp_dir     = Rails.root.join("tmp")
     FileUtils.mkdir_p(tmp_dir)
     output_file = tmp_dir.join("evaluaciones_#{timestamp}.xlsx").to_s
+    python_bin  = Rails.root.join("ventas","bin","python").to_s
     script      = Rails.root.join("app","scripts","generate_evaluacions_excel.py").to_s
 
-    stdout, stderr, status = Open3.capture3("python3", script, json_data, output_file)
+    stdout, stderr, status = Open3.capture3(python_bin, script, json_data, output_file)
     Rails.logger.info  stdout
     Rails.logger.error stderr unless stderr.blank?
 
