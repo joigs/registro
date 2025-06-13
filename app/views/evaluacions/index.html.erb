@@ -5,39 +5,65 @@
     </div>
 
     <div class="mx-auto px-6 text-gray-200 mt-6">
-      <%= form_with url: evaluacions_path, method: :get, local: true, class: "flex flex-wrap gap-4" do |f| %>
-        <div>
-          <%= f.label :year, "Año", class: "block text-sm mb-1" %>
-          <%= f.select :year,
-                       options_for_select(
-                         (@facturacions.map(&:fecha_inspeccion)
-                                       .compact
-                                       .map { |d| Date.parse(d).year }
-                                       .uniq
-                                       .sort
-                                       .reverse),
-                         params[:year]),
-                       include_blank: "Todos",
-                       class: "bg-gray-700 text-white rounded px-3 py-2" %>
+
+      <turbo-frame id="facturacions_frame">
+        <!-- filtros idénticos a records -->
+        <div data-controller="filters" class="px-6 mt-4">
+          <form data-filters-target="form"
+                action="<%= evaluacions_path %>"
+                method="get"
+                data-turbo-frame="facturacions_frame"
+                class="flex flex-wrap gap-4 items-end bg-gray-900 p-4 rounded-lg shadow">
+
+            <!-- Año -->
+            <div>
+              <label for="year" class="block text-sm text-gray-300 mb-1">Año</label>
+              <select id="year" name="year"
+                      data-action="change->filters#submit"
+                      class="bg-gray-700 text-white rounded px-3 py-2">
+                <option value="">Todos</option>
+                <% (@facturacions.map(&:fecha_inspeccion)
+                                 .compact
+                                 .map { |d| Date.parse(d).year }
+                                 .uniq
+                                 .sort
+                                 .reverse).each do |y| %>
+                  <option value="<%= y %>" <%= "selected" if params[:year].to_s == y.to_s %>>
+                    <%= y %>
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <!-- Mes -->
+            <div>
+              <label for="month" class="block text-sm text-gray-300 mb-1">Mes</label>
+              <select id="month" name="month"
+                      data-action="change->filters#submit"
+                      class="bg-gray-700 text-white rounded px-3 py-2">
+                <option value="">Todos</option>
+                <% (1..12).each do |m| %>
+                  <option value="<%= m %>" <%= "selected" if params[:month].to_s == m.to_s %>>
+                    <%= Date::MONTHNAMES[m] %>
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <button type="submit" class="hidden"></button>
+          </form>
         </div>
 
-        <div>
-          <%= f.label :month, "Mes", class: "block text-sm mb-1" %>
-          <%= f.select :month,
-                       options_for_select(
-                         (1..12).map { |m| [Date::MONTHNAMES[m], m] },
-                         params[:month]),
-                       include_blank: "Todos",
-                       class: "bg-gray-700 text-white rounded px-3 py-2" %>
+        <!-- exportar igual que records -->
+        <div class="px-6 mt-2">
+          <%= link_to "Exportar a Excel",
+                      export_excel_evaluacions_path(year: params[:year], month: params[:month]),
+                      data: { turbo: false },
+                      class: "bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow inline-block" %>
         </div>
+      </turbo-frame>
 
-
-        <div class="self-end">
-          <%= f.submit "Filtrar",
-                       class: "bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded" %>
-        </div>
-      <% end %>
-
+      <!-- tabla idéntica a records -->
       <div class="overflow-x-auto table-responsive mt-6">
         <table id="facturacions-table" class="table-auto w-full text-white">
           <thead class="bg-gray-800">
@@ -56,133 +82,119 @@
           </tr>
           </thead>
 
-          <tbody>
+          <tbody class="bg-gray-700 divide-y divide-gray-600">
           <% @facturacions.each do |f| %>
-            <tr class="bg-gray-700 even:bg-gray-600">
-              <td class="px-6 py-2"><%= f.number %></td>
-              <td class="px-6 py-2"><%= f.name   %></td>
-              <td class="px-6 py-2"><%= f.solicitud&.to_date&.strftime("%d-%m-%Y")        || "-" %></td>
-              <td class="px-6 py-2"><%= f.emicion&.to_date&.strftime("%d-%m-%Y")          || "-" %></td>
-              <td class="px-6 py-2"><%= f.entregado&.to_date&.strftime("%d-%m-%Y")        || "-" %></td>
-              <td class="px-6 py-2"><%= f.resultado %></td>
-              <td class="px-6 py-2"><%= f.oc&.to_date&.strftime("%d-%m-%Y")               || "-" %></td>
-              <td class="px-6 py-2"><%= f.factura&.to_date&.strftime("%d-%m-%Y")          || "-" %></td>
-              <td class="px-6 py-2"><%= f.fecha_inspeccion&.to_date&.strftime("%d-%m-%Y") || "-" %></td>
-              <td class="px-6 py-2"><%= number_to_currency(f.precio, unit: " UF") %></td>
-              <td class="px-6 py-2"><%= number_to_currency(f.pesos,  unit: "$")  %></td>
+            <tr class="bg-gray-800 border-b border-gray-700">
+              <td class="px-6 py-4 whitespace-normal break-words font-semibold"><%= link_to("#{f.number}", evaluacion_path(f.id),data: { turbo_frame: "_top" }, class: "text-blue-400 hover:text-blue-600") %></td>
+              <td class="px-6 py-4 whitespace-normal break-words font-semibold"><%= link_to("#{f.name}", evaluacion_path(f.id),data: { turbo_frame: "_top" }, class: "text-blue-400 hover:text-blue-600") %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= f.solicitud&.to_date&.strftime("%d-%m-%Y") || "-" %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= f.emicion&.to_date&.strftime("%d-%m-%Y") || "-" %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= f.entregado&.to_date&.strftime("%d-%m-%Y") || "-" %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= f.resultado %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= f.oc&.to_date&.strftime("%d-%m-%Y") || "-" %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= f.factura&.to_date&.strftime("%d-%m-%Y") || "-" %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= f.fecha_inspeccion&.to_date&.strftime("%d-%m-%Y") || "-" %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= number_to_currency(f.precio, unit: " UF") %></td>
+              <td class="px-6 py-4 whitespace-normal break-words"><%= number_to_currency(f.pesos,  unit: "$") %></td>
             </tr>
           <% end %>
           </tbody>
         </table>
       </div>
+
     </div>
   </div>
-</turbo-frame>
 
-<script>
-    (function () {
+  <script>
+      (function () {
+          document.addEventListener("turbo:before-cache", () => {
+              const tableEl = document.getElementById("facturacions-table");
+              if (tableEl && tableEl._dataTableInstance) {
+                  tableEl._dataTableInstance.destroy();
+                  delete tableEl._dataTableInstance;
+              }
+          });
 
-        document.addEventListener("turbo:before-cache", () => {
-            const tableEl = document.getElementById("facturacions-table");
-            if (tableEl && tableEl._dataTableInstance) {
-                tableEl._dataTableInstance.destroy();
-                delete tableEl._dataTableInstance;
-            }
-        });
-
-
-        function initFacturacionsTable() {
-            const tableEl = document.getElementById("facturacions-table");
-            if (
+          function initFacturacionsTable() {
+              const tableEl = document.getElementById("facturacions-table");
+              if (
                 tableEl &&
                 !tableEl._dataTableInstance &&
                 typeof simpleDatatables !== "undefined" &&
                 simpleDatatables.DataTable
-            ) {
+              ) {
+                  const columnsWithoutFilter = [2,3,4,6,7,8];
+                  const dataTable = new simpleDatatables.DataTable(tableEl, {
+                      columns: columnsWithoutFilter.map(i => ({ select: i, searchable: false })),
+                      labels: {
+                          placeholder: "Buscar...",
+                          perPage: "Registros por pág.",
+                          noRows: "No hay datos para mostrar",
+                          noResults: "No hay resultados que coincidan con tu búsqueda",
+                          info: "Mostrando {start} a {end} de {rows} entradas"
+                      },
+                      tableRender: function (_data, table, type) {
+                          if (type === "print") return table;
+                          table.childNodes[0].childNodes.forEach(row => {
+                              row.attributes = row.attributes || {};
+                              row.attributes.class = (row.attributes.class||"")+" bg-gray-800 text-white";
+                              row.childNodes.forEach(th => {
+                                  th.attributes = th.attributes || {};
+                                  th.attributes.class = (th.attributes.class||"")+" bg-gray-800 text-white";
+                              });
+                          });
+                          const tHead = table.childNodes[0];
+                          const firstRow = tHead.childNodes[0];
+                          const filterHeaders = {
+                              nodeName: "TR",
+                              attributes: { class: "search-filtering-row bg-gray-800 text-white" },
+                              childNodes: firstRow.childNodes.map((_th, idx) => {
+                                  const disabled = columnsWithoutFilter.includes(idx);
+                                  return {
+                                      nodeName: "TH",
+                                      attributes: { style: "padding-top: 1rem;" },
+                                      childNodes: [{
+                                          nodeName: "INPUT",
+                                          attributes: Object.assign({
+                                              type: "search",
+                                              placeholder: disabled ? "Sin filtro" : "Filtrar",
+                                              class: "datatable-input text-white placeholder-gray-400 bg-gray-700 border-gray-600 w-full"
+                                          }, disabled ? { disabled: "disabled", class: "datatable-input text-white placeholder-gray-400 bg-gray-700 border-gray-600 w-full cursor-not-allowed opacity-50" }
+                                            : { "data-columns": "["+idx+"]" })
+                                      }]
+                                  };
+                              })
+                          };
+                          tHead.childNodes.push(filterHeaders);
+                          return table;
+                      }
+                  });
+                  tableEl._dataTableInstance = dataTable;
+              }
+          }
 
-                const columnsWithoutFilter = [2, 3, 4, 6, 7, 8];
+          document.addEventListener("turbo:load", initFacturacionsTable);
+          document.addEventListener("turbo:frame-load", e => {
+              if (e.target.id === "facturacions_frame") initFacturacionsTable();
+          });
+      })();
+  </script>
 
-                const dataTable = new simpleDatatables.DataTable(tableEl, {
-                    columns: columnsWithoutFilter.map((i) => ({ select: i, searchable: false })),
-                    labels: {
-                        placeholder: "Buscar...",
-                        perPage: "Registros por pág.",
-                        noRows: "No hay datos para mostrar",
-                        noResults: "No hay resultados que coincidan con tu búsqueda",
-                        info: "Mostrando {start} a {end} de {rows} entradas"
-                    },
-
-                    tableRender: function (_data, table, type) {
-                        if (type === "print") return table;
-
-                        table.childNodes[0].childNodes.forEach((row) => {
-                            if (!row.attributes) row.attributes = {};
-                            row.attributes.class = (row.attributes.class || "") + " bg-gray-800 text-white";
-                            row.childNodes.forEach((th) => {
-                                if (!th.attributes) th.attributes = {};
-                                th.attributes.class = (th.attributes.class || "") + " bg-gray-800 text-white";
-                            });
-                        });
-
-                        const tHead   = table.childNodes[0];
-                        const firstRow = tHead.childNodes[0];
-                        const filterHeaders = {
-                            nodeName: "TR",
-                            attributes: { class: "search-filtering-row bg-gray-800 text-white" },
-                            childNodes: firstRow.childNodes.map((_th, index) => {
-                                const disabled = columnsWithoutFilter.includes(index);
-                                return {
-                                    nodeName: "TH",
-                                    attributes: { style: "padding-top: 1rem;" },
-                                    childNodes: [
-                                        {
-                                            nodeName: "INPUT",
-                                            attributes: {
-                                                type: "search",
-                                                placeholder: disabled ? "Sin filtro" : "Filtrar",
-                                                class:
-                                                    "datatable-input text-white placeholder-gray-400 bg-gray-700 border-gray-600 w-full" +
-                                                    (disabled
-                                                        ? " cursor-not-allowed opacity-50"
-                                                        : ""),
-                                                ...(disabled
-                                                    ? { disabled: "disabled" }
-                                                    : { "data-columns": "[" + index + "]" })
-                                            }
-                                        }
-                                    ]
-                                };
-                            })
-                        };
-                        tHead.childNodes.push(filterHeaders);
-                        return table;
-                    }
-                });
-
-                tableEl._dataTableInstance = dataTable;
-            }
-        }
-
-
-        document.addEventListener("turbo:load", initFacturacionsTable);
-        document.addEventListener("turbo:frame-load", (e) => {
-            if (e.target.id === "facturacions_frame") initFacturacionsTable();
-        });
-    })();
-</script>
-
-<style>
-    .dataTable-table tbody td { color: #fff !important; }
-    .datatable-ascending, .datatable-descending { background-color: #539DED !important; color: #fff !important; }
-    #facturacions-table thead th button.datatable-sorter { background: transparent !important; border: none !important; color: #fff !important; }
-    #facturacions-table thead th button.datatable-sorter:hover { color: #1d4ed8 !important; }
-    .datatable-selector, .datatable-input {
-        background-color: #f2f2f2 !important;
-        color: #000 !important;
-        border: 1px solid #ccc !important;
-        border-radius: 4px;
-        padding: 0.25rem 0.5rem;
-    }
-    .datatable-input::placeholder { color: #888; }
-    .datatable-input:disabled { background-color: #3a3a3a !important; color: #aaa !important; cursor: not-allowed !important; }
-</style>
+  <style>
+      .dataTable-table tbody td { color: #fff !important; }
+      .datatable-ascending, .datatable-descending { background-color: #539DED !important; color: #fff !important; }
+      #facturacions-table thead th button.datatable-sorter { background: transparent !important; border: none !important; color: #fff !important; }
+      #facturacions-table thead th button.datatable-sorter:hover { color: #1d4ed8 !important; }
+      .datatable-selector, .datatable-input {
+          background-color: #f2f2f2 !important;
+          color: #000 !important;
+          border: 1px solid #ccc !important;
+          border-radius: 4px;
+          padding: 0.25rem 0.5rem;
+      }
+      .datatable-input::placeholder { color: #888; }
+      .datatable-input:disabled { background-color: #3a3a3a !important; color: #aaa !important; cursor: not-allowed !important; }
+      .flatpickr-clear-btn { background: #e53e3e; border: 0; color: #fff; padding: 0.25rem 0.5rem; margin-left: 1rem; cursor: pointer; font-size: 0.9rem; border-radius: 4px; }
+      .flatpickr-clear-btn:hover { background: #c53030; }
+  </style>
+</turbo-frame>

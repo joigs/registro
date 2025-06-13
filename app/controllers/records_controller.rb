@@ -1,9 +1,14 @@
 class RecordsController < ApplicationController
   # GET /records
+  require 'httparty'
+  require 'json'
+  require "ostruct"
+  require 'bigdecimal'
+  require 'bigdecimal/util'
+  require 'open3'
+
   def index
-    require 'httparty'
-    require 'json'
-    require "ostruct"
+
 
     base_url = 'https://vertical.chcert.cl/api/v1/facturacions'
     api_key    = ENV["VERTICAL_API_KEY"]
@@ -72,9 +77,7 @@ class RecordsController < ApplicationController
 
 
   def show
-    require 'httparty'
-    require 'json'
-    require 'ostruct'
+
 
     url = "https://vertical.chcert.cl/api/v1/facturacions/#{params[:id]}"
     response = HTTParty.get(
@@ -122,21 +125,18 @@ class RecordsController < ApplicationController
 
   # GET /records/export_excel
   def export_excel
-    require 'httparty'
-    require 'json'
-
     base_url = 'https://vertical.chcert.cl/api/v1/facturacions'
+    year     = params[:year]
+    month    = params[:month]
+    empresa  = params[:empresa]
 
-    # Mismos parámetros
-    year    = params[:year]
-    month   = params[:month]
-    empresa = params[:empresa]
-
+    # Armar query
     query_params = {}
     query_params[:year]    = year    if year.present?
     query_params[:month]   = month   if month.present?
     query_params[:empresa] = empresa if empresa.present?
 
+    # Llamada a la API
     response = HTTParty.get(
       base_url,
       headers: { 'X-API-KEY' => ENV['VERTICAL_API_KEY'] },
@@ -144,40 +144,79 @@ class RecordsController < ApplicationController
     )
 
     if response.code == 200
-      facturaciones = JSON.parse(response.body)
+      raw = JSON.parse(response.body)
 
+      facturaciones = raw.map do |f|
+        inspecciones = (f['inspections'] || [])
+        total_ins    = inspecciones.size
+        cerradas     = inspecciones.count { |i| i['state'] == 'Cerrado' }
+        # Ubicación: "Región. Comuna xN" o sin "x1"
+        ubicaciones = inspecciones
+                        .group_by { |i| [i['region'], i['comuna']] }
+                        .map { |(r,c), arr| arr.size > 1 ? "#{r}. #{c} x#{arr.size}" : "#{r}. #{c}" }
+                        .join(' | ')
 
-      data_json = facturaciones.to_json
+        {
+          number:                   f['number'],
+          name:                     f['name'],
+          fecha_inspeccion:         f['fecha_inspeccion'],
+          inspecciones_completadas: "#{cerradas}/#{total_ins}",
+          fecha_entrega:            f['fecha_entrega'],
+          factura:                  f['factura'],
+          precio:                   f['precio'],
+          ubicacion:                ubicaciones,
+          empresa:                  f['empresa'],
+          pesos:                    to_pesos(f['precio'], f['fecha_inspeccion'])
+        }
+      end
 
-      timestamp = Time.now.strftime("%Y%m%d_%H%M%S")
-      output_file = Rails.root.join("tmp", "facturaciones_#{timestamp}.xlsx")
+      data_json   = facturaciones.to_json
+      timestamp   = Time.now.strftime("%Y%m%d_%H%M%S")
+      output_dir  = Rails.root.join("tmp")
+      FileUtils.mkdir_p(output_dir)
+      output_file = output_dir.join("facturaciones_#{timestamp}.xlsx").to_s
+      script_path = Rails.root.join("app","scripts","generate_excel.py").to_s
 
-      system(
-        "facturas/bin/python",
-        Rails.root.join("app", "scripts", "generate_excel.py").to_s,
-        data_json,
-        output_file.to_s
+      stdout, stderr, status = Open3.capture3(
+        "python3", script_path,
+        data_json, output_file
       )
 
-      send_file output_file, filename: "facturaciones_#{timestamp}.xlsx"
+      Rails.logger.info  "generate_excel stdout: #{stdout}"
+      Rails.logger.error "generate_excel stderr: #{stderr}" if stderr.present?
 
+      if status.success? && File.exist?(output_file)
+        send_file output_file,
+                  filename: "facturaciones_#{timestamp}.xlsx",
+                  disposition: 'attachment'
+      else
+        flash[:alert] = "Error al generar el archivo Excel. Revisa los logs del servidor."
+        redirect_to records_path
+      end
     else
-      flash[:alert] = "Error al obtener las ventas de transporte vertical."
+      flash[:alert] = "Error al obtener las ventas de transporte vertical (#{response.code})."
       redirect_to records_path
     end
   end
 
 
+
+
   private
+
+
   def to_pesos(precio_uf, fecha_str)
     return nil if precio_uf.blank? || fecha_str.blank?
 
     fecha = Date.parse(fecha_str) rescue nil
     return nil unless fecha
 
-    iva   = Iva.find_by(year: fecha.year, month: fecha.month)
+    iva = Iva.find_by(year: fecha.year, month: fecha.month)
     return nil unless iva
 
-    precio_uf.to_f * iva.valor
+    total = precio_uf.to_d * iva.valor.to_d
+
+    total.round(0, BigDecimal::ROUND_HALF_UP).to_i
   end
+
 end

@@ -9,7 +9,6 @@
 
       <turbo-frame id="facturacions_frame">
 
-        <!-- ①  Filtros -------------------------------------------------------->
         <div data-controller="filters" class="px-6 mt-4">
           <form data-filters-target="form"
                 action="<%= records_path %>"
@@ -17,7 +16,6 @@
                 data-turbo-frame="facturacions_frame"
                 class="flex flex-wrap gap-4 items-end bg-gray-900 p-4 rounded-lg shadow">
 
-            <!-- Año ----------------------------------------------------------->
             <div>
               <label for="year" class="block text-sm text-gray-300 mb-1">Año</label>
               <select id="year" name="year"
@@ -32,7 +30,6 @@
               </select>
             </div>
 
-            <!-- Mes ----------------------------------------------------------->
             <div>
               <label for="month" class="block text-sm text-gray-300 mb-1">Mes</label>
               <select id="month" name="month"
@@ -48,7 +45,6 @@
               </select>
             </div>
 
-            <!-- Empresa ------------------------------------------------------->
             <div>
               <label for="empresa" class="block text-sm text-gray-300 mb-1">Empresa</label>
               <select id="empresa" name="empresa"
@@ -63,13 +59,21 @@
               </select>
             </div>
 
-            <!-- Botón invisible para submit manual si alguien desactiva JS ---->
             <button type="submit" class="hidden"></button>
           </form>
         </div>
+        <div class="px-6 mt-2">
+          <%= link_to "Exportar a Excel",
+                      export_excel_records_path(
+                        year: params[:year],
+                        month: params[:month],
+                        empresa: params[:empresa]
+                      ),
+                      data: { turbo: false },
+                      class: "bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow inline-block" %>
+        </div>
 
-        <!-- ②  Tabla original … (no cambia nada, la conservas tal cual) ------>
-        …
+
       </turbo-frame>
 
 

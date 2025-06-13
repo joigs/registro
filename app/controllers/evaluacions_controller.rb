@@ -1,7 +1,11 @@
 # app/controllers/evaluacions_controller.rb
 require "httparty"
 require "json"
+require "open3"
+require "fileutils"
 
+require 'bigdecimal'
+require 'bigdecimal/util'
 class EvaluacionsController < ApplicationController
   FACTURACIONS_API_URL = ENV.fetch(
     "FACTURACIONS_API_URL",
@@ -19,13 +23,58 @@ class EvaluacionsController < ApplicationController
 
   # GET /evaluacions/:id
   def show
-    @facturacion = fetch_facturacion(params[:id])
-    redirect_to evaluacions_path, alert: t("errors.not_found") unless @facturacion
+    raw = fetch_facturacion(params[:id])
+    unless raw
+      redirect_to evaluacions_path, alert: t("errors.not_found") and return
+    end
+
+    @facturacion = parse_facturacions([raw]).first
+  end
+
+
+
+
+  def export_excel
+    raw   = fetch_facturacions
+    data  = Array(raw).map do |f|
+      {
+        number:           f['number'],
+        name:             f['name'],
+        solicitud:        f['solicitud'],
+        emicion:          f['emicion'],
+        entregado:        f['entregado'],
+        resultado:        f['resultado'],
+        oc:               f['oc'],
+        factura:          f['factura'],
+        fecha_inspeccion: f['fecha_inspeccion'],
+        precio:           f['precio'],
+        pesos:            to_pesos(f['precio'], f['fecha_inspeccion'])
+      }
+    end
+
+    json_data   = data.to_json
+    timestamp   = Time.current.strftime("%Y%m%d_%H%M%S")
+    tmp_dir     = Rails.root.join("tmp")
+    FileUtils.mkdir_p(tmp_dir)
+    output_file = tmp_dir.join("evaluaciones_#{timestamp}.xlsx").to_s
+    script      = Rails.root.join("app","scripts","generate_evaluacions_excel.py").to_s
+
+    stdout, stderr, status = Open3.capture3("python3", script, json_data, output_file)
+    Rails.logger.info  stdout
+    Rails.logger.error stderr unless stderr.blank?
+
+    if status.success? && File.exist?(output_file)
+      send_file output_file,
+                filename: "evaluaciones_#{timestamp}.xlsx",
+                disposition: "attachment"
+    else
+      flash[:alert] = "Error al generar Excel. Revisa los logs."
+      redirect_to evaluacions_path
+    end
   end
 
   private
 
-  # ---------- API helpers ----------
 
   def fetch_facturacions
     query = filters_from_params
@@ -45,6 +94,10 @@ class EvaluacionsController < ApplicationController
     Rails.logger.error("[FacturacionsAPI] JSON error: #{e.message}")
     nil
   end
+
+
+
+
 
   def api_get(url, query = {})
     HTTParty.get(
@@ -88,13 +141,29 @@ class EvaluacionsController < ApplicationController
         factura:          f[:factura] || f['factura'],
         fecha_inspeccion: f[:fecha_inspeccion] || f['fecha_inspeccion'],
         precio:           f[:precio] || f['precio'],
-        pesos:            f[:pesos] || f['pesos'],
+        pesos:            to_pesos(f['precio'], f['fecha_inspeccion']),
         created_at:       f[:created_at] || f['created_at'],
         updated_at:       f[:updated_at] || f['updated_at']
       )
     end
   end
 
+  private
+
+
+  def to_pesos(precio_uf, fecha_str)
+    return nil if precio_uf.blank? || fecha_str.blank?
+
+    fecha = Date.parse(fecha_str) rescue nil
+    return nil unless fecha
+
+    iva = Iva.find_by(year: fecha.year, month: fecha.month)
+    return nil unless iva
+
+    total = precio_uf.to_d * iva.valor.to_d
+
+    total.round(0, BigDecimal::ROUND_HALF_UP).to_i
+  end
 
 
 end

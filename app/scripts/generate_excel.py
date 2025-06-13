@@ -1,39 +1,55 @@
-#!/usr/bin/env python
-import sys
-import json
+# app/scripts/generate_excel.py
+#!/usr/bin/env python3
+import sys, json
 import openpyxl
 
 def main():
-    # sys.argv[0] = "generate_excel.py"
-    # sys.argv[1] = JSON con facturaciones
-    # sys.argv[2] = ruta de salida
     if len(sys.argv) < 3:
         print("Usage: generate_excel.py <facturaciones_json> <output_file>")
         sys.exit(1)
 
-    facturaciones_json = sys.argv[1]
-    output_file = sys.argv[2]
-
-    facturaciones = json.loads(facturaciones_json)
+    facturaciones = json.loads(sys.argv[1])
+    output_file    = sys.argv[2]
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Facturaciones"
 
-    headers = ["ID", "Number", "Name", "Empresa", "Fecha Inspección", "Factura", "Precio"]
+    #headers
+    headers = [
+      "N° Corr",
+      "Nombre",
+      "Fecha Inspección",
+      "Inspecciones Completadas",
+      "Fecha Entrega Informes",
+      "Fecha Factura",
+      "Ubicación",
+      "Empresa",
+      "Precio UF",
+      "Precio Pesos"
+    ]
     ws.append(headers)
 
+    #filas
     for f in facturaciones:
         row = [
-            f.get("id"),
             f.get("number"),
             f.get("name"),
-            f.get("empresa"),
             f.get("fecha_inspeccion"),
+            f.get("inspecciones_completadas"),
+            f.get("fecha_entrega"),
             f.get("factura"),
-            f.get("precio")
+            f.get("ubicacion"),
+            f.get("empresa"),
+            f.get("precio"),
+            f.get("pesos")
         ]
         ws.append(row)
+
+
+    ws.auto_filter.ref = ws.dimensions
+
+    ws.freeze_panes = "A2"
 
     wb.save(output_file)
     print(f"Archivo Excel generado en: {output_file}")
