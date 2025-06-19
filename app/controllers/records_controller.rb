@@ -45,16 +45,46 @@ class RecordsController < ApplicationController
       @current_oxy = nil
     end
 
+    #Mensual por modulo
+    @vertical_total_uf   = sum_precios(@facturacions)
+    @evaluacion_vanilla_total_uf = sum_precios(@evaluacions)
+    @oxy_total_uf        = to_decimal(@current_oxy&.total_uf)
+    @evaluacion_total_uf = @evaluacion_vanilla_total_uf + (@oxy_daily_uf || 0)
+
+    #Mensual global
+    @sum_month = @vertical_total_uf + @evaluacion_total_uf
+
+
+    #Diario por modulo
+    @vertical_daily_uf   = daily_sums(@facturacions, :fecha_inspeccion)
+    @evaluacion_vanilla_daily_uf = daily_sums(@evaluacions, :fecha_inspeccion)
+    @oxy_daily_uf        = oxy_daily_sums(@current_oxy)
+    @evaluacion_daily_uf = Hash.new(BigDecimal("0"))
+
+
+
+    #Diario global
+    @sum_daily_uf        = Hash.new(BigDecimal("0"))
+    (1..31).each do |d|
+      @evaluacion_daily_uf[d] = @evaluacion_vanilla_daily_uf[d] + @oxy_daily_uf[d]
+
+      @sum_daily_uf[d] =  @vertical_daily_uf[d] + @evaluacion_daily_uf[d]
+    end
+
 
     puts("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    puts(@evaluacions.inspect)
-    puts("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    puts(@current_oxy.inspect)
+    puts("Vertical: #{@vertical_daily_uf.inspect}")
+    puts("Evaluacion Vanilla: #{@evaluacion_vanilla_daily_uf.inspect}")
+    puts("Oxy: #{@oxy_daily_uf.inspect}")
+    puts("Evaluacion: #{@evaluacion_daily_uf.inspect}")
+    puts("Sum: #{@sum_daily_uf.inspect}")
+
 
   end
-  # -------------------------------------------------------------------------
+
+
+
   private
-  # -------------------------------------------------------------------------
 
   def build_query
     {}.tap do |q|
@@ -134,6 +164,7 @@ class RecordsController < ApplicationController
       month:               data["month"],
       year:                data["year"],
       numero_conductores:  data["numero_conductores"],
+      arrastre:            data["arrastre"],
       suma:                data["suma"],
       total_uf:            data["total_uf"],
       oxy_records:         Array(data["oxy_records"]).map do |r|
@@ -158,4 +189,51 @@ class RecordsController < ApplicationController
 
     (precio_uf.to_d * iva.valor.to_d).round(0, BigDecimal::ROUND_HALF_UP).to_i
   end
+
+
+  def sum_precios(records)
+    Array(records).sum(BigDecimal("0")) do |r|
+      to_decimal(r&.precio)
+    end
+  end
+
+  def to_decimal(val)
+    return BigDecimal("0") if val.blank?
+    BigDecimal(val.to_s)
+  end
+
+
+
+
+
+  def daily_sums(records, date_attr)
+    Hash.new(BigDecimal("0")).tap do |h|
+      Array(records).each do |r|
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+
+        day = Date.parse(date_str.to_s).day rescue next
+        h[day] += to_decimal(r.precio)
+      end
+    end
+  end
+
+
+  def oxy_daily_sums(current_oxy)
+    return Hash.new(BigDecimal("0")) unless current_oxy
+
+    price_per_record = to_decimal(current_oxy.suma)
+    arrastre         = to_decimal(current_oxy.arrastre)
+    suma = to_decimal(current_oxy.suma)
+
+    Hash.new(BigDecimal("0")).tap do |h|
+      Array(current_oxy.oxy_records).each do |rec|
+        day = rec.fecha.is_a?(Date) ? rec.fecha.day : Date.parse(rec.fecha.to_s).day
+        h[day] += price_per_record
+      end
+      h[1] += arrastre*suma
+    end
+  end
+
+
 end
