@@ -1,0 +1,82 @@
+<%# app/views/records/index.html.erb %>
+<% fmt = ->v { number_with_delimiter(v, delimiter: ".", separator: ",") } %>
+
+<ul data-controller="cube" class="space-y-2 text-gray-200">
+
+  <li class="bg-slate-900 px-4 py-2 rounded-lg">
+    <span class="font-semibold">Total mes:</span>
+    <span class="float-right"><%= fmt[@sum_month] %> UF</span>
+    <button data-action="cube#toggle"
+            class="ml-2 text-lg select-none">▼</button>
+
+    <ul class="space-y-1 mt-2 ml-6">
+
+      <% modules = {
+        "Vertical"   => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
+        "Evaluación" => [@evaluacion_total_uf, @evaluacion_daily_uf, @evaluation_day_company]
+      } %>
+
+      <% modules.each_with_index do |(mod,(tot,daily,day_comp)), i| %>
+        <li class="px-4 py-1 rounded odd:bg-slate-800 even:bg-slate-700">
+          <span><%= mod %></span>
+          <span class="float-right"><%= fmt[tot] %></span>
+          <button data-action="cube#toggle"
+                  class="ml-2 text-lg select-none">►</button>
+
+          <ul class="hidden space-y-0.5 mt-1 ml-6">
+            <% daily.select { |_,v| v.nonzero? }.sort.each do |d,val| %>
+              <li class="px-3 py-0.5 rounded odd:bg-slate-700 even:bg-slate-600">
+                Día <%= d %>
+                <span class="float-right"><%= fmt[val] %></span>
+                <% emp_hash = day_comp.transform_values { |h| h[d] }.reject { |_,v| v.zero? } %>
+                <% if emp_hash.present? %>
+                  <button data-action="cube#toggle"
+                          class="ml-2 text-lg select-none">►</button>
+
+                  <ul class="hidden space-y-0.5 mt-0.5 ml-6">
+                    <% emp_hash.sort.each do |emp,v| %>
+                      <li class="px-3 py-0.5 rounded odd:bg-slate-600 even:bg-slate-500">
+                        <%= emp %>
+                        <span class="float-right"><%= fmt[v] %></span>
+                      </li>
+                    <% end %>
+                  </ul>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        </li>
+      <% end %>
+
+      <li class="px-4 py-1 rounded odd:bg-slate-800 even:bg-slate-700">
+        <span>Empresas</span>
+        <span class="float-right">▼</span>
+        <button data-action="cube#toggle"
+                class="ml-2 text-lg select-none">▼</button>
+
+        <ul class="space-y-0.5 mt-1 ml-6">
+          <% @month_by_empresa.sort_by { |e,v| [-v, e] }.each_with_index do |(emp,val),i2| %>
+            <li class="px-3 py-0.5 rounded odd:bg-slate-700 even:bg-slate-600">
+              <%= emp %>
+              <span class="float-right"><%= fmt[val] %></span>
+              <% days = @day_company[emp] %>
+              <% if days.present? %>
+                <button data-action="cube#toggle"
+                        class="ml-2 text-lg select-none">►</button>
+
+                <ul class="hidden space-y-0.5 mt-0.5 ml-6">
+                  <% days.sort.each do |d,v| %>
+                    <li class="px-3 py-0.5 rounded odd:bg-slate-600 even:bg-slate-500">
+                      Día <%= d %>
+                      <span class="float-right"><%= fmt[v] %></span>
+                    </li>
+                  <% end %>
+                </ul>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>

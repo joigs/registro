@@ -13,18 +13,8 @@
       <% end %>
     </div>
 
-    <% active_controller = controller.controller_name %>
 
-    <nav class="flex justify-center gap-8 py-3">
-      <%= link_to 'Transporte Vertical', records_path,
-                  class: "px-6 py-3 rounded-lg text-xl font-semibold #{active_controller == 'records'      ? 'bg-blue-600 text-white' : 'text-blue-300 hover:bg-blue-600 hover:text-white'} transition" %>
 
-      <%= link_to 'Movilidad',        movils_path,
-                  class: "px-6 py-3 rounded-lg text-xl font-semibold #{active_controller == 'movils'       ? 'bg-blue-600 text-white' : 'text-blue-300 hover:bg-blue-600 hover:text-white'} transition" %>
-
-      <%= link_to 'Evaluación de Competencias', evaluacions_path,
-                  class: "px-6 py-3 rounded-lg text-xl font-semibold #{active_controller == 'evaluacions' ? 'bg-blue-600 text-white' : 'text-blue-300 hover:bg-blue-600 hover:text-white'} transition" %>
-    </nav>
 
   </div>
 </div>

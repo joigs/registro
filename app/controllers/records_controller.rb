@@ -45,40 +45,32 @@ class RecordsController < ApplicationController
       @current_oxy = nil
     end
 
-    #Mensual por modulo
-    @vertical_total_uf   = sum_precios(@facturacions)
-    @evaluacion_vanilla_total_uf = sum_precios(@evaluacions)
-    @oxy_total_uf        = to_decimal(@current_oxy&.total_uf)
-    @evaluacion_total_uf = @evaluacion_vanilla_total_uf + (@oxy_daily_uf || 0)
+    @vertical_total_uf        = sum_precios(@facturacions)
+    @oxy_total_uf             = to_decimal(@current_oxy&.total_uf)
+    @evaluacion_vanilla_total = sum_precios(@evaluacions)
+    @evaluacion_total_uf      = @evaluacion_vanilla_total + @oxy_total_uf
+    @sum_month                = @vertical_total_uf + @evaluacion_total_uf
 
-    #Mensual global
-    @sum_month = @vertical_total_uf + @evaluacion_total_uf
+    @vertical_daily_uf        = daily_sums(@facturacions, :fecha_inspeccion)
+    @evaluacion_vanilla_daily = daily_sums(@evaluacions,   :fecha_inspeccion)
+    @oxy_daily_uf             = oxy_daily_sums(@current_oxy)
+    @evaluacion_daily_uf      = merge_daily(@evaluacion_vanilla_daily, @oxy_daily_uf)
+    @sum_daily_uf             = merge_daily(@vertical_daily_uf,       @evaluacion_daily_uf)
 
+    @vertical_month_by_empresa   = month_sums_by_company(@facturacions)
+    @evaluacion_month_by_empresa = month_sums_by_company(@evaluacions)
+    @oxy_month_by_empresa        = { "Oxy" => @oxy_total_uf }
 
-    #Diario por modulo
-    @vertical_daily_uf   = daily_sums(@facturacions, :fecha_inspeccion)
-    @evaluacion_vanilla_daily_uf = daily_sums(@evaluacions, :fecha_inspeccion)
-    @oxy_daily_uf        = oxy_daily_sums(@current_oxy)
-    @evaluacion_daily_uf = Hash.new(BigDecimal("0"))
+    @month_by_empresa = merge_hashes(@vertical_month_by_empresa,
+                                     @evaluacion_month_by_empresa,
+                                     @oxy_month_by_empresa)
 
+    @vertical_day_company   = daily_company(@facturacions, :fecha_inspeccion)
+    @eval_vanilla_day_comp  = daily_company(@evaluacions,  :fecha_inspeccion)
+    @oxy_day_company        = build_oxy_day_company(@current_oxy)
 
-
-    #Diario global
-    @sum_daily_uf        = Hash.new(BigDecimal("0"))
-    (1..31).each do |d|
-      @evaluacion_daily_uf[d] = @evaluacion_vanilla_daily_uf[d] + @oxy_daily_uf[d]
-
-      @sum_daily_uf[d] =  @vertical_daily_uf[d] + @evaluacion_daily_uf[d]
-    end
-
-
-    puts("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    puts("Vertical: #{@vertical_daily_uf.inspect}")
-    puts("Evaluacion Vanilla: #{@evaluacion_vanilla_daily_uf.inspect}")
-    puts("Oxy: #{@oxy_daily_uf.inspect}")
-    puts("Evaluacion: #{@evaluacion_daily_uf.inspect}")
-    puts("Sum: #{@sum_daily_uf.inspect}")
-
+    @evaluation_day_company = merge_nested(@eval_vanilla_day_comp, @oxy_day_company)
+    @day_company            = merge_nested(@vertical_day_company,    @evaluation_day_company)
 
   end
 
@@ -147,6 +139,7 @@ class RecordsController < ApplicationController
         resultado:        f["resultado"],
         oc:               f["oc"],
         factura:          f["factura"],
+        empresa:          f["empresa"],
         fecha_inspeccion: f["fecha_inspeccion"],
         precio:           f["precio"],
         pesos:            to_pesos(f["precio"], f["fecha_inspeccion"]),
@@ -219,21 +212,77 @@ class RecordsController < ApplicationController
   end
 
 
-  def oxy_daily_sums(current_oxy)
-    return Hash.new(BigDecimal("0")) unless current_oxy
 
-    price_per_record = to_decimal(current_oxy.suma)
-    arrastre         = to_decimal(current_oxy.arrastre)
-    suma = to_decimal(current_oxy.suma)
-
+  def month_sums_by_company(records)
     Hash.new(BigDecimal("0")).tap do |h|
-      Array(current_oxy.oxy_records).each do |rec|
-        day = rec.fecha.is_a?(Date) ? rec.fecha.day : Date.parse(rec.fecha.to_s).day
-        h[day] += price_per_record
+      Array(records).each do |r|
+        empresa = (r.empresa.presence || "sin_empresa").to_s
+        h[empresa] += to_decimal(r.precio)
       end
-      h[1] += arrastre*suma
     end
   end
 
+  def daily_sums_by_company(records, date_attr)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        empresa  = (r.empresa.presence || "sin_empresa").to_s
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+
+        day = Date.parse(date_str.to_s).day rescue next
+        h[empresa][day] += to_decimal(r.precio)
+      end
+    end
+  end
+
+
+  def merge_daily(a,b)
+    Hash.new(BigDecimal("0")).tap { |h| (1..31).each { |d| h[d] = a[d]+b[d] } }
+  end
+
+  def merge_hashes(*hashes)
+    Hash.new(BigDecimal("0")).tap do |h|
+      hashes.each { |hh| hh.each { |k,v| h[k] += v } }
+    end
+  end
+
+  def merge_nested(*levels)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      levels.each do |lvl|
+        lvl.each { |k,sub| sub.each { |d,v| h[k][d] += v } }
+      end
+    end
+  end
+
+  def daily_company(records, date_attr)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        day = Date.parse(r.public_send(date_attr).to_s).day rescue next
+        h[r.empresa.presence || "sin_empresa"][day] += to_decimal(r.precio)
+      end
+    end
+  end
+
+  def build_oxy_day_company(current_oxy)
+    return {} unless current_oxy
+    daily = oxy_daily_sums(current_oxy)
+    { "Oxy" => daily }
+  end
+
+  def oxy_daily_sums(current_oxy)
+    return Hash.new(BigDecimal("0")) unless current_oxy
+
+    price_per_rec = to_decimal(current_oxy.suma)
+    arrastre      = to_decimal(current_oxy.arrastre)
+
+    Hash.new(BigDecimal("0")).tap do |h|
+      current_oxy.oxy_records.each do |rec|
+        day = rec.fecha.is_a?(Date) ? rec.fecha.day :
+                Date.parse(rec.fecha.to_s).day
+        h[day] += price_per_rec
+      end
+      h[1] += arrastre * price_per_rec
+    end
+  end
 
 end

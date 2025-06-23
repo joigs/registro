@@ -27,16 +27,9 @@ Rails.application.routes.draw do
   resources :users, only: :show, path: '/user', param: :username, as: 'perfil'
 
 
-  resources :records, only: [:index, :show], path: '/records' do
-    collection do
-      get :export_excel
-    end
+  resources :records, only: [:index], path: '/records' do
+
   end
-  resources :movils, only: [:index, :show], path: '/movils'
-  resources :evaluacions, only: [:index, :show], path: '/evaluacions' do
-    collection do
-      get :export_excel
-    end
-  end
+
 
 end
