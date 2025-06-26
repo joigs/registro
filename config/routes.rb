@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
 
-
+  scope path: 'ventas' do
 
   get "/service-worker.js" => "service_worker#service_worker"
   get "/manifest.json" => "service_worker#manifest"
@@ -18,7 +18,7 @@ Rails.application.routes.draw do
         patch :update_permisos
       end
     end
-    resources :sessions, only: [:new, :create, :destroy], path: '/loginvta', path_names: { new: '/' }
+    resources :sessions, only: [:new, :create, :destroy], path: '/login', path_names: { new: '/' }
   end
 
 
@@ -31,5 +31,5 @@ Rails.application.routes.draw do
 
   end
 
-
+  end
 end
