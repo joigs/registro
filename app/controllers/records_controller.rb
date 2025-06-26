@@ -11,7 +11,7 @@ class RecordsController < ApplicationController
 
   EVAL_URL = ENV.fetch(
     "EVALUACION_API_URL",
-    "https:ventas.chcert.cl/evaluacion/api/v1/facturacions"
+    "https://ventas.chcert.cl/evaluacion/api/v1/facturacions"
   ).freeze
   EVAL_KEY = ENV.fetch("EVALUACION_API_KEY", "")
 
