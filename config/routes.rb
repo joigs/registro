@@ -18,7 +18,7 @@ Rails.application.routes.draw do
         patch :update_permisos
       end
     end
-    resources :sessions, only: [:new, :create, :destroy], path: '/login', path_names: { new: '/' }
+    resources :sessions, only: [:new, :create, :destroy], path: '/loginvta', path_names: { new: '/' }
   end
 
 
