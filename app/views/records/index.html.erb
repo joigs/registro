@@ -1,43 +1,102 @@
 <%# app/views/records/index.html.erb %>
-<% fmt = ->v { number_with_delimiter(v, delimiter: ".", separator: ",") } %>
+<% fmt  = ->v { number_with_delimiter(v, delimiter: ".", separator: ",") } %>
+<% mods = {
+  "Transporte Vertical"        => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
+  "Evaluación de Competencias" => [@evaluacion_total_uf, @evaluacion_daily_uf, @evaluation_day_company],
+  "Movilidad"                  => [@movilidad_total_uf, @movilidad_daily_uf,@movilidad_day_company]
+} %>
 
-<ul data-controller="cube" class="space-y-2 text-gray-200">
+<%= form_with url: records_path, method: :get, local: true,
+              class: "mb-6 max-w-4xl mx-auto" do |f| %>
+  <div class="flex flex-wrap gap-4 items-end">
 
-  <li class="bg-slate-900 px-4 py-2 rounded-lg">
-    <span class="font-semibold">Total mes:</span>
-    <span class="float-right"><%= fmt[@sum_month] %> UF</span>
-    <button data-action="cube#toggle"
-            class="ml-2 text-lg select-none">▼</button>
+    <div>
+      <%= f.label :year, "Año",
+                  class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <%= f.select :year,
+                   (2025..Date.current.year).to_a,
+                   { selected: @year },
+                   class: "border border-gray-300 dark:border-slate-600
+                           rounded-md px-2 py-1
+                           bg-white dark:bg-slate-800
+                           text-gray-800 dark:text-gray-200
+                           shadow-sm focus:ring-2 focus:ring-blue-500
+                           focus:border-blue-500" %>
+    </div>
 
-    <ul class="space-y-1 mt-2 ml-6">
+    <% meses_es = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
+    <div>
+      <%= f.label :month, "Mes",
+                  class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
+      <%= f.select :month,
+                   meses_es.each_index.map { |i| [meses_es[i], i + 1] },
+                   { selected: @month },
+                   class: "border border-gray-300 dark:border-slate-600
+                           rounded-md px-2 py-1
+                           bg-white dark:bg-slate-800
+                           text-gray-800 dark:text-gray-200
+                           shadow-sm focus:ring-2 focus:ring-blue-500
+                           focus:border-blue-500" %>
+    </div>
 
-      <% modules = {
-        "Vertical"   => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
-        "Evaluación" => [@evaluacion_total_uf, @evaluacion_daily_uf, @evaluation_day_company]
-      } %>
+    <%= f.submit "Filtrar",
+                 class: "bg-blue-600 hover:bg-blue-700
+                         text-white px-5 py-2 rounded-md transition-colors" %>
+  </div>
+<% end %>
 
-      <% modules.each_with_index do |(mod,(tot,daily,day_comp)), i| %>
-        <li class="px-4 py-1 rounded odd:bg-slate-800 even:bg-slate-700">
+<ul data-controller="cube"
+    class="space-y-4 max-w-4xl mx-auto
+           text-gray-900 dark:text-gray-100">
+
+  <li data-action="click->cube#toggle"
+      class="cursor-pointer
+             bg-white  hover:bg-gray-50
+             dark:bg-slate-900 dark:hover:bg-slate-800
+             border border-gray-200 dark:border-slate-700
+             shadow-sm rounded-lg p-6 transition-colors">
+
+    <% meses_es = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
+    <span class="font-semibold text-3xl sm:text-4xl">
+      Total mes de <%= meses_es[@month - 1] %> del <%= @year %>
+    </span>
+    <span class="float-right text-3xl sm:text-4xl"><%= fmt[@sum_month] %> UF</span>
+
+    <!-- Desglose por módulo -->
+    <ul class="hidden mt-4 space-y-2">
+      <% mods.each_with_index do |(mod,(tot,daily,day_comp)),idx| %>
+        <li data-action="click->cube#toggle"
+            class="cursor-pointer px-4 py-2 rounded-md transition-colors border
+                   <%= idx.even? ?
+                                            'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' :
+                                            'bg-gray-50  hover:bg-gray-100  dark:bg-slate-700 dark:hover:bg-slate-600' %>">
+
           <span><%= mod %></span>
           <span class="float-right"><%= fmt[tot] %></span>
-          <button data-action="cube#toggle"
-                  class="ml-2 text-lg select-none">►</button>
 
-          <ul class="hidden space-y-0.5 mt-1 ml-6">
-            <% daily.select { |_,v| v.nonzero? }.sort.each do |d,val| %>
-              <li class="px-3 py-0.5 rounded odd:bg-slate-700 even:bg-slate-600">
+          <!-- Desglose diario por módulo -->
+          <ul class="hidden mt-2 space-y-1">
+            <% daily.keys.sort.each do |d| %>
+              <% next if daily[d].zero? %>
+              <li data-action="click->cube#toggle"
+                  class="cursor-pointer px-3 py-1 rounded-md transition-colors border
+                         <%= d.odd? ?
+                                                        'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' :
+                                                        'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
+
                 Día <%= d %>
-                <span class="float-right"><%= fmt[val] %></span>
-                <% emp_hash = day_comp.transform_values { |h| h[d] }.reject { |_,v| v.zero? } %>
-                <% if emp_hash.present? %>
-                  <button data-action="cube#toggle"
-                          class="ml-2 text-lg select-none">►</button>
+                <span class="float-right"><%= fmt[daily[d]] %></span>
 
-                  <ul class="hidden space-y-0.5 mt-0.5 ml-6">
-                    <% emp_hash.sort.each do |emp,v| %>
-                      <li class="px-3 py-0.5 rounded odd:bg-slate-600 even:bg-slate-500">
+                <% companies = day_comp.transform_values { |h| h[d] }.reject { |_,v| v.zero? } %>
+                <% unless companies.empty? %>
+                  <ul class="hidden mt-1 space-y-1">
+                    <% companies.each_with_index do |(emp,val),i| %>
+                      <li class="px-3 py-1 rounded-md transition-colors border
+                                 <%= i.even? ?
+                                                                        'bg-gray-50 dark:bg-slate-700' :
+                                                                        'bg-gray-100 dark:bg-slate-800' %>">
                         <%= emp %>
-                        <span class="float-right"><%= fmt[v] %></span>
+                        <span class="float-right"><%= fmt[val] %></span>
                       </li>
                     <% end %>
                   </ul>
@@ -48,27 +107,37 @@
         </li>
       <% end %>
 
-      <li class="px-4 py-1 rounded odd:bg-slate-800 even:bg-slate-700">
-        <span>Empresas</span>
+      <!-- Desglose por cliente -->
+      <li data-action="click->cube#toggle"
+          class="cursor-pointer
+                 bg-white hover:bg-gray-50
+                 dark:bg-slate-900 dark:hover:bg-slate-800
+                 border border-gray-200 dark:border-slate-700
+                 rounded-md px-4 py-2 transition-colors">
+        <span>Clientes</span>
         <span class="float-right">▼</span>
-        <button data-action="cube#toggle"
-                class="ml-2 text-lg select-none">▼</button>
 
-        <ul class="space-y-0.5 mt-1 ml-6">
-          <% @month_by_empresa.sort_by { |e,v| [-v, e] }.each_with_index do |(emp,val),i2| %>
-            <li class="px-3 py-0.5 rounded odd:bg-slate-700 even:bg-slate-600">
+        <ul class="hidden mt-2 space-y-1">
+          <% @month_by_empresa.each_with_index do |(emp, val), i| %>
+            <li data-action="click->cube#toggle"
+                class="cursor-pointer px-3 py-1 rounded-md transition-colors border
+                       <%= i.even? ?
+                                                    'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' :
+                                                    'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
               <%= emp %>
               <span class="float-right"><%= fmt[val] %></span>
-              <% days = @day_company[emp] %>
-              <% if days.present? %>
-                <button data-action="cube#toggle"
-                        class="ml-2 text-lg select-none">►</button>
 
-                <ul class="hidden space-y-0.5 mt-0.5 ml-6">
-                  <% days.sort.each do |d,v| %>
-                    <li class="px-3 py-0.5 rounded odd:bg-slate-600 even:bg-slate-500">
+              <% days = @day_company[emp] %>
+              <% unless days.empty? %>
+                <ul class="hidden mt-1 space-y-1">
+                  <% days.keys.sort.each_with_index do |d,j| %>
+                    <% next if days[d].zero? %>
+                    <li class="px-3 py-1 rounded-md border
+                               <%= j.even? ?
+                                                                    'bg-gray-50 dark:bg-slate-700' :
+                                                                    'bg-gray-100 dark:bg-slate-800' %>">
                       Día <%= d %>
-                      <span class="float-right"><%= fmt[v] %></span>
+                      <span class="float-right"><%= fmt[days[d]] %></span>
                     </li>
                   <% end %>
                 </ul>
@@ -78,5 +147,50 @@
         </ul>
       </li>
     </ul>
+
+    <!-- Separador -->
+    <hr class="my-8 border-gray-300 dark:border-slate-700">
+
+    <!-- Desglose diario total -->
+    <h2 class="text-2xl font-semibold mb-3 text-gray-800 dark:text-gray-200">
+      Desglose diario total
+    </h2>
+
+    <ul data-controller="cube" class="space-y-2">
+      <% (1..@days_in_month).each do |d| %>
+        <% next if @sum_daily_uf[d].zero? %>
+
+        <li data-action="click->cube#toggle"
+            class="cursor-pointer px-4 py-2 rounded-md transition-colors border
+                   <%= d.odd? ?
+                                            'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' :
+                                            'bg-gray-50  hover:bg-gray-100  dark:bg-slate-700 dark:hover:bg-slate-600' %>">
+          Día <%= d %>
+          <span class="float-right"><%= fmt[@sum_daily_uf[d]] %> UF</span>
+
+          <ul class="hidden mt-1 space-y-1">
+            <li class="px-3 py-1 rounded-md
+                       bg-white dark:bg-slate-900
+                       border border-gray-200 dark:border-slate-700">
+              Transporte Vertical
+              <span class="float-right"><%= fmt[@vertical_daily_uf[d]] %></span>
+            </li>
+            <li class="px-3 py-1 rounded-md
+                       bg-white dark:bg-slate-900
+                       border border-gray-200 dark:border-slate-700">
+              Evaluación de Competencias
+              <span class="float-right"><%= fmt[@evaluacion_daily_uf[d]] %></span>
+            </li>
+            <li class="px-3 py-1 rounded-md
+                       bg-white dark:bg-slate-900
+                       border border-gray-200 dark:border-slate-700">
+              Movilidad
+              <span class="float-right"><%= fmt[@movilidad_daily_uf[d]] %></span>
+            </li>
+          </ul>
+        </li>
+      <% end %>
+    </ul>
+
   </li>
 </ul>
