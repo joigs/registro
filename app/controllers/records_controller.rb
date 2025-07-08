@@ -1,4 +1,11 @@
 # app/controllers/records_controller.rb
+
+
+require Rails.root.join("app/models/secondary_models.rb")
+
+
+
+
 class RecordsController < ApplicationController
   require "httparty"
   require "json"
@@ -108,6 +115,13 @@ class RecordsController < ApplicationController
     @day_company            = merge_nested(@vertical_day_company,
                                            @evaluation_day_company,
                                            @movilidad_day_company)
+
+
+
+    @prueba = CertActivoExternal.limit(10)
+    puts("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    puts(@prueba.inspect)
+
   end
 
 
