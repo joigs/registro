@@ -115,15 +115,74 @@ class RecordsController < ApplicationController
     @day_company            = merge_nested(@vertical_day_company,
                                            @evaluation_day_company,
                                            @movilidad_day_company)
+    uf = 39179.01
+
+    activos = SecondaryModels::CertActivoExternal
+                .joins("JOIN CertChkLst ON CertChkLst.CertActivoId = CertActivo.CertActivoId")
+                .joins("JOIN CerMan ON CerMan.CerManRut = CertActivo.CerManRut")
+                .where("CertChkLst.CertChkLstFchFac = ?", '2025-07-04')
+                .select(
+                  "CertActivo.CertActivoId",
+                  "CertActivo.CertActivoNro",
+                  "CertActivo.ActivoPadre",
+                  "CertChkLst.CertChkLstId",
+                  "CertChkLst.CertChkLstReIns",
+                  "CerMan.CerManRut",
+                  "CerMan.CerManNombre"
+                )
+                .order("CerMan.CerManNombre, CertActivo.CertActivoId")
+
+    patentes_aceptadas = Set.new
+    inspecciones = []
+    reinspecciones = []
+
+    activos.each do |a|
+      patente = a.CertActivoNro.to_s.strip
+      patente_padre = a.ActivoPadre.to_s.strip
+
+      next if patente_padre.blank?
+
+      if patente == patente_padre
+        unless patentes_aceptadas.include?(patente)
+          patentes_aceptadas << patente
+          if a.CertChkLstReIns == 0
+            inspecciones << [a.CerManRut, a.CerManNombre, patente]
+          else
+            reinspecciones << [a.CerManRut, a.CerManNombre, patente]
+          end
+        end
+        next
+      end
+
+      next if patentes_aceptadas.include?(patente_padre)
+
+      unless patentes_aceptadas.include?(patente_padre)
+        patentes_aceptadas << patente_padre
+        if a.CertChkLstReIns == 0
+          inspecciones << [a.CerManRut, a.CerManNombre, patente_padre]
+        else
+          reinspecciones << [a.CerManRut, a.CerManNombre, patente_padre]
+        end
+      end
+    end
+
+
+    agrupado = (inspecciones + reinspecciones).group_by { |r| [r[0], r[1]] }
+
+    agrupado.each do |(rut, nombre), filas|
+      patentes = filas.map { |r| r[2] }.uniq
+      inspecciones_count = filas.count { |r| inspecciones.include?(r) }
+      reinspecciones_count = filas.count { |r| reinspecciones.include?(r) }
+      puts "Rut: #{rut}, Nombre: #{nombre}, Patentes: #{patentes.join(', ')}, Inspecciones: #{inspecciones_count}, Reinspecciones: #{reinspecciones_count}, Total: #{filas.count}"
+    end
 
 
 
-    @prueba = CertActivoExternal.limit(10)
-    puts("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    puts(@prueba.inspect)
+
+
+
 
   end
-
 
 
   private
