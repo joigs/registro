@@ -115,66 +115,148 @@ class RecordsController < ApplicationController
     @day_company            = merge_nested(@vertical_day_company,
                                            @evaluation_day_company,
                                            @movilidad_day_company)
-    uf = 39179.01
 
-    activos = SecondaryModels::CertActivoExternal
-                .joins("JOIN CertChkLst ON CertChkLst.CertActivoId = CertActivo.CertActivoId")
-                .joins("JOIN CerMan ON CerMan.CerManRut = CertActivo.CerManRut")
-                .where("CertChkLst.CertChkLstFchFac = ?", '2025-07-04')
-                .select(
-                  "CertActivo.CertActivoId",
-                  "CertActivo.CertActivoNro",
-                  "CertActivo.ActivoPadre",
-                  "CertChkLst.CertChkLstId",
-                  "CertChkLst.CertChkLstReIns",
-                  "CerMan.CerManRut",
-                  "CerMan.CerManNombre"
-                )
-                .order("CerMan.CerManNombre, CertActivo.CertActivoId")
 
-    patentes_aceptadas = Set.new
-    inspecciones = []
-    reinspecciones = []
 
-    activos.each do |a|
-      patente = a.CertActivoNro.to_s.strip
-      patente_padre = a.ActivoPadre.to_s.strip
 
-      next if patente_padre.blank?
 
-      if patente == patente_padre
-        unless patentes_aceptadas.include?(patente)
-          patentes_aceptadas << patente
-          if a.CertChkLstReIns == 0
-            inspecciones << [a.CerManRut, a.CerManNombre, patente]
-          else
-            reinspecciones << [a.CerManRut, a.CerManNombre, patente]
-          end
-        end
+    require 'set'
+
+    uf = 39_179.01
+
+    # ─────────────────────────────────────────────────────────────
+    # 1. Traer todos los checklist del día (con posible valor UF/$)
+    # ─────────────────────────────────────────────────────────────
+    checklists = SecondaryModels::CertChkLstExternal
+                   .joins("JOIN CertActivo ON CertActivo.CertActivoId = CertChkLst.CertActivoId")
+                   .joins("JOIN CerMan      ON CerMan.CerManRut      = CertActivo.CerManRut")
+                   .joins(<<~SQL)
+    LEFT JOIN Valor ON Valor.CerManRut            = CertActivo.CerManRut
+                   AND Valor.CertActivoATrabId    = CertActivo.CertActivoATrabId
+                   AND Valor.CertClasePlantillaId = CertActivo.CertClasePlantillaId
+  SQL
+                   .where("CertChkLst.CertChkLstFchFac = ?", '2025-07-04')
+                   .select(
+                     "CertChkLst.CertChkLstId",
+                     "CertChkLst.CertChkLstReIns",
+                     "CertActivo.CertActivoId",
+                     "CertActivo.CertActivoNro",
+                     "CertActivo.CertActivoNombre",
+                     "CertActivo.ActivoPadre",
+                     "CertActivo.CertClasePlantillaId",
+                     "CertActivo.CertActivoATrabId",
+                     "CerMan.CerManRut",
+                     "CerMan.CerManNombre",
+                     "COALESCE(SUM(CASE
+         WHEN Valor.ValorMoneda = 1 THEN Valor.ValorValor * #{uf}
+         WHEN Valor.ValorMoneda = 2 THEN Valor.ValorValor
+         ELSE 0 END),0) AS monto_checklist"
+                   )
+                   .group(
+                     "CertChkLst.CertChkLstId, CertChkLst.CertChkLstReIns,
+     CertActivo.CertActivoId, CertActivo.CertActivoNro, CertActivo.CertActivoNombre,
+     CertActivo.ActivoPadre, CertActivo.CertClasePlantillaId, CertActivo.CertActivoATrabId,
+     CerMan.CerManRut, CerMan.CerManNombre"
+                   )
+
+    # ─────────────────────────────────────────────────────────────
+    # 2. Mapeo patente → datos del ACTIVO PADRE (en toda la muestra)
+    # ─────────────────────────────────────────────────────────────
+    parent_info = {}  # clave: patente (string) → {atrab_id:, plantilla_id:}
+
+    checklists.each do |row|
+      pats = [row.CertActivoNro, row.CertActivoNombre].map { _1.to_s.strip }.reject(&:blank?)
+      parent_pat = row.ActivoPadre.to_s.strip
+      next if parent_pat.blank?
+
+      # Es P-A-D-R-E cuando su propia patente coincide con ActivoPadre
+      if pats.include?(parent_pat)
+        parent_info[parent_pat] = {
+          atrab_id:    row.CertActivoATrabId,
+          plantilla_id: row.CertClasePlantillaId,
+
+        }
+      end
+    end
+
+    # ─────────────────────────────────────────────────────────────
+    # 3. Filtrado por lógica de aceptación de patentes
+    #    y sustitución de datos de hijo → datos de padre
+    # ─────────────────────────────────────────────────────────────
+    accepted_rows = []      # todos los checklist válidos
+    seen_patentes  = Set.new
+
+    checklists.each do |row|
+      pats          = [row.CertActivoNro, row.CertActivoNombre].map { _1.to_s.strip }.reject(&:blank?)
+      parent_pat    = row.ActivoPadre.to_s.strip
+      next if parent_pat.blank?                  # regla: sin padre → descartar
+
+      # 3.1 el registro YA es padre
+      if pats.include?(parent_pat)
+        next if seen_patentes.include?(parent_pat) # evitar duplicados
+        seen_patentes << parent_pat
+        accepted_rows << row
         next
       end
 
-      next if patentes_aceptadas.include?(patente_padre)
+      # 3.2 es hijo  ────────────────
+      # Si el padre ya fue aceptado, no se agrega.
+      next if seen_patentes.include?(parent_pat)
 
-      unless patentes_aceptadas.include?(patente_padre)
-        patentes_aceptadas << patente_padre
-        if a.CertChkLstReIns == 0
-          inspecciones << [a.CerManRut, a.CerManNombre, patente_padre]
-        else
-          reinspecciones << [a.CerManRut, a.CerManNombre, patente_padre]
-        end
+      # Tomamos datos del padre, si existen en la muestra …
+      if parent_info.key?(parent_pat)
+        row.CertActivoATrabId     = parent_info[parent_pat][:atrab_id]
+        row.CertClasePlantillaId  = parent_info[parent_pat][:plantilla_id]
+      end
+      # Asignamos “patente considerada” para impresión
+      row.define_singleton_method(:patente_considerada) { parent_pat }
+
+      seen_patentes << parent_pat
+      accepted_rows << row
+    end
+
+    # ─────────────────────────────────────────────────────────────
+    # 4. Agrupar por empresa y mostrar con desglose
+    # ─────────────────────────────────────────────────────────────
+    accepted_rows.group_by { |r| [r.CerManRut, r.CerManNombre] }.each do |(rut, nombre), filas|
+
+      patentes = filas.map { |r|
+        r.respond_to?(:patente_considerada) ? r.patente_considerada :
+          [r.CertActivoNro, r.CertActivoNombre].map { _1.to_s.strip }.reject(&:blank?).first
+      }.uniq
+
+      inspecciones     = filas.count { |r| r.CertChkLstReIns == 0 }
+      reinspecciones   = filas.count { |r| r.CertChkLstReIns == 1 }
+
+      # ── DESGLOSE por (ATrabId, Plantilla) ────────────────────
+      desgloses = filas
+                    .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId] }
+                    .map do |(atrab_id, plantilla_id), grupo|
+        {
+          atrab_id:      atrab_id,
+          plantilla_id:  plantilla_id,
+          patentes:      grupo.map { |g|
+            g.respond_to?(:patente_considerada) ? g.patente_considerada :
+              [g.CertActivoNro, g.CertActivoNombre].map { _1.to_s.strip }.reject(&:blank?).first
+          }.uniq,
+          monto:         grupo.first.monto_checklist.to_f
+        }
+      end
+
+      monto_total = desgloses.sum { |d| d[:monto] }
+
+      puts "\nEmpresa: #{nombre} (Rut: #{rut})"
+      puts "  Patentes: #{patentes.join(', ')}"
+      puts "  Inspecciones: #{inspecciones}  |  Reinspecciones: #{reinspecciones}  |  Total: #{filas.size}"
+      puts "  Monto Total: #{monto_total.round(2)}"
+      puts "  -- DESGLOSE --"
+      desgloses.each do |d|
+        puts "    AT: #{d[:atrab_id]} | Plantilla: #{d[:plantilla_id]} | Patentes: #{d[:patentes].join(', ')} | Monto: #{d[:monto].round(2)}"
       end
     end
 
 
-    agrupado = (inspecciones + reinspecciones).group_by { |r| [r[0], r[1]] }
 
-    agrupado.each do |(rut, nombre), filas|
-      patentes = filas.map { |r| r[2] }.uniq
-      inspecciones_count = filas.count { |r| inspecciones.include?(r) }
-      reinspecciones_count = filas.count { |r| reinspecciones.include?(r) }
-      puts "Rut: #{rut}, Nombre: #{nombre}, Patentes: #{patentes.join(', ')}, Inspecciones: #{inspecciones_count}, Reinspecciones: #{reinspecciones_count}, Total: #{filas.count}"
-    end
 
 
 
