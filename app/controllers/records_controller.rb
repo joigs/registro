@@ -116,26 +116,26 @@ class RecordsController < ApplicationController
                                            @evaluation_day_company,
                                            @movilidad_day_company)
 
+    require "set"
+
+    uf          = 39_179.01
+    fecha_fac   = Date.new(2025, 7, 4)
 
 
-
-
-    require 'set'
-
-    uf = 39_179.01
-
-    # ─────────────────────────────────────────────────────────────
-    # 1. Traer todos los checklist del día (con posible valor UF/$)
-    # ─────────────────────────────────────────────────────────────
     checklists = SecondaryModels::CertChkLstExternal
                    .joins("JOIN CertActivo ON CertActivo.CertActivoId = CertChkLst.CertActivoId")
                    .joins("JOIN CerMan      ON CerMan.CerManRut      = CertActivo.CerManRut")
                    .joins(<<~SQL)
-    LEFT JOIN Valor ON Valor.CerManRut            = CertActivo.CerManRut
-                   AND Valor.CertActivoATrabId    = CertActivo.CertActivoATrabId
-                   AND Valor.CertClasePlantillaId = CertActivo.CertClasePlantillaId
-  SQL
-                   .where("CertChkLst.CertChkLstFchFac = ?", '2025-07-04')
+     LEFT JOIN Valor
+            ON Valor.CerManRut            = CertActivo.CerManRut
+           AND Valor.CertActivoATrabId    = CertActivo.CertActivoATrabId
+           AND Valor.CertClasePlantillaId = CertActivo.CertClasePlantillaId
+           AND (
+                (CertChkLst.CertChkLstReIns = 1                           AND Valor.ValorTipoInspec = 2) OR
+                (IFNULL(CertChkLst.CertChkLstReIns,0) = 0                AND Valor.ValorTipoInspec = 1)
+               )
+SQL
+                   .where("CertChkLst.CertChkLstFchFac = ?", fecha_fac)
                    .select(
                      "CertChkLst.CertChkLstId",
                      "CertChkLst.CertChkLstReIns",
@@ -145,101 +145,91 @@ class RecordsController < ApplicationController
                      "CertActivo.ActivoPadre",
                      "CertActivo.CertClasePlantillaId",
                      "CertActivo.CertActivoATrabId",
+                     "CertActivo.CertTipoActId",
                      "CerMan.CerManRut",
                      "CerMan.CerManNombre",
                      "COALESCE(SUM(CASE
-         WHEN Valor.ValorMoneda = 1 THEN Valor.ValorValor * #{uf}
-         WHEN Valor.ValorMoneda = 2 THEN Valor.ValorValor
-         ELSE 0 END),0) AS monto_checklist"
+          WHEN Valor.ValorMoneda = 1 THEN Valor.ValorValor * #{uf}
+          WHEN Valor.ValorMoneda = 2 THEN Valor.ValorValor
+          ELSE 0 END),0) AS monto_checklist"
                    )
                    .group(
                      "CertChkLst.CertChkLstId, CertChkLst.CertChkLstReIns,
      CertActivo.CertActivoId, CertActivo.CertActivoNro, CertActivo.CertActivoNombre,
-     CertActivo.ActivoPadre, CertActivo.CertClasePlantillaId, CertActivo.CertActivoATrabId,
+     CertActivo.ActivoPadre, CertActivo.CertClasePlantillaId,
+     CertActivo.CertActivoATrabId, CertActivo.CertTipoActId,
      CerMan.CerManRut, CerMan.CerManNombre"
                    )
 
-    # ─────────────────────────────────────────────────────────────
-    # 2. Mapeo patente → datos del ACTIVO PADRE (en toda la muestra)
-    # ─────────────────────────────────────────────────────────────
-    parent_info = {}  # clave: patente (string) → {atrab_id:, plantilla_id:}
 
-    checklists.each do |row|
-      pats = [row.CertActivoNro, row.CertActivoNombre].map { _1.to_s.strip }.reject(&:blank?)
-      parent_pat = row.ActivoPadre.to_s.strip
-      next if parent_pat.blank?
+    parent_ids = checklists.map(&:ActivoPadre).map(&:to_i).reject(&:zero?).uniq
 
-      # Es P-A-D-R-E cuando su propia patente coincide con ActivoPadre
-      if pats.include?(parent_pat)
-        parent_info[parent_pat] = {
-          atrab_id:    row.CertActivoATrabId,
-          plantilla_id: row.CertClasePlantillaId,
-
+    parent_info = {}
+    unless parent_ids.empty?
+      SecondaryModels::CertActivoExternal
+        .where(CertActivoId: parent_ids)
+        .pluck(:CertActivoId, :CertActivoNro, :CertActivoNombre,
+               :CertActivoATrabId, :CertClasePlantillaId, :CertTipoActId)
+        .each do |id, nro, nombre, atrab, plantilla, tipo|
+        parent_info[id] = {
+          patente:   [nro, nombre].map { _1.to_s.strip }.reject(&:blank?).first || id.to_s,
+          atrab:     atrab,
+          plantilla: plantilla,
+          tipo_act:  tipo
         }
       end
     end
 
-    # ─────────────────────────────────────────────────────────────
-    # 3. Filtrado por lógica de aceptación de patentes
-    #    y sustitución de datos de hijo → datos de padre
-    # ─────────────────────────────────────────────────────────────
-    accepted_rows = []      # todos los checklist válidos
-    seen_patentes  = Set.new
+    padres_con_chk = checklists
+                       .select { |r| r.ActivoPadre.to_i == r.CertActivoId }
+                       .map(&:CertActivoId)
+                       .uniq
+
+    per_padre_rows = {}
 
     checklists.each do |row|
-      pats          = [row.CertActivoNro, row.CertActivoNombre].map { _1.to_s.strip }.reject(&:blank?)
-      parent_pat    = row.ActivoPadre.to_s.strip
-      next if parent_pat.blank?                  # regla: sin padre → descartar
+      pid = row.ActivoPadre.to_i
+      next if pid.zero?
 
-      # 3.1 el registro YA es padre
-      if pats.include?(parent_pat)
-        next if seen_patentes.include?(parent_pat) # evitar duplicados
-        seen_patentes << parent_pat
-        accepted_rows << row
-        next
+      if row.CertActivoId == pid
+        per_padre_rows[pid] = row
+      else
+        per_padre_rows[pid] ||= row
       end
-
-      # 3.2 es hijo  ────────────────
-      # Si el padre ya fue aceptado, no se agrega.
-      next if seen_patentes.include?(parent_pat)
-
-      # Tomamos datos del padre, si existen en la muestra …
-      if parent_info.key?(parent_pat)
-        row.CertActivoATrabId     = parent_info[parent_pat][:atrab_id]
-        row.CertClasePlantillaId  = parent_info[parent_pat][:plantilla_id]
-      end
-      # Asignamos “patente considerada” para impresión
-      row.define_singleton_method(:patente_considerada) { parent_pat }
-
-      seen_patentes << parent_pat
-      accepted_rows << row
     end
 
-    # ─────────────────────────────────────────────────────────────
-    # 4. Agrupar por empresa y mostrar con desglose
-    # ─────────────────────────────────────────────────────────────
-    accepted_rows.group_by { |r| [r.CerManRut, r.CerManNombre] }.each do |(rut, nombre), filas|
+    per_padre_rows.each do |pid, row|
+      next if row.CertActivoId == pid
+      next unless padres_con_chk.include?(pid)
 
-      patentes = filas.map { |r|
-        r.respond_to?(:patente_considerada) ? r.patente_considerada :
-          [r.CertActivoNro, r.CertActivoNombre].map { _1.to_s.strip }.reject(&:blank?).first
+      if (info = parent_info[pid])
+        row.CertClasePlantillaId = info[:plantilla]
+        row.CertActivoATrabId    = info[:atrab]
+        row.CertTipoActId        = info[:tipo_act]
+        row.define_singleton_method(:patente_considerada) { info[:patente] }
+      end
+    end
+
+    rows_ok = per_padre_rows.values
+
+    rows_ok.group_by { |r| [r.CerManRut, r.CerManNombre] }.each do |(rut, nombre), registros|
+
+      inspecciones   = registros.count { |r| r.CertChkLstReIns == false || r.CertChkLstReIns.nil? }
+      reinspecciones = registros.count { |r| r.CertChkLstReIns == true }
+
+      patentes = registros.map { |r|
+        r.respond_to?(:patente_considerada) ? r.patente_considerada : r.CertActivoNro
       }.uniq
 
-      inspecciones     = filas.count { |r| r.CertChkLstReIns == 0 }
-      reinspecciones   = filas.count { |r| r.CertChkLstReIns == 1 }
-
-      # ── DESGLOSE por (ATrabId, Plantilla) ────────────────────
-      desgloses = filas
-                    .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId] }
-                    .map do |(atrab_id, plantilla_id), grupo|
+      desgloses = registros
+                    .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId, r.CertTipoActId] }
+                    .map do |(atrab, plantilla, tipo_act), grupo|
         {
-          atrab_id:      atrab_id,
-          plantilla_id:  plantilla_id,
-          patentes:      grupo.map { |g|
-            g.respond_to?(:patente_considerada) ? g.patente_considerada :
-              [g.CertActivoNro, g.CertActivoNombre].map { _1.to_s.strip }.reject(&:blank?).first
-          }.uniq,
-          monto:         grupo.first.monto_checklist.to_f
+          atrab_id:     atrab,
+          plantilla_id: plantilla,
+          tipo_act_id:  tipo_act,
+          patentes:     grupo.map { |g| g.respond_to?(:patente_considerada) ? g.patente_considerada : g.CertActivoNro }.uniq,
+          monto:        grupo.first.monto_checklist.to_f * grupo.size
         }
       end
 
@@ -247,17 +237,14 @@ class RecordsController < ApplicationController
 
       puts "\nEmpresa: #{nombre} (Rut: #{rut})"
       puts "  Patentes: #{patentes.join(', ')}"
-      puts "  Inspecciones: #{inspecciones}  |  Reinspecciones: #{reinspecciones}  |  Total: #{filas.size}"
-      puts "  Monto Total: #{monto_total.round(2)}"
+      puts "  Inspecciones: #{inspecciones} | Reinspecciones: #{reinspecciones} | Total: #{registros.size}"
+      puts "  Monto total: #{monto_total.round(2)}"
       puts "  -- DESGLOSE --"
       desgloses.each do |d|
-        puts "    AT: #{d[:atrab_id]} | Plantilla: #{d[:plantilla_id]} | Patentes: #{d[:patentes].join(', ')} | Monto: #{d[:monto].round(2)}"
+        puts "    AT: #{d[:atrab_id]} | Plantilla: #{d[:plantilla_id]} | TipoAct: #{d[:tipo_act_id]} | " \
+               "Patentes: #{d[:patentes].join(', ')} | Monto: #{d[:monto].round(2)}"
       end
     end
-
-
-
-
 
 
 
