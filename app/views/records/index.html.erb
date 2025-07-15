@@ -1,66 +1,79 @@
 <%# app/views/records/index.html.erb %>
-<% fmt  = ->v { number_with_delimiter(v, delimiter: ".", separator: ",") } %>
+
+<%# ------------------------------------------------------------------- %>
+<%#  Helpers de formato (UF / CLP)                                       %>
+<%# ------------------------------------------------------------------- %>
+<% fmt       = ->v { number_with_delimiter(v, delimiter: ".", separator: ",") } %>
+<% fmt_clp   = ->v { number_with_delimiter(v.to_i, delimiter: ".", separator: ",") } %>
+<% to_pesos  = ->uf { (uf.to_d * @uf).round } %>
+<% uf_clp    = ->uf { "#{fmt[uf]} UF (#{fmt_clp[to_pesos[uf]]} CLP)" } %>
+
+<%# ------------------------------------------------------------------- %>
+<%#  Tabla de módulos (sólo referencia a las colecciones)                %>
+<%# ------------------------------------------------------------------- %>
 <% mods = {
   "Transporte Vertical"        => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
   "Evaluación de Competencias" => [@evaluacion_total_uf, @evaluacion_daily_uf, @evaluation_day_company],
-  "Movilidad"                  => [@movilidad_total_uf, @movilidad_daily_uf,@movilidad_day_company]
+  "Movilidad"                  => [@movilidad_total_uf,  @movilidad_daily_uf,  @movilidad_day_company]
 } %>
 
+<%# ------------------------------------------------------------------- %>
+<%#  Formulario de filtrado                                              %>
+<%# ------------------------------------------------------------------- %>
 <%= form_with url: records_path, method: :get, local: true,
               class: "mb-6 max-w-4xl mx-auto" do |f| %>
   <div class="flex flex-wrap gap-4 items-end">
-
     <div>
       <%= f.label :year, "Año",
                   class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
-      <%= f.select :year,
-                   (2025..Date.current.year).to_a,
-                   { selected: @year },
-                   class: "border border-gray-300 dark:border-slate-600
-                           rounded-md px-2 py-1
-                           bg-white dark:bg-slate-800
-                           text-gray-800 dark:text-gray-200
-                           shadow-sm focus:ring-2 focus:ring-blue-500
-                           focus:border-blue-500" %>
+      <%= f.select :year, (2025..Date.current.year).to_a, { selected: @year },
+                   class: "border border-gray-300 dark:border-slate-600 rounded-md px-2 py-1
+                           bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200
+                           shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %>
     </div>
 
     <% meses_es = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
     <div>
       <%= f.label :month, "Mes",
                   class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
-      <%= f.select :month,
-                   meses_es.each_index.map { |i| [meses_es[i], i + 1] },
+      <%= f.select :month, meses_es.each_index.map { |i| [meses_es[i], i + 1] },
                    { selected: @month },
-                   class: "border border-gray-300 dark:border-slate-600
-                           rounded-md px-2 py-1
-                           bg-white dark:bg-slate-800
-                           text-gray-800 dark:text-gray-200
-                           shadow-sm focus:ring-2 focus:ring-blue-500
-                           focus:border-blue-500" %>
+                   class: "border border-gray-300 dark:border-slate-600 rounded-md px-2 py-1
+                           bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200
+                           shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" %>
     </div>
 
     <%= f.submit "Filtrar",
-                 class: "bg-blue-600 hover:bg-blue-700
-                         text-white px-5 py-2 rounded-md transition-colors" %>
+                 class: "bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md transition-colors" %>
   </div>
 <% end %>
 
+<%# ------------------------------------------------------------------- %>
+<%#  Etiqueta UF                                                          %>
+<%# ------------------------------------------------------------------- %>
+<% exact_rec = Iva.find_by(year: @year, month: @month) rescue nil %>
+<p class="text-center text-sm text-gray-600 dark:text-gray-400 mb-4">
+  1&nbsp;UF&nbsp;=&nbsp;<%= fmt_clp[@uf_value] %>&nbsp;CLP
+  <% unless exact_rec %>
+    (valor&nbsp;aproximado)
+  <% end %>
+</p>
+
+<%# ------------------------------------------------------------------- %>
+<%#  Bloque principal                                                     %>
+<%# ------------------------------------------------------------------- %>
 <ul data-controller="cube"
-    class="space-y-4 max-w-4xl mx-auto
-           text-gray-900 dark:text-gray-100">
+    class="space-y-4 max-w-4xl mx-auto text-gray-900 dark:text-gray-100">
 
   <li data-action="click->cube#toggle"
-      class="cursor-pointer
-             bg-white  hover:bg-gray-50
-             dark:bg-slate-900 dark:hover:bg-slate-800
-             border border-gray-200 dark:border-slate-700
-             shadow-sm rounded-lg p-6 transition-colors">
+      class="cursor-pointer bg-white hover:bg-gray-50 dark:bg-slate-900 dark:hover:bg-slate-800
+             border border-gray-200 dark:border-slate-700 shadow-sm rounded-lg p-6 transition-colors">
 
     <% meses_es = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
     <span class="font-semibold text-3xl sm:text-4xl">
       Total mes de <%= meses_es[@month - 1] %> del <%= @year %>
     </span>
-    <span class="float-right text-3xl sm:text-4xl"><%= fmt[@sum_month] %> UF</span>
+    <span class="float-right text-3xl sm:text-4xl"><%= uf_clp[@sum_month] %></span>
 
     <!-- Desglose por módulo -->
     <ul class="hidden mt-4 space-y-2">
@@ -72,7 +85,7 @@
                                             'bg-gray-50  hover:bg-gray-100  dark:bg-slate-700 dark:hover:bg-slate-600' %>">
 
           <span><%= mod %></span>
-          <span class="float-right"><%= fmt[tot] %></span>
+          <span class="float-right"><%= uf_clp[tot] %></span>
 
           <!-- Desglose diario por módulo -->
           <ul class="hidden mt-2 space-y-1">
@@ -85,7 +98,7 @@
                                                         'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
 
                 Día <%= d %>
-                <span class="float-right"><%= fmt[daily[d]] %></span>
+                <span class="float-right"><%= uf_clp[daily[d]] %></span>
 
                 <% companies = day_comp.transform_values { |h| h[d] }.reject { |_,v| v.zero? } %>
                 <% unless companies.empty? %>
@@ -96,7 +109,7 @@
                                                                         'bg-gray-50 dark:bg-slate-700' :
                                                                         'bg-gray-100 dark:bg-slate-800' %>">
                         <%= emp %>
-                        <span class="float-right"><%= fmt[val] %></span>
+                        <span class="float-right"><%= uf_clp[val] %></span>
                       </li>
                     <% end %>
                   </ul>
@@ -109,11 +122,8 @@
 
       <!-- Desglose por cliente -->
       <li data-action="click->cube#toggle"
-          class="cursor-pointer
-                 bg-white hover:bg-gray-50
-                 dark:bg-slate-900 dark:hover:bg-slate-800
-                 border border-gray-200 dark:border-slate-700
-                 rounded-md px-4 py-2 transition-colors">
+          class="cursor-pointer bg-white hover:bg-gray-50 dark:bg-slate-900 dark:hover:bg-slate-800
+                 border border-gray-200 dark:border-slate-700 rounded-md px-4 py-2 transition-colors">
         <span>Clientes</span>
         <span class="float-right">▼</span>
 
@@ -125,7 +135,7 @@
                                                     'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' :
                                                     'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
               <%= emp %>
-              <span class="float-right"><%= fmt[val] %></span>
+              <span class="float-right"><%= uf_clp[val] %></span>
 
               <% days = @day_company[emp] %>
               <% unless days.empty? %>
@@ -137,7 +147,7 @@
                                                                     'bg-gray-50 dark:bg-slate-700' :
                                                                     'bg-gray-100 dark:bg-slate-800' %>">
                       Día <%= d %>
-                      <span class="float-right"><%= fmt[days[d]] %></span>
+                      <span class="float-right"><%= uf_clp[days[d]] %></span>
                     </li>
                   <% end %>
                 </ul>
@@ -159,33 +169,29 @@
     <ul data-controller="cube" class="space-y-2">
       <% (1..@days_in_month).each do |d| %>
         <% next if @sum_daily_uf[d].zero? %>
-
         <li data-action="click->cube#toggle"
             class="cursor-pointer px-4 py-2 rounded-md transition-colors border
                    <%= d.odd? ?
                                             'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' :
                                             'bg-gray-50  hover:bg-gray-100  dark:bg-slate-700 dark:hover:bg-slate-600' %>">
           Día <%= d %>
-          <span class="float-right"><%= fmt[@sum_daily_uf[d]] %> UF</span>
+          <span class="float-right"><%= uf_clp[@sum_daily_uf[d]] %></span>
 
           <ul class="hidden mt-1 space-y-1">
-            <li class="px-3 py-1 rounded-md
-                       bg-white dark:bg-slate-900
+            <li class="px-3 py-1 rounded-md bg-white dark:bg-slate-900
                        border border-gray-200 dark:border-slate-700">
               Transporte Vertical
-              <span class="float-right"><%= fmt[@vertical_daily_uf[d]] %></span>
+              <span class="float-right"><%= uf_clp[@vertical_daily_uf[d]] %></span>
             </li>
-            <li class="px-3 py-1 rounded-md
-                       bg-white dark:bg-slate-900
+            <li class="px-3 py-1 rounded-md bg-white dark:bg-slate-900
                        border border-gray-200 dark:border-slate-700">
               Evaluación de Competencias
-              <span class="float-right"><%= fmt[@evaluacion_daily_uf[d]] %></span>
+              <span class="float-right"><%= uf_clp[@evaluacion_daily_uf[d]] %></span>
             </li>
-            <li class="px-3 py-1 rounded-md
-                       bg-white dark:bg-slate-900
+            <li class="px-3 py-1 rounded-md bg-white dark:bg-slate-900
                        border border-gray-200 dark:border-slate-700">
               Movilidad
-              <span class="float-right"><%= fmt[@movilidad_daily_uf[d]] %></span>
+              <span class="float-right"><%= uf_clp[@movilidad_daily_uf[d]] %></span>
             </li>
           </ul>
         </li>
