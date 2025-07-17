@@ -54,10 +54,187 @@ class RecordsController < ApplicationController
       @current_oxy = nil
     end
 
-    @movilidades = parse_movilidad(MOVILIDAD_MOCK).select do |m|
-      d = Date.parse(m.fecha_inspeccion)
-      d.year == @year && d.month == @month
+
+
+
+
+
+
+
+    require "set"
+
+    # después de calcular @year y @month …
+    iva_row = Iva.find_by(year: @year, month: @month)
+
+    unless iva_row
+      d = Date.new(@year, @month, 1) << 1
+      iva_row = Iva.where("DATE(CONCAT(year,'-',month,'-01')) <= ?", d)
+                   .order(year: :desc, month: :desc).first
     end
+
+    iva_row ||= Iva.order(year: :desc, month: :desc).first
+
+    @uf = BigDecimal(iva_row.valor.to_s)
+
+
+    fecha_ini = Date.new(@year, @month, 1)
+    fecha_fin = Date.civil(@year, @month, -1)
+
+    checklists = SecondaryModels::CertChkLstExternal
+                   .joins("JOIN CertActivo ON CertActivo.CertActivoId = CertChkLst.CertActivoId")
+                   .joins("JOIN CerMan      ON CerMan.CerManRut      = CertActivo.CerManRut")
+                   .joins(<<~SQL)
+  LEFT JOIN Valor
+         ON Valor.CerManRut            = CertActivo.CerManRut
+        AND Valor.CertActivoATrabId    = CertActivo.CertActivoATrabId
+        AND Valor.CertClasePlantillaId = CertActivo.CertClasePlantillaId
+        AND (
+             (CertChkLst.CertChkLstReIns = 1                        AND Valor.ValorTipoInspec = 2) OR
+             (IFNULL(CertChkLst.CertChkLstReIns,0) = 0             AND Valor.ValorTipoInspec = 1)
+            )
+SQL
+                   .where("CertChkLst.CertChkLstFchFac BETWEEN ? AND ?", fecha_ini, fecha_fin)
+                   .select(
+                     "CertChkLst.CertChkLstId",
+                     "CertChkLst.CertChkLstReIns",
+                     "CertChkLst.CertChkLstFchFac",
+                     "CertActivo.CertActivoId",
+                     "CertActivo.CertActivoNro",
+                     "CertActivo.CertActivoNombre",
+                     "CertActivo.ActivoPadre",
+                     "CertActivo.CertClasePlantillaId",
+                     "CertActivo.CertActivoATrabId",
+                     "CertActivo.CertTipoActId",
+                     "CerMan.CerManRut",
+                     "CerMan.CerManNombre",
+                     "COALESCE(SUM(CASE
+                      WHEN Valor.ValorMoneda = 1 THEN Valor.ValorValor * #{@uf}
+                      WHEN Valor.ValorMoneda = 2 THEN Valor.ValorValor
+                      ELSE 0 END),0) AS monto_checklist"
+                   )
+                   .group(
+                     "CertChkLst.CertChkLstId, CertChkLst.CertChkLstReIns,
+      CertActivo.CertActivoId, CertActivo.CertActivoNro, CertActivo.CertActivoNombre,
+      CertActivo.ActivoPadre, CertActivo.CertClasePlantillaId,
+      CertActivo.CertActivoATrabId, CertActivo.CertTipoActId,
+      CerMan.CerManRut, CerMan.CerManNombre"
+                   )
+
+    parent_ids   = checklists.map(&:ActivoPadre).map(&:to_i).reject(&:zero?).uniq
+    parent_info  = {}
+
+    unless parent_ids.empty?
+      SecondaryModels::CertActivoExternal
+        .where(CertActivoId: parent_ids)
+        .pluck(:CertActivoId, :CertActivoNro, :CertActivoNombre,
+               :CertActivoATrabId, :CertClasePlantillaId, :CertTipoActId)
+        .each do |id, nro, nombre, atrab, plantilla, tipo|
+        parent_info[id] = {
+          patente:   [nro, nombre].map { _1.to_s.strip }.reject(&:blank?).first || id.to_s,
+          atrab:     atrab,
+          plantilla: plantilla,
+          tipo_act:  tipo
+        }
+      end
+    end
+
+    parents_con_chk = checklists
+                        .select { |r| r.ActivoPadre.to_i == r.CertActivoId }
+                        .map    { |r| [r.CertActivoId, r.CertChkLstFchFac.to_date] }
+                        .to_set
+
+    per_padre_rows = {}
+
+    checklists.each do |row|
+      pid = row.ActivoPadre.to_i
+      next if pid.zero?
+
+      fch = row.CertChkLstFchFac.to_date
+      key = [pid, fch]
+
+      if row.CertActivoId == pid
+        per_padre_rows[key] = row
+      else
+        per_padre_rows[key] ||= row
+      end
+    end
+
+    per_padre_rows.each do |(pid, fch), row|
+      next if row.CertActivoId == pid
+      next unless parents_con_chk.include?([pid, fch])
+
+      if (info = parent_info[pid])
+        row.CertClasePlantillaId = info[:plantilla]
+        row.CertActivoATrabId    = info[:atrab]
+        row.CertTipoActId        = info[:tipo_act]
+        row.define_singleton_method(:patente_considerada) { info[:patente] }
+      end
+    end
+
+    rows_ok = per_padre_rows.values
+
+    rows_ok.group_by { |r| [r.CerManRut, r.CerManNombre] }.each do |(rut, nombre), registros|
+      inspecciones   = registros.count { |r| r.CertChkLstReIns == false || r.CertChkLstReIns.nil? }
+      reinspecciones = registros.count { |r| r.CertChkLstReIns == true }
+
+      patentes = registros.map { |r|
+        r.respond_to?(:patente_considerada) ? r.patente_considerada : r.CertActivoNro
+      }.uniq
+
+      desgloses = registros
+                    .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId, r.CertTipoActId] }
+                    .map do |(atrab, plantilla, tipo_act), grupo|
+        {
+          atrab_id:     atrab,
+          plantilla_id: plantilla,
+          tipo_act_id:  tipo_act,
+          patentes:     grupo.map { |g|
+            g.respond_to?(:patente_considerada) ? g.patente_considerada : g.CertActivoNro
+          }.uniq,
+          monto:        grupo.first.monto_checklist.to_f * grupo.size
+        }
+      end
+
+      monto_total = desgloses.sum { |d| d[:monto] }
+
+      puts "\nEmpresa: #{nombre} (Rut: #{rut})"
+      puts "  Patentes: #{patentes.join(', ')}"
+      puts "  Inspecciones: #{inspecciones} | Reinspecciones: #{reinspecciones} | Total: #{registros.size}"
+      puts "  Monto total: #{monto_total.round(2)}"
+      puts "  -- DESGLOSE --"
+      desgloses.each do |d|
+        puts "    AT: #{d[:atrab_id]} | Plantilla: #{d[:plantilla_id]} | TipoAct: #{d[:tipo_act_id]} | " \
+               "Patentes: #{d[:patentes].join(', ')} | Monto: #{d[:monto].round(2)}"
+      end
+    end
+
+
+    @movilidad_day_company      = Hash.new { |h, k| h[k] = Hash.new(BigDecimal("0")) }
+    @movilidad_month_by_empresa = Hash.new(BigDecimal("0"))
+
+    rows_ok
+      .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac.to_date] }
+      .each do |(_rut, empresa, fecha), filas_dia|
+
+      monto_pesos = filas_dia
+                      .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId, r.CertTipoActId] }
+                      .sum { |_k, g| g.first.monto_checklist.to_d * g.size }
+
+      monto_uf = (monto_pesos / @uf).truncate(4)
+      day      = fecha.day
+
+      @movilidad_day_company[empresa][day] += monto_uf
+      @movilidad_month_by_empresa[empresa] += monto_uf
+    end
+
+    @movilidad_daily_uf = Hash.new(BigDecimal("0")).tap do |h|
+      @movilidad_day_company.each_value do |per_day|
+        per_day.each { |d, val| h[d] += val }
+      end
+    end
+
+    @movilidad_total_uf = @movilidad_month_by_empresa.values.sum
+
 
 
 
@@ -83,21 +260,18 @@ class RecordsController < ApplicationController
     @oxy_total_uf             = to_decimal(@current_oxy&.total_uf)
     @evaluacion_vanilla_total = sum_precios(@evaluacions)
     @evaluacion_total_uf      = @evaluacion_vanilla_total + @oxy_total_uf
-    @movilidad_total_uf       = sum_precios(@movilidades)
     @sum_month                = @vertical_total_uf + @evaluacion_total_uf + @movilidad_total_uf
 
     @vertical_daily_uf        = daily_sums(@facturacions, :fecha_inspeccion)
     @evaluacion_vanilla_daily = daily_sums(@evaluacions,   :fecha_inspeccion)
     @oxy_daily_uf             = oxy_daily_sums(@current_oxy)
     @evaluacion_daily_uf      = merge_daily(@evaluacion_vanilla_daily, @oxy_daily_uf)
-    @movilidad_daily_uf       = daily_sums(@movilidades,  :fecha_inspeccion)
     @sum_daily_uf             = merge_daily(
       merge_daily(@vertical_daily_uf, @evaluacion_daily_uf),
       @movilidad_daily_uf
     )
     @vertical_month_by_empresa   = month_sums_by_company(@facturacions)
     @evaluacion_month_by_empresa = month_sums_by_company(@evaluacions)
-    @movilidad_month_by_empresa  = month_sums_by_company(@movilidades)
 
     @oxy_month_by_empresa        = { "Oxy" => @oxy_total_uf }
 
@@ -108,145 +282,12 @@ class RecordsController < ApplicationController
 
     @vertical_day_company   = daily_company(@facturacions, :fecha_inspeccion)
     @eval_vanilla_day_comp  = daily_company(@evaluacions,  :fecha_inspeccion)
-    @movilidad_day_company = daily_company(@movilidades,  :fecha_inspeccion)
     @oxy_day_company        = build_oxy_day_company(@current_oxy)
 
     @evaluation_day_company = merge_nested(@eval_vanilla_day_comp, @oxy_day_company)
     @day_company            = merge_nested(@vertical_day_company,
                                            @evaluation_day_company,
                                            @movilidad_day_company)
-
-    require "set"
-
-    uf          = 39_179.01
-    fecha_fac   = Date.new(2025, 7, 4)
-
-
-    checklists = SecondaryModels::CertChkLstExternal
-                   .joins("JOIN CertActivo ON CertActivo.CertActivoId = CertChkLst.CertActivoId")
-                   .joins("JOIN CerMan      ON CerMan.CerManRut      = CertActivo.CerManRut")
-                   .joins(<<~SQL)
-     LEFT JOIN Valor
-            ON Valor.CerManRut            = CertActivo.CerManRut
-           AND Valor.CertActivoATrabId    = CertActivo.CertActivoATrabId
-           AND Valor.CertClasePlantillaId = CertActivo.CertClasePlantillaId
-           AND (
-                (CertChkLst.CertChkLstReIns = 1                           AND Valor.ValorTipoInspec = 2) OR
-                (IFNULL(CertChkLst.CertChkLstReIns,0) = 0                AND Valor.ValorTipoInspec = 1)
-               )
-SQL
-                   .where("CertChkLst.CertChkLstFchFac = ?", fecha_fac)
-                   .select(
-                     "CertChkLst.CertChkLstId",
-                     "CertChkLst.CertChkLstReIns",
-                     "CertActivo.CertActivoId",
-                     "CertActivo.CertActivoNro",
-                     "CertActivo.CertActivoNombre",
-                     "CertActivo.ActivoPadre",
-                     "CertActivo.CertClasePlantillaId",
-                     "CertActivo.CertActivoATrabId",
-                     "CertActivo.CertTipoActId",
-                     "CerMan.CerManRut",
-                     "CerMan.CerManNombre",
-                     "COALESCE(SUM(CASE
-          WHEN Valor.ValorMoneda = 1 THEN Valor.ValorValor * #{uf}
-          WHEN Valor.ValorMoneda = 2 THEN Valor.ValorValor
-          ELSE 0 END),0) AS monto_checklist"
-                   )
-                   .group(
-                     "CertChkLst.CertChkLstId, CertChkLst.CertChkLstReIns,
-     CertActivo.CertActivoId, CertActivo.CertActivoNro, CertActivo.CertActivoNombre,
-     CertActivo.ActivoPadre, CertActivo.CertClasePlantillaId,
-     CertActivo.CertActivoATrabId, CertActivo.CertTipoActId,
-     CerMan.CerManRut, CerMan.CerManNombre"
-                   )
-
-
-    parent_ids = checklists.map(&:ActivoPadre).map(&:to_i).reject(&:zero?).uniq
-
-    parent_info = {}
-    unless parent_ids.empty?
-      SecondaryModels::CertActivoExternal
-        .where(CertActivoId: parent_ids)
-        .pluck(:CertActivoId, :CertActivoNro, :CertActivoNombre,
-               :CertActivoATrabId, :CertClasePlantillaId, :CertTipoActId)
-        .each do |id, nro, nombre, atrab, plantilla, tipo|
-        parent_info[id] = {
-          patente:   [nro, nombre].map { _1.to_s.strip }.reject(&:blank?).first || id.to_s,
-          atrab:     atrab,
-          plantilla: plantilla,
-          tipo_act:  tipo
-        }
-      end
-    end
-
-    padres_con_chk = checklists
-                       .select { |r| r.ActivoPadre.to_i == r.CertActivoId }
-                       .map(&:CertActivoId)
-                       .uniq
-
-    per_padre_rows = {}
-
-    checklists.each do |row|
-      pid = row.ActivoPadre.to_i
-      next if pid.zero?
-
-      if row.CertActivoId == pid
-        per_padre_rows[pid] = row
-      else
-        per_padre_rows[pid] ||= row
-      end
-    end
-
-    per_padre_rows.each do |pid, row|
-      next if row.CertActivoId == pid
-      next unless padres_con_chk.include?(pid)
-
-      if (info = parent_info[pid])
-        row.CertClasePlantillaId = info[:plantilla]
-        row.CertActivoATrabId    = info[:atrab]
-        row.CertTipoActId        = info[:tipo_act]
-        row.define_singleton_method(:patente_considerada) { info[:patente] }
-      end
-    end
-
-    rows_ok = per_padre_rows.values
-
-    rows_ok.group_by { |r| [r.CerManRut, r.CerManNombre] }.each do |(rut, nombre), registros|
-
-      inspecciones   = registros.count { |r| r.CertChkLstReIns == false || r.CertChkLstReIns.nil? }
-      reinspecciones = registros.count { |r| r.CertChkLstReIns == true }
-
-      patentes = registros.map { |r|
-        r.respond_to?(:patente_considerada) ? r.patente_considerada : r.CertActivoNro
-      }.uniq
-
-      desgloses = registros
-                    .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId, r.CertTipoActId] }
-                    .map do |(atrab, plantilla, tipo_act), grupo|
-        {
-          atrab_id:     atrab,
-          plantilla_id: plantilla,
-          tipo_act_id:  tipo_act,
-          patentes:     grupo.map { |g| g.respond_to?(:patente_considerada) ? g.patente_considerada : g.CertActivoNro }.uniq,
-          monto:        grupo.first.monto_checklist.to_f * grupo.size
-        }
-      end
-
-      monto_total = desgloses.sum { |d| d[:monto] }
-
-      puts "\nEmpresa: #{nombre} (Rut: #{rut})"
-      puts "  Patentes: #{patentes.join(', ')}"
-      puts "  Inspecciones: #{inspecciones} | Reinspecciones: #{reinspecciones} | Total: #{registros.size}"
-      puts "  Monto total: #{monto_total.round(2)}"
-      puts "  -- DESGLOSE --"
-      desgloses.each do |d|
-        puts "    AT: #{d[:atrab_id]} | Plantilla: #{d[:plantilla_id]} | TipoAct: #{d[:tipo_act_id]} | " \
-               "Patentes: #{d[:patentes].join(', ')} | Monto: #{d[:monto].round(2)}"
-      end
-    end
-
-
 
 
 
@@ -327,10 +368,10 @@ SQL
     end
   end
 
-    MOVILIDAD_MOCK = [
-      { "empresa" => "Arauco",   "fecha_inspeccion" => "2025-06-01", "precio" => "6.25"  },
+  MOVILIDAD_MOCK = [
+    { "empresa" => "Arauco",   "fecha_inspeccion" => "2025-06-01", "precio" => "6.25"  },
 
-    ].freeze
+  ].freeze
 
 
   def parse_movilidad(arr)
