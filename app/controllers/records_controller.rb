@@ -93,6 +93,8 @@ SQL
                      "CertActivo.CertTipoActId",
                      "CerMan.CerManRut",
                      "CerMan.CerManNombre",
+                     "CerMan.CerManRutN",
+                     "CerMan.CerManRazonSocial",
                      "COALESCE(SUM(CASE
    WHEN Valor.ValorMoneda = 1
         THEN Valor.ValorValor * #{@uf}
@@ -106,7 +108,7 @@ SQL
                    .group(
                      "CertChkLst.CertChkLstId, CertActivo.CertActivoId, CertActivo.ActivoPadre,
  CertActivo.CertClasePlantillaId, CertActivo.CertActivoATrabId,
- CertActivo.CertTipoActId, CerMan.CerManRut, CertChkLst.CertChkLstIndividual"
+ CertActivo.CertTipoActId, CerMan.CerManRut,  CerMan.CerManRutN, CerMan.CerManRazonSocial, CertChkLst.CertChkLstIndividual"
                    )
 
 
@@ -230,40 +232,56 @@ SQL
 
     flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
 
-    @movilidad_day_company      = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
-    @movilidad_month_by_empresa = Hash.new(BigDecimal("0"))
+
+    @empresa_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
+    @empresa_month   = Hash.new(BigDecimal('0'))
+    @emp_to_mandante = {}
 
     rows_ok
       .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
       .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac.to_date] }
-      .each do |(rut, empresa, fecha), filas_dia|
+      .each do |(_rut, empresa, fecha), filas_dia|
 
-      monto_pesos =
-        filas_dia
-          .group_by { |r| [r.CertActivoATrabId,
-                           r.CertClasePlantillaId,
-                           r.CertTipoActId] }
-          .sum do |_k, g|
-          if g.all? { |row| row.monto_checklist.to_d == g.first.monto_checklist.to_d }
-            g.first.monto_checklist.to_d * g.size
-          else
-            g.sum { |row| row.monto_checklist.to_d }
-          end
-        end
-      monto_pesos = filas_dia.sum { |row| row.monto_checklist.to_d } if rut == 91_440_000
+      monto_pesos = if _rut == 91_440_000
+                      filas_dia.sum { |r| r.monto_checklist.to_d }
+                    else
+                      filas_dia
+                        .group_by { |r| [r.CertActivoATrabId,
+                                         r.CertClasePlantillaId,
+                                         r.CertTipoActId] }
+                        .sum { |_k,g| g.all? { |x| x.monto_checklist.to_d == g.first.monto_checklist.to_d } ?
+                                        g.first.monto_checklist.to_d * g.size :
+                                        g.sum { |x| x.monto_checklist.to_d } }
+                    end
 
       monto_uf = (monto_pesos / @uf).truncate(4)
-      day      = fecha.day
+      @empresa_day[empresa][fecha.day] += monto_uf
+      @empresa_month[empresa]          += monto_uf
 
-      @movilidad_day_company[empresa][day] += monto_uf
-      @movilidad_month_by_empresa[empresa] += monto_uf
+      ref          = filas_dia.first
+      mand_rut     = ref.CerManRutN.to_s
+      mand_nom     = ref.CerManRazonSocial.to_s.strip.presence || mand_rut
+      @emp_to_mandante[empresa] = [mand_rut, mand_nom]
     end
 
-    @movilidad_daily_uf = Hash.new(BigDecimal("0")).tap do |h|
-      @movilidad_day_company.each_value { |per_day| per_day.each { |d,val| h[d] += val } }
-    end
-    @movilidad_total_uf = @movilidad_month_by_empresa.values.sum
+    @mandante_names  = {}
+    mandante_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
+    mandante_month   = Hash.new(BigDecimal('0'))
 
+    @empresa_day.each do |empresa, per_day|
+      mand_rut, mand_nom = @emp_to_mandante[empresa]
+      @mandante_names[mand_rut] ||= mand_nom
+      per_day.each { |d,val| mandante_day[mand_rut][d] += val }
+      mandante_month[mand_rut]  += @empresa_month[empresa]
+    end
+
+    @movilidad_day_company      = mandante_day
+    @movilidad_month_by_empresa = mandante_month
+    @movilidad_daily_uf         = mandante_day.values
+                                              .each_with_object(Hash.new(BigDecimal('0'))) { |per_day,h|
+                                                per_day.each { |d,val| h[d] += val }
+                                              }
+    @movilidad_total_uf         = mandante_month.values.sum
     @facturacions.select! do |f|
       date = (f.fecha_inspeccion && Date.parse(f.fecha_inspeccion) rescue nil)
       date && date.year == @year && date.month == @month

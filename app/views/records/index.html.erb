@@ -3,7 +3,9 @@
 <% fmt_clp   = ->v { number_with_delimiter(v.to_i, delimiter: ".", separator: ",") } %>
 <% to_pesos  = ->uf { (uf.to_d * @uf).round } %>
 <% uf_clp    = ->uf { "#{fmt[uf]} UF (#{fmt_clp[to_pesos[uf]]} CLP)" } %>
-
+<% show_name = ->key do
+  @mandante_names&.[](key) || key
+end %>
 
 <% mods = {
   "Transporte Vertical"        => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
@@ -41,8 +43,8 @@
 <% end %>
 
 <% exact_rec = Iva.find_by(year: @year, month: @month) rescue nil %>
-<p class="text-center text-sm text-gray-600 dark:text-gray-400 mb-4">
-  1&nbsp;UF&nbsp;=&nbsp;<%= fmt_clp[@uf] %>&nbsp;CLP
+<p class="text-center text-lg text-black dark:text-black mb-4">
+  1&nbsp;UF&nbsp;=&nbsp;<%= fmt_clp[@uf] %> CLP
   <% unless exact_rec %>
     (valor&nbsp;aproximado)
   <% end %>
@@ -79,30 +81,70 @@
               <% next if daily[d].zero? %>
               <li data-action="click->cube#toggle"
                   class="cursor-pointer px-3 py-1 rounded-md transition-colors border
-                         <%= d.odd? ?
-                                                        'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' :
-                                                        'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
+               <%= d.odd? ?
+                                              'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' :
+                                              'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
 
                 Día <%= d %>
                 <span class="float-right"><%= uf_clp[daily[d]] %></span>
 
-                <% companies = day_comp.transform_values { |h| h[d] }.reject { |_,v| v.zero? } %>
-                <% unless companies.empty? %>
-                  <ul class="hidden mt-1 space-y-1">
-                    <% companies.each_with_index do |(emp,val),i| %>
-                      <li class="px-3 py-1 rounded-md transition-colors border
-                                 <%= i.even? ?
-                                                                        'bg-gray-50 dark:bg-slate-700' :
-                                                                        'bg-gray-100 dark:bg-slate-800' %>">
-                        <%= emp %>
-                        <span class="float-right"><%= uf_clp[val] %></span>
-                      </li>
-                    <% end %>
-                  </ul>
+                <% # -------- DESGLOSE SEGÚN MÓDULO ---------- %>
+                <% entities = day_comp.transform_values { |h| h[d] }.reject { |_,v| v.zero? } %>
+
+                <% if mod == "Movilidad" %>
+                  <!-- 1º nivel = Mandante (clave = rut) -->
+                  <% unless entities.empty? %>
+                    <ul class="hidden mt-1 space-y-1">
+                      <% entities.each_with_index do |(mand_rut,val),i| %>
+                        <% mand_name = @mandante_names[mand_rut] || mand_rut %>
+                        <li data-action="click->cube#toggle"
+                            class="cursor-pointer px-3 py-1 rounded-md transition-colors border
+                   <%= i.even? ?
+                                                            'bg-gray-50 dark:bg-slate-700' :
+                                                            'bg-gray-100 dark:bg-slate-800' %>">
+                          <%= mand_name %>
+                          <span class="float-right"><%= uf_clp[val] %></span>
+
+                          <!-- 2º nivel = Empresas de ese mandante -->
+                          <% emps = @empresa_day
+                            .select { |emp,_| @emp_to_mandante[emp]&.first == mand_rut }
+                            .transform_values { |h| h[d] }
+                            .reject { |_,v| v.zero? } %>
+
+                          <% unless emps.empty? %>
+                            <ul class="hidden mt-1 space-y-1">
+                              <% emps.each_with_index do |(emp,val_e),j| %>
+                                <li class="px-3 py-1 rounded-md border
+                           <%= j.even? ?
+                                                                            'bg-gray-50 dark:bg-slate-700' :
+                                                                            'bg-gray-100 dark:bg-slate-800' %>">
+                                  <%= emp %>
+                                  <span class="float-right"><%= uf_clp[val_e] %></span>
+                                </li>
+                              <% end %>
+                            </ul>
+                          <% end %>
+                        </li>
+                      <% end %>
+                    </ul>
+                  <% end %>
+
+                <% else %> <!-- módulos no‑Movilidad: comportamiento anterior -->
+                  <% unless entities.empty? %>
+                    <ul class="hidden mt-1 space-y-1">
+                      <% entities.each_with_index do |(emp,val),i| %>
+                        <li …>
+                          <%= show_name[emp] %>   <!-- ← mismo helper -->
+                          <span class="float-right"><%= uf_clp[val] %></span>
+                        </li>
+                      <% end %>
+                    </ul>
+                  <% end %>
                 <% end %>
               </li>
             <% end %>
           </ul>
+
         </li>
       <% end %>
 
@@ -112,14 +154,11 @@
         <span>Clientes</span>
         <span class="float-right">▼</span>
 
+        <!-- LISTA DE CLIENTES (total mes) -->
         <ul class="hidden mt-2 space-y-1">
           <% @month_by_empresa.each_with_index do |(emp, val), i| %>
-            <li data-action="click->cube#toggle"
-                class="cursor-pointer px-3 py-1 rounded-md transition-colors border
-                       <%= i.even? ?
-                                                    'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' :
-                                                    'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
-              <%= emp %>
+            <li …>
+              <%= show_name[emp] %>   <!-- ← aquí -->
               <span class="float-right"><%= uf_clp[val] %></span>
 
               <% days = @day_company[emp] %>
@@ -127,10 +166,7 @@
                 <ul class="hidden mt-1 space-y-1">
                   <% days.keys.sort.each_with_index do |d,j| %>
                     <% next if days[d].zero? %>
-                    <li class="px-3 py-1 rounded-md border
-                               <%= j.even? ?
-                                                                    'bg-gray-50 dark:bg-slate-700' :
-                                                                    'bg-gray-100 dark:bg-slate-800' %>">
+                    <li …>
                       Día <%= d %>
                       <span class="float-right"><%= uf_clp[days[d]] %></span>
                     </li>
@@ -140,6 +176,7 @@
             </li>
           <% end %>
         </ul>
+
       </li>
     </ul>
 
