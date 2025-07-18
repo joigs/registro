@@ -100,8 +100,8 @@ SQL
         THEN Valor.ValorValor * #{@uf}
    WHEN Valor.ValorMoneda = 2
         THEN IF(CertChkLst.CertChkLstIndividual = 1,
-                Valor.ValorValorSolo / 1.19,
-                Valor.ValorValor      / 1.19)
+                Valor.ValorValorSolo ,
+                Valor.ValorValor      )
    ELSE 0
  END),0) AS monto_checklist"
                    )
