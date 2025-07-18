@@ -53,51 +53,37 @@ class RecordsController < ApplicationController
       @evaluacions = []
       @current_oxy = nil
     end
-
-
-
-
-
-
-
-
     require "set"
 
-    # después de calcular @year y @month …
-    iva_row = Iva.find_by(year: @year, month: @month)
-
-    unless iva_row
-      d = Date.new(@year, @month, 1) << 1
-      iva_row = Iva.where("DATE(CONCAT(year,'-',month,'-01')) <= ?", d)
-                   .order(year: :desc, month: :desc).first
-    end
-
-    iva_row ||= Iva.order(year: :desc, month: :desc).first
+    iva_row = Iva.find_by(year: @year, month: @month) ||
+      Iva.where("DATE(CONCAT(year,'-',month,'-01')) <= ?", Date.new(@year, @month, 1) << 1)
+         .order(year: :desc, month: :desc).first ||
+      Iva.order(year: :desc, month: :desc).first
 
     @uf = BigDecimal(iva_row.valor.to_s)
 
-
     fecha_ini = Date.new(@year, @month, 1)
     fecha_fin = Date.civil(@year, @month, -1)
+
+
 
     checklists = SecondaryModels::CertChkLstExternal
                    .joins("JOIN CertActivo ON CertActivo.CertActivoId = CertChkLst.CertActivoId")
                    .joins("JOIN CerMan      ON CerMan.CerManRut      = CertActivo.CerManRut")
                    .joins(<<~SQL)
-  LEFT JOIN Valor
-         ON Valor.CerManRut            = CertActivo.CerManRut
-        AND Valor.CertActivoATrabId    = CertActivo.CertActivoATrabId
-        AND Valor.CertClasePlantillaId = CertActivo.CertClasePlantillaId
-        AND (
-             (CertChkLst.CertChkLstReIns = 1                        AND Valor.ValorTipoInspec = 2) OR
-             (IFNULL(CertChkLst.CertChkLstReIns,0) = 0             AND Valor.ValorTipoInspec = 1)
-            )
+LEFT JOIN Valor
+       ON Valor.CerManRut            = CertActivo.CerManRut
+      AND Valor.CertActivoATrabId    = CertActivo.CertActivoATrabId
+      AND Valor.CertClasePlantillaId = CertActivo.CertClasePlantillaId
+      AND (
+           (CertChkLst.CertChkLstReIns = 1 AND Valor.ValorTipoInspec = 2) OR
+           (IFNULL(CertChkLst.CertChkLstReIns,0) = 0 AND Valor.ValorTipoInspec = 1)
+          )
 SQL
                    .where("CertChkLst.CertChkLstFchFac BETWEEN ? AND ?", fecha_ini, fecha_fin)
+                   .where("COALESCE(CertChkLst.CertChkLstSinCosto,0) = 0")
                    .select(
-                     "CertChkLst.CertChkLstId",
-                     "CertChkLst.CertChkLstReIns",
-                     "CertChkLst.CertChkLstFchFac",
+                     "CertChkLst.*",
                      "CertActivo.CertActivoId",
                      "CertActivo.CertActivoNro",
                      "CertActivo.CertActivoNombre",
@@ -108,21 +94,25 @@ SQL
                      "CerMan.CerManRut",
                      "CerMan.CerManNombre",
                      "COALESCE(SUM(CASE
-                      WHEN Valor.ValorMoneda = 1 THEN Valor.ValorValor * #{@uf}
-                      WHEN Valor.ValorMoneda = 2 THEN Valor.ValorValor
-                      ELSE 0 END),0) AS monto_checklist"
+   WHEN Valor.ValorMoneda = 1
+        THEN Valor.ValorValor * #{@uf}
+   WHEN Valor.ValorMoneda = 2
+        THEN IF(CertChkLst.CertChkLstIndividual = 1,
+                Valor.ValorValorSolo / 1.19,
+                Valor.ValorValor      / 1.19)
+   ELSE 0
+ END),0) AS monto_checklist"
                    )
                    .group(
-                     "CertChkLst.CertChkLstId, CertChkLst.CertChkLstReIns,
-      CertActivo.CertActivoId, CertActivo.CertActivoNro, CertActivo.CertActivoNombre,
-      CertActivo.ActivoPadre, CertActivo.CertClasePlantillaId,
-      CertActivo.CertActivoATrabId, CertActivo.CertTipoActId,
-      CerMan.CerManRut, CerMan.CerManNombre"
+                     "CertChkLst.CertChkLstId, CertActivo.CertActivoId, CertActivo.ActivoPadre,
+ CertActivo.CertClasePlantillaId, CertActivo.CertActivoATrabId,
+ CertActivo.CertTipoActId, CerMan.CerManRut, CertChkLst.CertChkLstIndividual"
                    )
 
-    parent_ids   = checklists.map(&:ActivoPadre).map(&:to_i).reject(&:zero?).uniq
-    parent_info  = {}
 
+
+    parent_ids = checklists.map(&:ActivoPadre).map(&:to_i).reject(&:zero?).uniq
+    parent_info = {}
     unless parent_ids.empty?
       SecondaryModels::CertActivoExternal
         .where(CertActivoId: parent_ids)
@@ -138,52 +128,76 @@ SQL
       end
     end
 
-    parents_con_chk = checklists
-                        .select { |r| r.ActivoPadre.to_i == r.CertActivoId }
-                        .map    { |r| [r.CertActivoId, r.CertChkLstFchFac.to_date] }
-                        .to_set
 
-    per_padre_rows = {}
+
+    parents_by_orig = Set.new
+    checklists.each do |row|
+      if row.CertActivoId.to_i == row.ActivoPadre.to_i && !row.ActivoPadre.to_i.zero?
+        parents_by_orig << [row.ActivoPadre.to_i, row.CertChkLstFch.to_date]
+      end
+    end
+
+
+
+    per_padre_rows      = {}
+    individual_children = []
 
     checklists.each do |row|
       pid = row.ActivoPadre.to_i
       next if pid.zero?
 
-      fch = row.CertChkLstFchFac.to_date
-      key = [pid, fch]
+      orig_day = row.CertChkLstFch.to_date
+      key      = [pid, orig_day]
 
-      if row.CertActivoId == pid
+      if row.CertActivoId.to_i == pid
         per_padre_rows[key] = row
       else
-        per_padre_rows[key] ||= row
+        if row.CertChkLstIndividual && parents_by_orig.include?(key)
+          individual_children << row
+        else
+          per_padre_rows[key] ||= row
+        end
       end
     end
 
-    per_padre_rows.each do |(pid, fch), row|
-      next if row.CertActivoId == pid
-      next unless parents_con_chk.include?([pid, fch])
 
-      if (info = parent_info[pid])
-        row.CertClasePlantillaId = info[:plantilla]
-        row.CertActivoATrabId    = info[:atrab]
-        row.CertTipoActId        = info[:tipo_act]
-        row.define_singleton_method(:patente_considerada) { info[:patente] }
-      end
+
+
+    per_padre_rows.each_value do |row|
+      next if row.CertChkLstIndividual == 1
+      info = parent_info[row.ActivoPadre.to_i]
+      next unless info
+
+      row.define_singleton_method(:patente_considerada) { info[:patente] }
+      row.CertActivoATrabId    = info[:atrab]
+      row.CertClasePlantillaId = info[:plantilla]
+      row.CertTipoActId        = info[:tipo_act]
     end
 
-    rows_ok = per_padre_rows.values
 
-    rows_ok.group_by { |r| [r.CerManRut, r.CerManNombre] }.each do |(rut, nombre), registros|
-      inspecciones   = registros.count { |r| r.CertChkLstReIns == false || r.CertChkLstReIns.nil? }
-      reinspecciones = registros.count { |r| r.CertChkLstReIns == true }
 
-      patentes = registros.map { |r|
-        r.respond_to?(:patente_considerada) ? r.patente_considerada : r.CertActivoNro
-      }.uniq
+    rows_ok = per_padre_rows.values + individual_children
+
+
+    rows_ok
+      .group_by { |r| [r.CerManRut, r.CerManNombre] }
+      .each do |(rut, nombre), registros|
 
       desgloses = registros
-                    .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId, r.CertTipoActId] }
+                    .group_by { |r| [r.CertActivoATrabId,
+                                     r.CertClasePlantillaId,
+                                     r.CertTipoActId] }
                     .map do |(atrab, plantilla, tipo_act), grupo|
+
+        monto =
+          if rut == 91_440_000
+            grupo.sum { |r| r.monto_checklist.to_d }
+          elsif grupo.all? { |r| r.monto_checklist.to_d == grupo.first.monto_checklist.to_d }
+            grupo.first.monto_checklist.to_d * grupo.size
+          else
+            grupo.sum { |r| r.monto_checklist.to_d }
+          end
+
         {
           atrab_id:     atrab,
           plantilla_id: plantilla,
@@ -191,11 +205,16 @@ SQL
           patentes:     grupo.map { |g|
             g.respond_to?(:patente_considerada) ? g.patente_considerada : g.CertActivoNro
           }.uniq,
-          monto:        grupo.first.monto_checklist.to_f * grupo.size
+          monto:        monto.to_f
         }
       end
 
-      monto_total = desgloses.sum { |d| d[:monto] }
+      inspecciones   = registros.count { |r| !r.CertChkLstReIns }
+      reinspecciones = registros.count { |r|  r.CertChkLstReIns }
+      patentes       = registros.map { |r|
+        r.respond_to?(:patente_considerada) ? r.patente_considerada : r.CertActivoNro
+      }.uniq
+      monto_total    = desgloses.sum { |d| d[:monto] }
 
       puts "\nEmpresa: #{nombre} (Rut: #{rut})"
       puts "  Patentes: #{patentes.join(', ')}"
@@ -203,22 +222,35 @@ SQL
       puts "  Monto total: #{monto_total.round(2)}"
       puts "  -- DESGLOSE --"
       desgloses.each do |d|
-        puts "    AT: #{d[:atrab_id]} | Plantilla: #{d[:plantilla_id]} | TipoAct: #{d[:tipo_act_id]} | " \
-               "Patentes: #{d[:patentes].join(', ')} | Monto: #{d[:monto].round(2)}"
+        puts "    AT: #{d[:atrab_id]} | Plantilla: #{d[:plantilla_id]} | "\
+               "TipoAct: #{d[:tipo_act_id]} | Patentes: #{d[:patentes].join(', ')} | "\
+               "Monto: #{d[:monto].round(2)}"
       end
     end
 
+    flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
 
-    @movilidad_day_company      = Hash.new { |h, k| h[k] = Hash.new(BigDecimal("0")) }
+    @movilidad_day_company      = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
     @movilidad_month_by_empresa = Hash.new(BigDecimal("0"))
 
     rows_ok
+      .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
       .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac.to_date] }
-      .each do |(_rut, empresa, fecha), filas_dia|
+      .each do |(rut, empresa, fecha), filas_dia|
 
-      monto_pesos = filas_dia
-                      .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId, r.CertTipoActId] }
-                      .sum { |_k, g| g.first.monto_checklist.to_d * g.size }
+      monto_pesos =
+        filas_dia
+          .group_by { |r| [r.CertActivoATrabId,
+                           r.CertClasePlantillaId,
+                           r.CertTipoActId] }
+          .sum do |_k, g|
+          if g.all? { |row| row.monto_checklist.to_d == g.first.monto_checklist.to_d }
+            g.first.monto_checklist.to_d * g.size
+          else
+            g.sum { |row| row.monto_checklist.to_d }
+          end
+        end
+      monto_pesos = filas_dia.sum { |row| row.monto_checklist.to_d } if rut == 91_440_000
 
       monto_uf = (monto_pesos / @uf).truncate(4)
       day      = fecha.day
@@ -228,18 +260,9 @@ SQL
     end
 
     @movilidad_daily_uf = Hash.new(BigDecimal("0")).tap do |h|
-      @movilidad_day_company.each_value do |per_day|
-        per_day.each { |d, val| h[d] += val }
-      end
+      @movilidad_day_company.each_value { |per_day| per_day.each { |d,val| h[d] += val } }
     end
-
     @movilidad_total_uf = @movilidad_month_by_empresa.values.sum
-
-
-
-
-
-
 
     @facturacions.select! do |f|
       date = (f.fecha_inspeccion && Date.parse(f.fecha_inspeccion) rescue nil)
