@@ -211,23 +211,8 @@ SQL
         }
       end
 
-      inspecciones   = registros.count { |r| !r.CertChkLstReIns }
-      reinspecciones = registros.count { |r|  r.CertChkLstReIns }
-      patentes       = registros.map { |r|
-        r.respond_to?(:patente_considerada) ? r.patente_considerada : r.CertActivoNro
-      }.uniq
-      monto_total    = desgloses.sum { |d| d[:monto] }
 
-      puts "\nEmpresa: #{nombre} (Rut: #{rut})"
-      puts "  Patentes: #{patentes.join(', ')}"
-      puts "  Inspecciones: #{inspecciones} | Reinspecciones: #{reinspecciones} | Total: #{registros.size}"
-      puts "  Monto total: #{monto_total.round(2)}"
-      puts "  -- DESGLOSE --"
-      desgloses.each do |d|
-        puts "    AT: #{d[:atrab_id]} | Plantilla: #{d[:plantilla_id]} | "\
-               "TipoAct: #{d[:tipo_act_id]} | Patentes: #{d[:patentes].join(', ')} | "\
-               "Monto: #{d[:monto].round(2)}"
-      end
+
     end
 
     flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
