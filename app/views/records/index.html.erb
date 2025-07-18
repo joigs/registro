@@ -156,26 +156,60 @@ end %>
 
         <!-- LISTA DE CLIENTES (total mes) -->
         <ul class="hidden mt-2 space-y-1">
-          <% @month_by_empresa.each_with_index do |(emp, val), i| %>
-            <li …>
-              <%= show_name[emp] %>   <!-- ← aquí -->
-              <span class="float-right"><%= uf_clp[val] %></span>
+          <% @month_by_empresa.each_with_index do |(cli_key, cli_val), i| %>
+            <% is_mandante = @movilidad_month_by_empresa.key?(cli_key) %>
 
-              <% days = @day_company[emp] %>
-              <% unless days.empty? %>
-                <ul class="hidden mt-1 space-y-1">
-                  <% days.keys.sort.each_with_index do |d,j| %>
-                    <% next if days[d].zero? %>
-                    <li …>
-                      Día <%= d %>
-                      <span class="float-right"><%= uf_clp[days[d]] %></span>
-                    </li>
-                  <% end %>
-                </ul>
+            <li data-action="click->cube#toggle"
+                class="cursor-pointer px-3 py-1 rounded-md transition-colors border
+               <%= i.even? ?
+                                            'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' :
+                                            'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
+              <%= show_name[cli_key] %>
+              <span class="float-right"><%= uf_clp[cli_val] %></span>
+
+              <!-- ───── Sub‑nivel ────────────────────────── -->
+              <% if is_mandante %>
+                <!-- Desglose por EMPRESA dentro del mandante -->
+                <% emps = @empresas_por_mandante[cli_key] %>
+                <% unless emps.empty? %>
+                  <ul class="hidden mt-1 space-y-1">
+                    <% emps.each_with_index do |emp, j| %>
+                      <% monto_emp = @empresa_month[emp] %>
+                      <% next if monto_emp.zero? %>
+                      <li class="px-3 py-1 rounded-md border
+                         <%= j.even? ?
+                                                                'bg-gray-50 dark:bg-slate-700' :
+                                                                'bg-gray-100 dark:bg-slate-800' %>">
+                        <%= emp %>
+                        <span class="float-right"><%= uf_clp[monto_emp] %></span>
+                      </li>
+                    <% end %>
+                  </ul>
+                <% end %>
+
+              <% else %>
+                <!-- Desglose por MÓDULO que compone el monto -->
+                <% mods_here = @module_months
+                  .map { |nombre,hash| [nombre, hash[cli_key].to_d] }
+                  .reject { |_,v| v.zero? } %>
+                <% unless mods_here.empty? %>
+                  <ul class="hidden mt-1 space-y-1">
+                    <% mods_here.each_with_index do |(mod_name, mod_val), j| %>
+                      <li class="px-3 py-1 rounded-md border
+                         <%= j.even? ?
+                                                                'bg-gray-50 dark:bg-slate-700' :
+                                                                'bg-gray-100 dark:bg-slate-800' %>">
+                        <%= mod_name %>
+                        <span class="float-right"><%= uf_clp[mod_val] %></span>
+                      </li>
+                    <% end %>
+                  </ul>
+                <% end %>
               <% end %>
             </li>
           <% end %>
         </ul>
+
 
       </li>
     </ul>

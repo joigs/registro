@@ -263,6 +263,11 @@ SQL
       mand_nom     = ref.CerManRazonSocial.to_s.strip.presence || mand_rut
       @emp_to_mandante[empresa] = [mand_rut, mand_nom]
     end
+    @empresas_por_mandante = Hash.new { |h,k| h[k] = [] }
+    @emp_to_mandante.each do |empresa, (mand_rut, _mand_nom)|
+      @empresas_por_mandante[mand_rut] << empresa
+    end
+
 
     @mandante_names  = {}
     mandante_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
@@ -331,7 +336,12 @@ SQL
                                            @movilidad_day_company)
 
 
-
+    @module_months = {
+      "Transporte Vertical"        => @vertical_month_by_empresa,
+      "Evaluación de Competencias" => @evaluacion_month_by_empresa,
+      "Movilidad"                  => @movilidad_month_by_empresa,
+      "Oxy"                        => @oxy_month_by_empresa
+    }
 
   end
 
