@@ -21,6 +21,7 @@ Rails.application.routes.draw do
     resources :sessions, only: [:new, :create, :destroy], path: '/login', path_names: { new: '/' }
   end
 
+  get '/offline', to: 'static#offline'
 
 
 
