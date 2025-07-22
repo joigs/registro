@@ -1,67 +1,42 @@
-importScripts(
-    "https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js"
+importScripts("https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js");
+
+const OFFLINE_URL   = 'offline.html';      // -> /ventas/offline.html
+const PRECACHE_URLS = [OFFLINE_URL, 'manifest.json'];
+
+workbox.precaching.precacheAndRoute(PRECACHE_URLS, { ignoreURLParametersMatching: [/./] });
+
+// Páginas HTML: NetworkFirst
+workbox.routing.registerRoute(
+    ({request}) => request.destination === 'document',
+    new workbox.strategies.NetworkFirst({ cacheName: 'ventas-pages' })
 );
 
-function onInstall(event) {
-    console.log('[Serviceworker]', "Installing!", event);
-}
+// JS/CSS/Fonts: StaleWhileRevalidate
+workbox.routing.registerRoute(
+    ({request}) => ['script','style','font'].includes(request.destination),
+    new workbox.strategies.StaleWhileRevalidate({ cacheName: 'ventas-static' })
+);
 
-function onActivate(event) {
-    console.log('[Serviceworker]', "Activating!", event);
-}
+// Imágenes: CacheFirst
+workbox.routing.registerRoute(
+    ({request}) => request.destination === 'image',
+    new workbox.strategies.CacheFirst({ cacheName: 'ventas-images' })
+);
 
-function onFetch(event) {
-    console.log('[Serviceworker]', "Fetching!", event);
-}self.addEventListener('install', onInstall);
-self.addEventListener('activate', onActivate);
-self.addEventListener('fetch', onFetch);
-
-
-const {CacheFirst, NetworkFirst} = workbox.strategies;
-const {registerRoute} = workbox.routing;
-// If we have critical pages that won't be changing very often, it's a good idea to use cache first with them
-registerRoute(
-    ({url}) => url.pathname.startsWith('/home'),
-    new CacheFirst({
-        cacheName: 'documents',
-    })
-)
-// For every other page we use network first to ensure the most up-to-date resources
-registerRoute(
-    ({request, url}) => request.destination === "document" ||
-        request.destination === "",
-        new NetworkFirst({
-        cacheName: 'documents',
-    })
-)
-// For assets (scripts and images), we use cache first
-registerRoute(
-    ({request}) => request.destination === "script" ||
-        request.destination === "style",
-    new CacheFirst({
-        cacheName: 'assets-styles-and-scripts',
-    })
-)
-registerRoute(
-    ({request}) => request.destination === "image",
-    new CacheFirst({
-        cacheName: 'assets-images',
-    })
-)
-
-
-const {warmStrategyCache} = workbox.recipes;
-const {setCatchHandler} = workbox.routing;
-const strategy = new CacheFirst();
-const urls = ['/offline.html'];
-// Warm the runtime cache with a list of asset URLs
-warmStrategyCache({urls, strategy});
-// Trigger a 'catch' handler when any of the other routes fail to generate a response
-setCatchHandler(async ({event}) => {
-    switch (event.request.destination) {
-        case 'document':
-            return strategy.handle({event, request: urls[0]});
-        default:
-            return Response.error();
-    }
+// Warm cache + fallback offline
+workbox.recipes.warmStrategyCache({
+    urls: [OFFLINE_URL],
+    strategy: new workbox.strategies.CacheFirst({ cacheName: 'ventas-pages' })
 });
+
+workbox.routing.setCatchHandler(async ({event}) => {
+    if (event.request.destination === 'document') {
+        return caches.match(OFFLINE_URL);
+    }
+    return Response.error();
+});
+
+// Logs opcionales:
+self.addEventListener('install', e => console.log('[SW] install', e));
+self.addEventListener('activate', e => console.log('[SW] activate', e));
+self.addEventListener('fetch', e => {/* opcional */});
