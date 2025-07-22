@@ -2,10 +2,12 @@ Rails.application.routes.draw do
 
   scope path: 'ventas' do
 
-  get "/service-worker.js" => "service_worker#service_worker"
-  get "/manifest.json", to: "service_worker#manifest", as: :manifest, defaults: { format: :json }
-
-
+    get "service-worker.js",
+        to: "service_worker#service_worker",
+        defaults: { format: :js }
+    get "manifest.json",
+        to: "service_worker#manifest",
+        defaults: { format: :json }
 
   root 'home#index', as: 'home'
 

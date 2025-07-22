@@ -1,11 +1,14 @@
-class ServiceWorkerController < ApplicationController
+class ServiceWorkerController < ActionController::Base
   protect_from_forgery except: :service_worker
-  skip_before_action :protect_pages
-
 
   def service_worker
+    expires_now
+    response.headers['Service-Worker-Allowed'] = '/ventas/'
+    render template: "service_worker/service_worker",
+           formats: [:js],
+           content_type: "application/javascript"
+  end
 
-    end
   def manifest
     expires_now
     render template: "service_worker/manifest",
