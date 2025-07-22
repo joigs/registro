@@ -3,7 +3,7 @@ Rails.application.routes.draw do
   scope path: 'ventas' do
 
   get "/service-worker.js" => "service_worker#service_worker"
-  get "/manifest.json" => "service_worker#manifest"
+  get "/manifest.json", to: "service_worker#manifest", as: :manifest, defaults: { format: :json }
 
 
 

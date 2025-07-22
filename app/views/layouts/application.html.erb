@@ -8,8 +8,11 @@
     <%= javascript_include_tag "https://npmcdn.com/flatpickr/dist/l10n/es.js" %>
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-    <link rel="manifest" crossorigin="use-credentials"
-          href="/manifest.json" />
+    <%= tag.link rel: "manifest",
+                 href: manifest_path(v: 9),
+                 crossorigin: "use-credentials" %>
+
+
 
     <%= stylesheet_link_tag "tailwind", "inter-font", "data-turbo-track": "reload" %>
 

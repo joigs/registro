@@ -7,7 +7,9 @@ class ServiceWorkerController < ApplicationController
 
     end
   def manifest
-
-
+    expires_now
+    render template: "service_worker/manifest",
+           formats: [:json],
+           content_type: "application/manifest+json"
   end
 end
