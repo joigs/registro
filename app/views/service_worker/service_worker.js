@@ -1,7 +1,8 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js");
 
-const OFFLINE_URL   = 'offline.html';      // -> /ventas/offline.html
-const PRECACHE_URLS = [OFFLINE_URL, 'manifest.json'];
+const OFFLINE_URL   = 'offline.html';     // relativo -> /ventas/offline.html
+const PRECACHE_URLS = [OFFLINE_URL, 'manifest.json']; // relativo -> /ventas/manifest.json
+
 
 workbox.precaching.precacheAndRoute(PRECACHE_URLS, { ignoreURLParametersMatching: [/./] });
 
