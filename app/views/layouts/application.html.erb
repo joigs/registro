@@ -44,10 +44,11 @@
     document.addEventListener("turbo:load", function () {
     if ('serviceWorker' in navigator && location.pathname.startsWith('/ventas/')) {
     navigator.serviceWorker.register('/ventas/service-worker.js?v=10', { scope: '/ventas/' })
-    .catch((e) => console.error('SW register failed', e));
+    .catch(e => console.error('SW register failed', e));
     }
     });
   <% end %>
+
 
   </body>
 </html>

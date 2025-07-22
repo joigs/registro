@@ -13,6 +13,8 @@ class ServiceWorkerController < ActionController::Base
     expires_now
     render template: "service_worker/manifest",
            formats: [:json],
+           layout: false,
            content_type: "application/manifest+json"
+
   end
 end
