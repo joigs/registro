@@ -8,9 +8,3 @@ import Swal from 'sweetalert2';
 import 'flowbite';
 
 window.Swal = Swal;
-
-
-
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js', { scope: '/ventas/' });
-}

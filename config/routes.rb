@@ -2,8 +2,8 @@ Rails.application.routes.draw do
 
   scope path: 'ventas' do
 
-    get 'manifest.json',     to: 'service_worker#manifest',      defaults: { format: :json }
-    get 'service-worker.js', to: 'service_worker#service_worker'
+  get "/service-worker.js" => "service_worker#service_worker"
+  get "/manifest.json" => "service_worker#manifest"
 
 
 
@@ -21,7 +21,6 @@ Rails.application.routes.draw do
     resources :sessions, only: [:new, :create, :destroy], path: '/login', path_names: { new: '/' }
   end
 
-  get '/offline', to: 'static#offline'
 
 
 
