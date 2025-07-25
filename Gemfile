@@ -101,7 +101,6 @@ gem 'whenever', require: false
 
 #para busquedas
 gem 'ransack'
-gem "dotenv-rails", groups: %i[development test]
 
 
 

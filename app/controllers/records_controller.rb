@@ -40,19 +40,26 @@ class RecordsController < ApplicationController
 
     if eval_resp.code == 200
       body = JSON.parse(eval_resp.body)
-
+      puts("body: #{body.inspect}") if Rails.env.development?
 
       if body.is_a?(Hash)
         @evaluacions = parse_evaluacions(body["facturacions"] || [])
         @current_oxy = parse_oxy(body["current_oxy"]) if body["current_oxy"].present?
+        @current_ald = parse_ald(body["current_ald"]) if body["current_ald"].present?
+        @otros_hash  = parse_otros(body["otros"] || [])
       else
         @evaluacions = parse_evaluacions(body)
         @current_oxy = nil
+        @current_ald = nil
+        @otros_hash  = {}
       end
     else
       @evaluacions = []
       @current_oxy = nil
+      @current_ald = nil
+      @otros_hash  = {}
     end
+
     require "set"
 
     iva_row = Iva.find_by(year: @year, month: @month) ||
@@ -289,15 +296,42 @@ SQL
 
     @vertical_total_uf        = sum_precios(@facturacions)
     @oxy_total_uf             = to_decimal(@current_oxy&.total_uf)
+
+    # ---------- ALD (único) ----------
+    @ald_total_uf = to_decimal(@current_ald&.total_uf)
+    @ald_daily_uf = Hash.new(BigDecimal("0")).tap do |h|
+      if @current_ald
+        h[@days_in_month] = @ald_total_uf
+      end
+    end
+    @ald_month_by_empresa = { "ALD" => @ald_total_uf }
+
+    @otros_month_by_empresa = @otros_hash.transform_values { |v| v } # ya es total_uf
+    @otros_total_uf         = @otros_month_by_empresa.values.sum
+
+    @otros_daily_uf = Hash.new(BigDecimal("0")).tap do |h|
+      @otros_total_uf.zero? or h[@days_in_month] = @otros_total_uf
+    end
+    @otros_day_company = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
+    @otros_month_by_empresa.each do |emp, total|
+      @otros_day_company[emp][@days_in_month] = total
+    end
+
+
+
     @evaluacion_vanilla_total = sum_precios(@evaluacions)
-    @evaluacion_total_uf      = @evaluacion_vanilla_total + @oxy_total_uf
+    @evaluacion_total_uf = @evaluacion_vanilla_total + @oxy_total_uf + @ald_total_uf + @otros_total_uf
     @sum_month                = @vertical_total_uf + @evaluacion_total_uf + @movilidad_total_uf
 
     @vertical_daily_uf        = daily_sums(@facturacions, :fecha_inspeccion)
     @evaluacion_vanilla_daily = daily_sums(@evaluacions,   :fecha_inspeccion)
     @oxy_daily_uf             = oxy_daily_sums(@current_oxy)
-    @evaluacion_daily_uf      = merge_daily(@evaluacion_vanilla_daily, @oxy_daily_uf)
-    @sum_daily_uf             = merge_daily(
+    @evaluacion_daily_uf = merge_daily(
+      merge_daily(@evaluacion_vanilla_daily, @oxy_daily_uf),
+      merge_daily(@ald_daily_uf, @otros_daily_uf)
+    )
+
+    @sum_daily_uf = merge_daily(
       merge_daily(@vertical_daily_uf, @evaluacion_daily_uf),
       @movilidad_daily_uf
     )
@@ -309,13 +343,22 @@ SQL
     @month_by_empresa = merge_hashes(@vertical_month_by_empresa,
                                      @evaluacion_month_by_empresa,
                                      @movilidad_month_by_empresa,
-                                     @oxy_month_by_empresa)
+                                     @oxy_month_by_empresa,
+                                     @ald_month_by_empresa,
+                                     @otros_month_by_empresa)
 
     @vertical_day_company   = daily_company(@facturacions, :fecha_inspeccion)
     @eval_vanilla_day_comp  = daily_company(@evaluacions,  :fecha_inspeccion)
     @oxy_day_company        = build_oxy_day_company(@current_oxy)
 
-    @evaluation_day_company = merge_nested(@eval_vanilla_day_comp, @oxy_day_company)
+    @evaluation_day_company = merge_nested(
+      @eval_vanilla_day_comp,
+      @oxy_day_company,
+      @ald_day_company ||= { "ALD" => @ald_daily_uf },
+      @otros_day_company
+    )
+
+
     @day_company            = merge_nested(@vertical_day_company,
                                            @evaluation_day_company,
                                            @movilidad_day_company)
@@ -323,9 +366,12 @@ SQL
 
     @module_months = {
       "Transporte Vertical"        => @vertical_month_by_empresa,
-      "Evaluación de Competencias" => @evaluacion_month_by_empresa,
+      "Evaluación de Competencias" => merge_hashes(@evaluacion_month_by_empresa,
+                                                   @ald_month_by_empresa,
+                                                   @oxy_month_by_empresa,
+                                                   @otros_month_by_empresa),
       "Movilidad"                  => @movilidad_month_by_empresa,
-      "Oxy"                        => @oxy_month_by_empresa
+
     }
 
   end
@@ -404,10 +450,7 @@ SQL
     end
   end
 
-  MOVILIDAD_MOCK = [
-    { "empresa" => "Arauco",   "fecha_inspeccion" => "2025-06-01", "precio" => "6.25"  },
 
-  ].freeze
 
 
   def parse_movilidad(arr)
@@ -441,6 +484,27 @@ SQL
       end
     )
   end
+
+  def parse_ald(data)
+    return nil unless data
+    OpenStruct.new(
+      id:         data["id"],
+      month:      data["month"],
+      year:       data["year"],
+      n1:         data["n1"],
+      total_uf:   to_decimal(data["total"])
+    )
+  end
+
+  def parse_otros(arr)
+    Hash.new(BigDecimal("0")).tap do |h|
+      Array(arr).each do |o|
+        empresa = o.dig("empresa", "nombre") || "sin_empresa"
+        h[empresa] += to_decimal(o["total"])
+      end
+    end
+  end
+
 
   def to_pesos(precio_uf, fecha_str)
     return nil if precio_uf.blank? || fecha_str.blank?
