@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <%= csp_meta_tag %>
+
+  <link rel="manifest"
+        href="/pausa/manifest.json?v=1"
+        crossorigin="use-credentials">
+
+  <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+  <%= javascript_importmap_tags %>
+</head>
+
+<body class="bg-slate-100">
+<%= yield %>
+
+<%#  Registro del SW sólo para /pausa %>
+<%= javascript_tag nonce: true do %>
+  document.addEventListener("turbo:load", () => {
+  if ('serviceWorker' in navigator &&
+  location.pathname.startsWith('/pausa/')) {
+  navigator.serviceWorker.register('/pausa/service-worker.js?v=1',
+  { scope: '/pausa/' });
+  }
+  });
+<% end %>
+</body>
+</html>
