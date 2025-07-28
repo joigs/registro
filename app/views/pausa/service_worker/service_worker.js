@@ -1,4 +1,3 @@
-/* pausa/service-worker.js  – scope: /pausa/  */
 self.addEventListener("install", e => {
     console.log("[Pausa‑SW] install");
     self.skipWaiting();
