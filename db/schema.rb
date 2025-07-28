@@ -10,7 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_06_09_200334) do
+ActiveRecord::Schema[7.1].define(version: 2025_07_28_005518) do
+  create_table "app_users", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.string "nombre", null: false
+    t.string "rut", null: false
+    t.string "correo", null: false
+    t.boolean "admin", default: false, null: false
+    t.boolean "activo", default: true, null: false
+    t.boolean "estado", default: true, null: false
+    t.boolean "creado", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["rut"], name: "index_app_users_on_rut", unique: true
+  end
+
   create_table "ivas", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.integer "year"
     t.integer "month"
