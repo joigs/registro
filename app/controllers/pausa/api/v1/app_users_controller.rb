@@ -3,7 +3,7 @@ module Pausa
   module Api
     module V1
       class AppUsersController < ApplicationController
-        protect_from_forgery with: :null_session
+        skip_before_action :protect_pages
         before_action :set_user, only: %i[show update destroy]
 
         def index

@@ -11,6 +11,22 @@ Rails.application.routes.draw do
     root 'home#index', as: 'home'
 
 
+
+    scope :pausa, module: :pausa, as: :pausa do        # ← solo :pausa
+      get "manifest.json",     to: "service_worker#manifest",      defaults: { format: :json }
+      get "service-worker.js", to: "service_worker#service_worker", defaults: { format: :js }
+      root "home#index"
+      namespace :api, defaults: { format: :json } do
+        namespace :v1 do
+          resources :app_users, except: %i[new edit]
+        end
+      end
+
+    end
+
+
+
+
     # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
     namespace :authentication, path: '', as: '' do
       resources :users, path: '/users' do
@@ -32,17 +48,11 @@ Rails.application.routes.draw do
 
     end
 
+
+
+
+
   end
 
 
-  scope :pausa, module: :pausa, as: :pausa do
-    get "service-worker.js", to: "service_worker#service_worker", defaults: { format: :js }
-    get "manifest.json",     to: "service_worker#manifest",      defaults: { format: :json }
-
-    namespace :api, defaults: { format: :json } do
-      namespace :v1 do
-        resources :app_users, except: %i[new edit]
-      end
-    end
-  end
 end
