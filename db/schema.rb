@@ -10,7 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_07_28_005518) do
+ActiveRecord::Schema[7.1].define(version: 2025_07_28_233505) do
+  create_table "app_daily_logs", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.bigint "app_user_id", null: false
+    t.date "fecha", null: false
+    t.datetime "morning_at"
+    t.datetime "evening_at"
+    t.boolean "morning_done", default: false, null: false
+    t.boolean "evening_done", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["app_user_id", "fecha"], name: "index_app_daily_logs_on_app_user_id_and_fecha", unique: true
+    t.index ["app_user_id"], name: "index_app_daily_logs_on_app_user_id"
+  end
+
   create_table "app_users", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "nombre", null: false
     t.string "rut", null: false
@@ -45,4 +58,5 @@ ActiveRecord::Schema[7.1].define(version: 2025_07_28_005518) do
     t.index ["username"], name: "index_users_on_username", unique: true
   end
 
+  add_foreign_key "app_daily_logs", "app_users"
 end
