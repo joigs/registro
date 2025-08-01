@@ -159,13 +159,25 @@ SQL
       orig_day = row.CertChkLstFch.to_date
       key      = [pid, orig_day]
 
+
+
+      if row.CertChkLstIndividual
+        next if pid.zero?
+        individual_children << row
+        next
+      end
+
+
       if row.CertActivoId.to_i == pid
         per_padre_rows[key] = row
       else
         if row.CertChkLstIndividual && parents_by_orig.include?(key)
           individual_children << row
         else
-          per_padre_rows[key] ||= row
+          if parents_by_orig.include?(key)
+            per_padre_rows[key] ||= row
+          end
+
         end
       end
     end
@@ -222,8 +234,62 @@ SQL
 
 
     end
-
+    # ===== DEBUG MOVILIDAD – Patentes por empresa (pequeña) ===================
+    # ========= DEBUG DETALLADO – checklist que llegan a Movilidad =========
     flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
+
+    rows_ok
+      .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
+      .group_by { |r| r.CerManNombre.to_s.strip.presence || r.CerManRut.to_s }
+      .each do |empresa_peq, filas|
+
+      puts "▶️  Empresa: #{empresa_peq.ljust(25)} — Registros movil. #{filas.size}"
+
+      filas.each do |f|
+        pat = f.respond_to?(:patente_considerada) ? f.patente_considerada : f.CertActivoNro
+        uf  = (f.monto_checklist.to_d / @uf).truncate(4)
+
+        puts "   • chk=#{f.CertChkLstId.to_s.ljust(6)}  "\
+               "pat=#{pat.ljust(10)}  "\
+               "orig=#{f.CertChkLstFch}  fac=#{f.CertChkLstFchFac}  "\
+               "ind=#{f.CertChkLstIndividual ? 1 : 0}  "\
+               "reIns=#{f.CertChkLstReIns ? 1 : 0}  "\
+               "estado=#{f.CertChkLstEstado || '?'}  "\
+               "pla=#{f.CertClasePlantillaId.to_s.ljust(4)}  "\
+               "AT=#{f.CertActivoATrabId.to_s.ljust(4)}  "\
+               "$=#{sprintf('%.2f', f.monto_checklist)}  "\
+               "(#{uf.to_f} UF)"
+      end
+
+      # — resumen por AT-Plantilla-TipoAct —
+      des = filas
+              .group_by { |r| [r.CertActivoATrabId,
+                               r.CertClasePlantillaId,
+                               r.CertTipoActId] }
+              .map do |(atrab, pla, tipo), g|
+        {
+          atrab: atrab,
+          pla:   pla,
+          tipo:  tipo,
+          ins:   g.count { |r| !r.CertChkLstReIns },
+          reins: g.count { |r|  r.CertChkLstReIns },
+          pats:  g.map { |r|
+            r.respond_to?(:patente_considerada) ?
+              r.patente_considerada : r.CertActivoNro
+          }.uniq,
+          uf:    (g.sum { |r| r.monto_checklist.to_d } / @uf).truncate(4)
+        }
+      end
+
+      puts "   -- DESGLOSE EMPRESA #{empresa_peq} --"
+      des.each do |d|
+        puts "      AT=#{d[:atrab]}  Pla=#{d[:pla]}  Tipo=#{d[:tipo]}  "\
+               "Ins=#{d[:ins]}  ReIns=#{d[:reins]}  UF=#{d[:uf]}  "\
+               "Patentes: #{d[:pats].join(', ')}"
+      end
+      puts
+    end
+    puts "========================================================================"
 
 
     @empresa_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
