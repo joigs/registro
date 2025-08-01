@@ -169,17 +169,27 @@ SQL
 
 
       if row.CertActivoId.to_i == pid
-        per_padre_rows[key] = row
+        if per_padre_rows.key?(key)
+          existing = per_padre_rows[key]
+
+
+          if existing.CertChkLstReIns != row.CertChkLstReIns
+            individual_children << row
+          else
+            per_padre_rows[key] = row
+          end
+        else
+          per_padre_rows[key] = row
+        end
+
       else
         if row.CertChkLstIndividual && parents_by_orig.include?(key)
           individual_children << row
-        else
-          if parents_by_orig.include?(key)
-            per_padre_rows[key] ||= row
-          end
-
+        elsif parents_by_orig.include?(key)
+          per_padre_rows[key] ||= row
         end
       end
+
     end
 
 
@@ -234,8 +244,7 @@ SQL
 
 
     end
-    # ===== DEBUG MOVILIDAD – Patentes por empresa (pequeña) ===================
-    # ========= DEBUG DETALLADO – checklist que llegan a Movilidad =========
+    # ========= DEBUG  – checklist que llegan a Movilidad =========
     flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
 
     rows_ok
