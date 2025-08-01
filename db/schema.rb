@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_07_28_233505) do
+ActiveRecord::Schema[7.1].define(version: 2025_07_29_013322) do
   create_table "app_daily_logs", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.date "fecha", null: false
@@ -24,6 +24,18 @@ ActiveRecord::Schema[7.1].define(version: 2025_07_28_233505) do
     t.index ["app_user_id"], name: "index_app_daily_logs_on_app_user_id"
   end
 
+  create_table "app_reminders", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.bigint "app_user_id", null: false
+    t.date "fecha"
+    t.string "moment"
+    t.datetime "sent_at"
+    t.datetime "opened_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["app_user_id", "fecha", "moment"], name: "index_app_reminders_on_app_user_id_and_fecha_and_moment", unique: true
+    t.index ["app_user_id"], name: "index_app_reminders_on_app_user_id"
+  end
+
   create_table "app_users", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "nombre", null: false
     t.string "rut", null: false
@@ -34,6 +46,11 @@ ActiveRecord::Schema[7.1].define(version: 2025_07_28_233505) do
     t.boolean "creado", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "expo_push_token"
+    t.string "confirmation_token"
+    t.datetime "confirmed_at"
+    t.index ["confirmation_token"], name: "index_app_users_on_confirmation_token", unique: true
+    t.index ["expo_push_token"], name: "index_app_users_on_expo_push_token"
     t.index ["rut"], name: "index_app_users_on_rut", unique: true
   end
 
@@ -59,4 +76,5 @@ ActiveRecord::Schema[7.1].define(version: 2025_07_28_233505) do
   end
 
   add_foreign_key "app_daily_logs", "app_users"
+  add_foreign_key "app_reminders", "app_users"
 end

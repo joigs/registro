@@ -67,6 +67,7 @@ class RecordsController < ApplicationController
          .order(year: :desc, month: :desc).first ||
       Iva.order(year: :desc, month: :desc).first
 
+
     @uf = BigDecimal(iva_row.valor.to_s)
 
     fecha_ini = Date.new(@year, @month, 1)
@@ -272,6 +273,8 @@ SQL
       mandante_month[mand_rut]  += @empresa_month[empresa]
     end
 
+
+
     @movilidad_day_company      = mandante_day
     @movilidad_month_by_empresa = mandante_month
     @movilidad_daily_uf         = mandante_day.values
@@ -279,6 +282,39 @@ SQL
                                                 per_day.each { |d,val| h[d] += val }
                                               }
     @movilidad_total_uf         = mandante_month.values.sum
+
+
+
+
+    require "i18n" unless defined?(I18n)
+    norm = ->s { I18n.transliterate(s.to_s).gsub(/[\s\.]/,'').downcase }
+
+    grp_day   = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
+    grp_month = Hash.new(BigDecimal("0"))
+
+    mandante_day.each do |rut, per_day|
+      raw_name = @mandante_names[rut] || rut
+      key =
+        if   norm[raw_name].include?("forestalarauco")
+          "Forestal Arauco SA"
+        elsif norm[raw_name].include?("forestalmininco")
+          "Planta Acreditación Vehículos Forestal"
+        else
+          "Otros"
+        end
+
+      per_day.each { |d,v| grp_day[key][d] += v }
+      grp_month[key]       += mandante_month[rut]
+    end
+
+    @movil_split_day_company      = grp_day
+    @movil_split_month_by_empresa = grp_month
+    @movil_split_daily_uf         = grp_day.values
+                                           .each_with_object(Hash.new(BigDecimal("0"))) { |per,h|
+                                             per.each { |d,v| h[d] += v }
+                                           }
+    @movil_split_total_uf         = grp_month.values.sum
+
     @facturacions.select! do |f|
       date = (f.fecha_inspeccion && Date.parse(f.fecha_inspeccion) rescue nil)
       date && date.year == @year && date.month == @month
@@ -318,6 +354,30 @@ SQL
     end
 
 
+    require "i18n" unless defined?(I18n)
+
+    norm = ->s { I18n.transliterate(s.to_s).gsub(/[\s\.]/,'').downcase }
+
+    target_rut = @mandante_names.find { |_rut, nom| norm[nom].include?("forestalarauco") }&.first
+    target_rut ||= "Forestal Arauco SA"
+
+    arauco_keys = @otros_month_by_empresa.keys.select { |k| norm[k].include?("arauco") }
+
+    unless arauco_keys.empty?
+      total_arauco = arauco_keys.sum { |k| @otros_month_by_empresa[k] }
+      @otros_month_by_empresa[target_rut] ||= BigDecimal("0")
+      @otros_month_by_empresa[target_rut]  += total_arauco
+      arauco_keys.each { |k| @otros_month_by_empresa.delete(k) }
+
+      ar_day_tot = Hash.new(BigDecimal("0"))
+      arauco_keys.each do |k|
+        @otros_day_company[k].each { |d,v| ar_day_tot[d] += v }
+        @otros_day_company.delete(k)
+      end
+      @otros_day_company[target_rut] ||= Hash.new(BigDecimal("0"))
+      ar_day_tot.each { |d,v| @otros_day_company[target_rut][d] += v }
+    end
+
 
     @evaluacion_vanilla_total = sum_precios(@evaluacions)
     @evaluacion_total_uf = @evaluacion_vanilla_total + @oxy_total_uf + @ald_total_uf + @otros_total_uf
@@ -338,7 +398,10 @@ SQL
     @vertical_month_by_empresa   = month_sums_by_company(@facturacions)
     @evaluacion_month_by_empresa = month_sums_by_company(@evaluacions)
 
-    @oxy_month_by_empresa        = { "Oxy" => @oxy_total_uf }
+    oxy_name = "Occidental Chemical Chile Limitada"
+    oxy_rut  = @mandante_names.key(oxy_name) || oxy_name
+
+    @oxy_month_by_empresa = { oxy_rut => @oxy_total_uf }
 
     @month_by_empresa = merge_hashes(@vertical_month_by_empresa,
                                      @evaluacion_month_by_empresa,

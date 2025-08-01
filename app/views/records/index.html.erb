@@ -50,17 +50,45 @@
         <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Total</th>
       </tr>
       </thead>
+
       <tbody>
       <% mods_full.each do |mod,(tot,_,_)| %>
-        <tr>
-          <td class="py-2 border border-gray-300 dark:border-slate-600"><%= mod %></td>
-          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right"><%= uf_clp[tot] %></td>
-        </tr>
+        <% if mod == "Movilidad" %>
+          <tr>
+            <td class="py-2 border border-gray-300 dark:border-slate-600">
+              <details>
+                <summary class="cursor-pointer select-none flex items-center gap-1">
+                  <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
+                  Movilidad
+                </summary>
+
+                <ul class="mt-2 ml-5 list-disc">
+                  <% @movil_split_month_by_empresa.each do |k,v| %>
+                    <% next if v.zero? %>
+                    <li class="flex justify-between">
+                      <span><%= k %></span>
+                      <span><%= uf_clp[v] %></span>
+                    </li>
+                  <% end %>
+                </ul>
+              </details>
+            </td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+              <%= uf_clp[@movil_split_total_uf] %>
+            </td>
+          </tr>
+        <% else %>
+          <tr>
+            <td class="py-2 border border-gray-300 dark:border-slate-600"><%= mod %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+              <%= uf_clp[tot] %>
+            </td>
+          </tr>
+        <% end %>
       <% end %>
       </tbody>
     </table>
   </section>
-
   <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
     <h2 class="text-2xl font-semibold mb-4">Valor Diario por Módulo</h2>
 
@@ -68,22 +96,51 @@
       <thead>
       <tr>
         <th class="py-2 border border-gray-300 dark:border-slate-600 w-12">Día</th>
-        <% mods_full.keys.each do |m| %>
-          <th class="py-2 border border-gray-300 dark:border-slate-600 text-right"><%= m %></th>
-        <% end %>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Transporte Vertical</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Evaluación de Competencias</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Movilidad</th>
         <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Total</th>
       </tr>
       </thead>
+
       <tbody>
       <% (1..@days_in_month).each do |d| %>
         <% next if @sum_daily_uf[d].zero? %>
         <tr>
           <td class="py-2 border border-gray-300 dark:border-slate-600"><%= d %></td>
-          <% mods_full.each_value do |(_,daily,_)| %>
-            <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
-              <%= uf_clp[daily[d]] unless daily[d].zero? %>
-            </td>
-          <% end %>
+
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+            <%= uf_clp[@vertical_daily_uf[d]] unless @vertical_daily_uf[d].zero? %>
+          </td>
+
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+            <%= uf_clp[@evaluacion_daily_uf[d]] unless @evaluacion_daily_uf[d].zero? %>
+          </td>
+
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+            <% if @movil_split_daily_uf[d].positive? %>
+              <details class="inline-block">
+                <summary class="cursor-pointer select-none flex items-center gap-1">
+                  <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
+                  <%= uf_clp[@movil_split_daily_uf[d]] %>
+                </summary>
+
+                <table class="mt-1 text-xs w-full border-collapse">
+                  <% { "Forestal Arauco SA"                     => "Forestal Arauco SA",
+                       "Planta Acreditación Vehículos Forestal" => "Planta Acreditación Vehículos Forestal",
+                       "Otros"                                  => "Otros" }.each do |key,label| %>
+                    <% val = (@movil_split_day_company[key] || {})[d].to_d %>
+                    <% next if val.zero? %>
+                    <tr>
+                      <td class="pr-2 py-0.5 border-t border-gray-600"><%= label %></td>
+                      <td class="py-0.5 border-t border-gray-600 text-right whitespace-nowrap"><%= uf_clp[val] %></td>
+                    </tr>
+                  <% end %>
+                </table>
+              </details>
+            <% end %>
+          </td>
+
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-right font-medium">
             <%= uf_clp[@sum_daily_uf[d]] %>
           </td>
@@ -92,6 +149,10 @@
       </tbody>
     </table>
   </section>
+
+
+
+
 
   <section data-controller="cube"
            class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
@@ -200,6 +261,21 @@
                     <li><%= emp %>: <%= uf_clp[m_emp] %></li>
                   <% end %>
                 </ul>
+
+                <% mods_by_val = @module_months.except("Movilidad").map do |mod, hash|
+                  val = hash[cli_key].to_d +
+                    @empresas_por_mandante[cli_key].sum { |e| hash[e].to_d }
+                  [mod, val]
+                end.reject { |_,v| v.zero? } %>
+
+                <% unless mods_by_val.empty? %>
+                  <ul class="mt-2 ml-4 list-disc">
+                    <% mods_by_val.each do |mod, val| %>
+                      <li><%= mod %>: <%= uf_clp[val] %></li>
+                    <% end %>
+                  </ul>
+                <% end %>
+
               <% else %>
                 <ul class="mt-2 ml-4 list-disc">
                   <% @module_months.each do |mod_name, hash| %>

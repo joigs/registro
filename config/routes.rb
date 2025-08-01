@@ -18,7 +18,16 @@ Rails.application.routes.draw do
       root "home#index"
       namespace :api, defaults: { format: :json } do
         namespace :v1 do
-          resources :app_users, except: %i[new edit]
+          post "login", to: "sessions#create"
+
+          resources :app_users, except: %i[new edit] do
+            collection do
+              get  "pending"
+            end
+            member do
+              patch "approve"
+            end
+          end
         end
       end
 
