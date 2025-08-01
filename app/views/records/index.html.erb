@@ -200,6 +200,21 @@
                     <li><%= emp %>: <%= uf_clp[m_emp] %></li>
                   <% end %>
                 </ul>
+
+                <% mods_by_val = @module_months.except("Movilidad").map do |mod, hash|
+                  val = hash[cli_key].to_d +
+                    @empresas_por_mandante[cli_key].sum { |e| hash[e].to_d }
+                  [mod, val]
+                end.reject { |_,v| v.zero? } %>
+
+                <% unless mods_by_val.empty? %>
+                  <ul class="mt-2 ml-4 list-disc">
+                    <% mods_by_val.each do |mod, val| %>
+                      <li><%= mod %>: <%= uf_clp[val] %></li>
+                    <% end %>
+                  </ul>
+                <% end %>
+
               <% else %>
                 <ul class="mt-2 ml-4 list-disc">
                   <% @module_months.each do |mod_name, hash| %>

@@ -67,6 +67,7 @@ class RecordsController < ApplicationController
          .order(year: :desc, month: :desc).first ||
       Iva.order(year: :desc, month: :desc).first
 
+
     @uf = BigDecimal(iva_row.valor.to_s)
 
     fecha_ini = Date.new(@year, @month, 1)
@@ -338,7 +339,10 @@ SQL
     @vertical_month_by_empresa   = month_sums_by_company(@facturacions)
     @evaluacion_month_by_empresa = month_sums_by_company(@evaluacions)
 
-    @oxy_month_by_empresa        = { "Oxy" => @oxy_total_uf }
+    oxy_name = "Occidental Chemical Chile Limitada"
+    oxy_rut  = @mandante_names.key(oxy_name) || oxy_name
+
+    @oxy_month_by_empresa = { oxy_rut => @oxy_total_uf }
 
     @month_by_empresa = merge_hashes(@vertical_month_by_empresa,
                                      @evaluacion_month_by_empresa,
