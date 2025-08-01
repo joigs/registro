@@ -319,6 +319,30 @@ SQL
     end
 
 
+    require "i18n" unless defined?(I18n)
+
+    norm = ->s { I18n.transliterate(s.to_s).gsub(/[\s\.]/,'').downcase }
+
+    target_rut = @mandante_names.find { |_rut, nom| norm[nom].include?("forestalarauco") }&.first
+    target_rut ||= "Forestal Arauco SA"
+
+    arauco_keys = @otros_month_by_empresa.keys.select { |k| norm[k].include?("arauco") }
+
+    unless arauco_keys.empty?
+      total_arauco = arauco_keys.sum { |k| @otros_month_by_empresa[k] }
+      @otros_month_by_empresa[target_rut] ||= BigDecimal("0")
+      @otros_month_by_empresa[target_rut]  += total_arauco
+      arauco_keys.each { |k| @otros_month_by_empresa.delete(k) }
+
+      ar_day_tot = Hash.new(BigDecimal("0"))
+      arauco_keys.each do |k|
+        @otros_day_company[k].each { |d,v| ar_day_tot[d] += v }
+        @otros_day_company.delete(k)
+      end
+      @otros_day_company[target_rut] ||= Hash.new(BigDecimal("0"))
+      ar_day_tot.each { |d,v| @otros_day_company[target_rut][d] += v }
+    end
+
 
     @evaluacion_vanilla_total = sum_precios(@evaluacions)
     @evaluacion_total_uf = @evaluacion_vanilla_total + @oxy_total_uf + @ald_total_uf + @otros_total_uf
