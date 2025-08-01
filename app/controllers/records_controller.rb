@@ -130,7 +130,7 @@ SQL
                :CertActivoATrabId, :CertClasePlantillaId, :CertTipoActId)
         .each do |id, nro, nombre, atrab, plantilla, tipo|
         parent_info[id] = {
-          patente:   [nro, nombre].map { _1.to_s.strip }.reject(&:blank?).first || id.to_s,
+          patente:   [nro].map { _1.to_s.strip }.reject(&:blank?).first || id.to_s,
           atrab:     atrab,
           plantilla: plantilla,
           tipo_act:  tipo
