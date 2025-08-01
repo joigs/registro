@@ -273,6 +273,8 @@ SQL
       mandante_month[mand_rut]  += @empresa_month[empresa]
     end
 
+
+
     @movilidad_day_company      = mandante_day
     @movilidad_month_by_empresa = mandante_month
     @movilidad_daily_uf         = mandante_day.values
@@ -280,6 +282,39 @@ SQL
                                                 per_day.each { |d,val| h[d] += val }
                                               }
     @movilidad_total_uf         = mandante_month.values.sum
+
+
+
+
+    require "i18n" unless defined?(I18n)
+    norm = ->s { I18n.transliterate(s.to_s).gsub(/[\s\.]/,'').downcase }
+
+    grp_day   = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
+    grp_month = Hash.new(BigDecimal("0"))
+
+    mandante_day.each do |rut, per_day|
+      raw_name = @mandante_names[rut] || rut
+      key =
+        if   norm[raw_name].include?("forestalarauco")
+          "Forestal Arauco SA"
+        elsif norm[raw_name].include?("forestalmininco")
+          "Planta Acreditación Vehículos Forestal"
+        else
+          "Otros"
+        end
+
+      per_day.each { |d,v| grp_day[key][d] += v }
+      grp_month[key]       += mandante_month[rut]
+    end
+
+    @movil_split_day_company      = grp_day
+    @movil_split_month_by_empresa = grp_month
+    @movil_split_daily_uf         = grp_day.values
+                                           .each_with_object(Hash.new(BigDecimal("0"))) { |per,h|
+                                             per.each { |d,v| h[d] += v }
+                                           }
+    @movil_split_total_uf         = grp_month.values.sum
+
     @facturacions.select! do |f|
       date = (f.fecha_inspeccion && Date.parse(f.fecha_inspeccion) rescue nil)
       date && date.year == @year && date.month == @month
