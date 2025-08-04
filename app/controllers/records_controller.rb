@@ -181,15 +181,11 @@ SQL
         else
           per_padre_rows[key] = row
         end
-
       else
         if row.CertChkLstIndividual && parents_by_orig.include?(key)
           individual_children << row
-        elsif parents_by_orig.include?(key)
-          per_padre_rows[key] ||= row
         end
       end
-
     end
 
 
@@ -244,7 +240,6 @@ SQL
 
 
     end
-    # ========= DEBUG  – checklist que llegan a Movilidad =========
     flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
 
     rows_ok
@@ -254,23 +249,8 @@ SQL
 
       puts "▶️  Empresa: #{empresa_peq.ljust(25)} — Registros movil. #{filas.size}"
 
-      filas.each do |f|
-        pat = f.respond_to?(:patente_considerada) ? f.patente_considerada : f.CertActivoNro
-        uf  = (f.monto_checklist.to_d / @uf).truncate(4)
 
-        puts "   • chk=#{f.CertChkLstId.to_s.ljust(6)}  "\
-               "pat=#{pat.ljust(10)}  "\
-               "orig=#{f.CertChkLstFch}  fac=#{f.CertChkLstFchFac}  "\
-               "ind=#{f.CertChkLstIndividual ? 1 : 0}  "\
-               "reIns=#{f.CertChkLstReIns ? 1 : 0}  "\
-               "estado=#{f.CertChkLstEstado || '?'}  "\
-               "pla=#{f.CertClasePlantillaId.to_s.ljust(4)}  "\
-               "AT=#{f.CertActivoATrabId.to_s.ljust(4)}  "\
-               "$=#{sprintf('%.2f', f.monto_checklist)}  "\
-               "(#{uf.to_f} UF)"
-      end
 
-      # — resumen por AT-Plantilla-TipoAct —
       des = filas
               .group_by { |r| [r.CertActivoATrabId,
                                r.CertClasePlantillaId,
@@ -290,15 +270,7 @@ SQL
         }
       end
 
-      puts "   -- DESGLOSE EMPRESA #{empresa_peq} --"
-      des.each do |d|
-        puts "      AT=#{d[:atrab]}  Pla=#{d[:pla]}  Tipo=#{d[:tipo]}  "\
-               "Ins=#{d[:ins]}  ReIns=#{d[:reins]}  UF=#{d[:uf]}  "\
-               "Patentes: #{d[:pats].join(', ')}"
-      end
-      puts
     end
-    puts "========================================================================"
 
 
     @empresa_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
