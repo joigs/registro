@@ -363,7 +363,7 @@ SQL
     @movil_split_total_uf         = grp_month.values.sum
 
     @facturacions.select! do |f|
-      date = (f.fecha_inspeccion && Date.parse(f.fecha_inspeccion) rescue nil)
+      date = (f.fecha_venta && Date.parse(f.fecha_venta) rescue nil)
       date && date.year == @year && date.month == @month
     end
 
@@ -520,10 +520,11 @@ SQL
         oc:               f["oc"],
         fecha_entrega:    f["fecha_entrega"],
         factura:          f["factura"],
+        fecha_venta:      f["fecha_venta"],
         fecha_inspeccion: f["fecha_inspeccion"],
         empresa:          f["empresa"],
         precio:           f["precio"],
-        pesos:            to_pesos(f["precio"], f["fecha_inspeccion"]),
+        pesos:            to_pesos(f["precio"], f["fecha_venta"]),
         inspections:      Array(f["inspections"]).map do |i|
           OpenStruct.new(
             id:        i["id"],
