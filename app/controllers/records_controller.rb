@@ -45,11 +45,22 @@ class RecordsController < ApplicationController
     if eval_resp.code == 200
       body = JSON.parse(eval_resp.body)
        Rails.logger.info"body: #{body.inspect}"
-
+  Rails.logger.info "[CMPCCHECK] body current_cmpc raw => #{body['current_cmpc'].inspect}"
       if body.is_a?(Hash)
         @evaluacions = parse_evaluacions(body["facturacions"] || [])
         @current_oxy = parse_oxy(body["current_oxy"]) if body["current_oxy"].present?
-        @current_cmpc = parse_cmpc(body["current_cmpc"]) if body["current_cmpc"].present?
+    if body["current_cmpc"].present?
+      Rails.logger.info "[CMPCCHECK] current_cmpc presente ✔"
+      Rails.logger.info "[CMPCCHECK] before parse => #{body['current_cmpc'].inspect}"
+
+      @current_cmpc = parse_cmpc(body["current_cmpc"])
+
+      Rails.logger.info "[CMPCCHECK] after  parse => #{@current_cmpc.inspect}"
+    else
+      Rails.logger.info "[CMPCCHECK] current_cmpc ausente ✘"
+      @current_cmpc = nil
+    end
+        
         @current_ald = parse_ald(body["current_ald"]) if body["current_ald"].present?
         @otros_hash  = parse_otros(body["otros"] || [])
       else
