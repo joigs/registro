@@ -33,8 +33,12 @@ class RecordsController < ApplicationController
       meta_resp.code == 200 ? JSON.parse(meta_resp.body)
         : { "anios" => [], "meses" => (1..12).to_a, "empresas" => [] }
 
-    fact_resp      = api_get(VERTICAL_URL, VERTICAL_KEY, query)
-    @facturacions  = fact_resp.code == 200 ? parse_facturacions(JSON.parse(fact_resp.body)) : []
+    fact_resp = api_get(VERTICAL_URL, VERTICAL_KEY, query)
+    json      = fact_resp.code == 200 ? JSON.parse(fact_resp.body) : {}
+
+    @facturacions = parse_facturacions(json["facturacions"] || json)
+    @convenios    = parse_convenios(json["convenios"] || [])
+
 
     eval_resp = api_get(EVAL_URL, EVAL_KEY, query)
 
@@ -45,10 +49,12 @@ class RecordsController < ApplicationController
       if body.is_a?(Hash)
         @evaluacions = parse_evaluacions(body["facturacions"] || [])
         @current_oxy = parse_oxy(body["current_oxy"]) if body["current_oxy"].present?
+        @current_cmpc = parse_cmpc(body["current_cmpc"]) if body["current_cmpc"].present?
         @current_ald = parse_ald(body["current_ald"]) if body["current_ald"].present?
         @otros_hash  = parse_otros(body["otros"] || [])
       else
         @evaluacions = parse_evaluacions(body)
+        @current_cmpc = nil
         @current_oxy = nil
         @current_ald = nil
         @otros_hash  = {}
@@ -56,6 +62,7 @@ class RecordsController < ApplicationController
     else
       @evaluacions = []
       @current_oxy = nil
+      @current_cmpc = nil
       @current_ald = nil
       @otros_hash  = {}
     end
@@ -363,7 +370,12 @@ SQL
     @movil_split_total_uf         = grp_month.values.sum
 
     @facturacions.select! do |f|
-      date = (f.fecha_inspeccion && Date.parse(f.fecha_inspeccion) rescue nil)
+      date = (f.fecha_venta && Date.parse(f.fecha_venta) rescue nil)
+      date && date.year == @year && date.month == @month
+    end
+
+    @convenios.select do |c|
+      date = (c.fecha_venta && Date.parse(c.fecha_venta) rescue nil)
       date && date.year == @year && date.month == @month
     end
 
@@ -375,10 +387,18 @@ SQL
     if @current_oxy && !(@current_oxy.year == @year && @current_oxy.month == @month)
       @current_oxy = nil
     end
+    if @current_cmpc && !(@current_cmpc.year == @year && @current_cmpc.month == @month)
+      @current_cmpc = nil
+    end
 
+    puts("lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll")
+    puts(@current_cmpc.inspect)
+    puts(@facturacions.inspect)
 
-    @vertical_total_uf        = sum_precios(@facturacions)
+    @vertical_total_uf = sum_precios(@facturacions) + sum_precios_convenios(@convenios)
     @oxy_total_uf             = to_decimal(@current_oxy&.total_uf)
+    @cmpc_total_uf = to_decimal(@current_cmpc&.total_uf)
+
 
     # ---------- ALD (único) ----------
     @ald_total_uf = to_decimal(@current_ald&.total_uf)
@@ -389,7 +409,7 @@ SQL
     end
     @ald_month_by_empresa = { "ALD" => @ald_total_uf }
 
-    @otros_month_by_empresa = @otros_hash.transform_values { |v| v } # ya es total_uf
+    @otros_month_by_empresa = @otros_hash.transform_values { |v| v }
     @otros_total_uf         = @otros_month_by_empresa.values.sum
 
     @otros_daily_uf = Hash.new(BigDecimal("0")).tap do |h|
@@ -427,43 +447,81 @@ SQL
 
 
     @evaluacion_vanilla_total = sum_precios(@evaluacions)
-    @evaluacion_total_uf = @evaluacion_vanilla_total + @oxy_total_uf + @ald_total_uf + @otros_total_uf
+    @evaluacion_total_uf = @evaluacion_vanilla_total + @oxy_total_uf + @ald_total_uf + @otros_total_uf + @cmpc_total_uf
     @sum_month                = @vertical_total_uf + @evaluacion_total_uf + @movilidad_total_uf
 
-    @vertical_daily_uf        = daily_sums(@facturacions, :fecha_inspeccion)
+
+
+    vertical_facturacions_by_day = daily_sums(@facturacions, :fecha_venta)
+    vertical_convenios_by_day    = daily_sums_convenios(@convenios)
+
+    @vertical_daily_uf = (1..@days_in_month).each_with_object(Hash.new(BigDecimal("0"))) do |day, h|
+      h[day] = vertical_facturacions_by_day[day] + vertical_convenios_by_day[day]
+    end
+
+
     @evaluacion_vanilla_daily = daily_sums(@evaluacions,   :fecha_inspeccion)
     @oxy_daily_uf             = oxy_daily_sums(@current_oxy)
+    @cmpc_daily_uf = cmpc_daily_sums(@current_cmpc)
     @evaluacion_daily_uf = merge_daily(
       merge_daily(@evaluacion_vanilla_daily, @oxy_daily_uf),
-      merge_daily(@ald_daily_uf, @otros_daily_uf)
+      merge_daily(merge_daily(@ald_daily_uf, @otros_daily_uf), @cmpc_daily_uf)
     )
 
     @sum_daily_uf = merge_daily(
       merge_daily(@vertical_daily_uf, @evaluacion_daily_uf),
       @movilidad_daily_uf
     )
-    @vertical_month_by_empresa   = month_sums_by_company(@facturacions)
+
+    vertical_facturacions_by_empresa = month_sums_by_company(@facturacions)
+    vertical_convenios_by_empresa    = month_sums_by_company_convenios(@convenios)
+
+    @vertical_month_by_empresa = vertical_facturacions_by_empresa.merge(vertical_convenios_by_empresa) do |_empresa, monto_f, monto_c|
+      monto_f + monto_c
+    end
+
     @evaluacion_month_by_empresa = month_sums_by_company(@evaluacions)
 
     oxy_name = "Occidental Chemical Chile Limitada"
     oxy_rut  = @mandante_names.key(oxy_name) || oxy_name
 
+    cmpc_name = "EMPRESAS CMPC S.A"
+    cmpc_rut = @mandante_names.key(cmpc_name) || cmpc_name
+
     @oxy_month_by_empresa = { oxy_rut => @oxy_total_uf }
+    @cmpc_month_by_empresa = { cmpc_rut => @cmpc_total_uf }
 
     @month_by_empresa = merge_hashes(@vertical_month_by_empresa,
                                      @evaluacion_month_by_empresa,
                                      @movilidad_month_by_empresa,
                                      @oxy_month_by_empresa,
+                                     @cmpc_month_by_empresa,
                                      @ald_month_by_empresa,
                                      @otros_month_by_empresa)
 
-    @vertical_day_company   = daily_company(@facturacions, :fecha_inspeccion)
+    vertical_facturacions_by_day_company = daily_company(@facturacions, :fecha_venta)
+    vertical_convenios_by_day_company    = daily_company_convenios(@convenios)
+
+    @vertical_day_company = {}
+
+    (empresas = vertical_facturacions_by_day_company.keys | vertical_convenios_by_day_company.keys).each do |empresa|
+      dias = vertical_facturacions_by_day_company[empresa].keys | vertical_convenios_by_day_company[empresa].keys
+      @vertical_day_company[empresa] ||= Hash.new(BigDecimal("0"))
+      dias.each do |day|
+        monto_f = vertical_facturacions_by_day_company[empresa][day] || BigDecimal("0")
+        monto_c = vertical_convenios_by_day_company[empresa][day]    || BigDecimal("0")
+        @vertical_day_company[empresa][day] = monto_f + monto_c
+      end
+    end
+
+
     @eval_vanilla_day_comp  = daily_company(@evaluacions,  :fecha_inspeccion)
     @oxy_day_company        = build_oxy_day_company(@current_oxy)
-
+    @cmpc_day_company        = build_cmpc_day_company(@current_cmpc)
     @evaluation_day_company = merge_nested(
       @eval_vanilla_day_comp,
       @oxy_day_company,
+      @cmpc_day_company,
       @ald_day_company ||= { "ALD" => @ald_daily_uf },
       @otros_day_company
     )
@@ -479,6 +537,7 @@ SQL
       "Evaluación de Competencias" => merge_hashes(@evaluacion_month_by_empresa,
                                                    @ald_month_by_empresa,
                                                    @oxy_month_by_empresa,
+                                                   @cmpc_month_by_empresa,
                                                    @otros_month_by_empresa),
       "Movilidad"                  => @movilidad_month_by_empresa,
 
@@ -520,10 +579,11 @@ SQL
         oc:               f["oc"],
         fecha_entrega:    f["fecha_entrega"],
         factura:          f["factura"],
+        fecha_venta:      f["fecha_venta"],
         fecha_inspeccion: f["fecha_inspeccion"],
         empresa:          f["empresa"],
         precio:           f["precio"],
-        pesos:            to_pesos(f["precio"], f["fecha_inspeccion"]),
+        pesos:            to_pesos(f["precio"], f["fecha_venta"]),
         inspections:      Array(f["inspections"]).map do |i|
           OpenStruct.new(
             id:        i["id"],
@@ -537,6 +597,19 @@ SQL
       )
     end
   end
+  def parse_convenios(arr)
+    Array(arr).map do |c|
+      OpenStruct.new(
+        id:           c["id"],
+        fecha_venta:  c["fecha_venta"],
+        n1:           c["n1"],
+        v1:           c["v1"],
+        empresa_id:   c["empresa_id"],
+        empresa_nombre: c["empresa_nombre"] || c["empresa"]
+      )
+    end
+  end
+
 
   def parse_evaluacions(arr)
     Array(arr).map do |f|
@@ -595,6 +668,27 @@ SQL
     )
   end
 
+  def parse_cmpc(data)
+    return nil unless data
+
+    OpenStruct.new(
+      id:         data["id"],
+      month:      data["month"],
+      year:       data["year"],
+      numero_servicios: data["numero_servicios"],
+      total_uf:   to_decimal(data["total_uf"] || data["total"] || 0.0),
+      cmpc_records:         Array(data["cmpc_records"]).map do |r|
+        OpenStruct.new(
+          id:         r["id"],
+          suma:       r["suma"],
+          fecha:      r["fecha"],
+          created_at: r["created_at"],
+          updated_at: r["updated_at"]
+        )
+      end
+    )
+  end
+
   def parse_ald(data)
     return nil unless data
     OpenStruct.new(
@@ -640,8 +734,22 @@ SQL
     BigDecimal(val.to_s)
   end
 
+  def sum_precios_convenios(records)
+    Array(records).sum(BigDecimal("0")) { |r| to_decimal(r&.v1) }
+  end
 
 
+  def daily_sums_convenios(records)
+    Hash.new(BigDecimal("0")).tap do |h|
+      Array(records).each do |r|
+        date_str = r&.fecha_venta
+        next if date_str.blank?
+
+        day = Date.parse(date_str.to_s).day rescue next
+        h[day] += to_decimal(r.v1)
+      end
+    end
+  end
 
 
   def daily_sums(records, date_attr)
@@ -666,6 +774,16 @@ SQL
       end
     end
   end
+
+  def month_sums_by_company_convenios(records)
+    Hash.new(BigDecimal("0")).tap do |h|
+      Array(records).each do |r|
+        empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
+        h[empresa] += to_decimal(r.v1)
+      end
+    end
+  end
+
 
   def daily_sums_by_company(records, date_attr)
     Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
@@ -710,12 +828,31 @@ SQL
     end
   end
 
+  def daily_company_convenios(records)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        day = Date.parse(r.fecha_venta.to_s).day rescue next
+        empresa = r.empresa_nombre.presence || "sin_empresa"
+        h[empresa][day] += to_decimal(r.v1)
+      end
+    end
+  end
+
+
   def build_oxy_day_company(current_oxy)
     return {} unless current_oxy
     daily = oxy_daily_sums(current_oxy)
 
     { "Oxy" => daily }
   end
+
+  def build_cmpc_day_company(current_cmpc)
+    return {} unless current_cmpc
+    daily = cmpc_daily_sums(current_cmpc)
+
+    { "Transporte de personal CMPC" => daily }
+  end
+
 
   def oxy_daily_sums(current_oxy)
     return Hash.new(BigDecimal("0")) unless current_oxy
@@ -733,4 +870,19 @@ SQL
     end
   end
 
+
+
+  def cmpc_daily_sums(current_cmpc)
+    return Hash.new(BigDecimal("0")) unless current_cmpc
+
+
+
+    Hash.new(BigDecimal("0")).tap do |h|
+      current_cmpc.cmpc_records.each do |rec|
+        price_per_rec = to_decimal(rec.suma)
+        day = (rec.fecha.is_a?(Date) ? rec.fecha : Date.parse(rec.fecha.to_s)).day
+        h[day] += price_per_rec
+      end
+    end
+  end
 end
