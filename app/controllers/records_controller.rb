@@ -44,7 +44,7 @@ class RecordsController < ApplicationController
 
     if eval_resp.code == 200
       body = JSON.parse(eval_resp.body)
-      puts("body: #{body.inspect}") if Rails.env.development?
+       Rails.logger.info"body: #{body.inspect}"
 
       if body.is_a?(Hash)
         @evaluacions = parse_evaluacions(body["facturacions"] || [])
