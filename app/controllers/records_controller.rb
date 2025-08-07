@@ -56,20 +56,21 @@ class RecordsController < ApplicationController
     end
         
         @current_ald = parse_ald(body["current_ald"]) if body["current_ald"].present?
-        @otros_hash  = parse_otros(body["otros"] || [])
+        @otros       = parse_otros(body["otros"] || [])
+
       else
         @evaluacions = parse_evaluacions(body)
         @current_cmpc = nil
         @current_oxy = nil
         @current_ald = nil
-        @otros_hash  = {}
+        @otros = []
       end
     else
       @evaluacions = []
       @current_oxy = nil
       @current_cmpc = nil
       @current_ald = nil
-      @otros_hash  = {}
+      @otros = []
     end
 
     require "set"
@@ -527,16 +528,11 @@ SQL
     end
     @ald_month_by_empresa = { "ALD" => @ald_total_uf }
 
-    @otros_month_by_empresa = @otros_hash.transform_values { |v| v }
+    @otros_month_by_empresa = month_sums_by_company_otros(@otros)
     @otros_total_uf         = @otros_month_by_empresa.values.sum
+    @otros_daily_uf         = daily_sums_otros(@otros)
+    @otros_day_company      = daily_company_otros(@otros)
 
-    @otros_daily_uf = Hash.new(BigDecimal("0")).tap do |h|
-      @otros_total_uf.zero? or h[@days_in_month] = @otros_total_uf
-    end
-    @otros_day_company = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
-    @otros_month_by_empresa.each do |emp, total|
-      @otros_day_company[emp][@days_in_month] = total
-    end
 
 
     require "i18n" unless defined?(I18n)
@@ -819,11 +815,24 @@ SQL
   end
 
   def parse_otros(arr)
-    Hash.new(BigDecimal("0")).tap do |h|
-      Array(arr).each do |o|
-        empresa = o.dig("empresa", "nombre") || "sin_empresa"
-        h[empresa] += to_decimal(o["total"])
-      end
+    Array(arr).map do |o|
+      empresa_hash = o["empresa"] || {}
+      fecha_parsed = o["fecha"] && Date.parse(o["fecha"]) rescue nil
+
+      OpenStruct.new(
+        id:             o["id"],
+        fecha:          fecha_parsed,
+        month:          o["month"] || fecha_parsed&.month,
+        year:           o["year"]  || fecha_parsed&.year,
+        n1:             to_decimal(o["n1"]),
+        n2:             to_decimal(o["n2"]),
+        total:          to_decimal(o["total"]),            # ⬅️ monto UF
+        v1:             to_decimal(o.fetch("v1", "0.1")),
+        empresa_id:     empresa_hash["id"] || o["empresa_id"],
+        empresa_nombre: empresa_hash["nombre"] ||
+          o["empresa_nombre"] ||
+          o["empresa"] || "sin_empresa"
+      )
     end
   end
 
@@ -952,6 +961,39 @@ SQL
         day = Date.parse(r.fecha_venta.to_s).day rescue next
         empresa = r.empresa_nombre.presence || "sin_empresa"
         h[empresa][day] += to_decimal(r.v1)
+      end
+    end
+  end
+  def sum_precios_otros(records)
+    Array(records).sum(BigDecimal("0")) { |r| to_decimal(r.total) }
+  end
+
+  def daily_sums_otros(records)
+    Hash.new(BigDecimal("0")).tap do |h|
+      Array(records).each do |r|
+        next if r.fecha.blank?
+        day = (r.fecha.is_a?(Date) ? r.fecha : Date.parse(r.fecha.to_s)).day rescue next
+        h[day] += to_decimal(r.total)
+      end
+    end
+  end
+
+  def month_sums_by_company_otros(records)
+    Hash.new(BigDecimal("0")).tap do |h|
+      Array(records).each do |r|
+        empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
+        h[empresa] += to_decimal(r.total)
+      end
+    end
+  end
+
+  def daily_company_otros(records)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        next if r.fecha.blank?
+        day = (r.fecha.is_a?(Date) ? r.fecha : Date.parse(r.fecha.to_s)).day rescue next
+        empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
+        h[empresa][day] += to_decimal(r.total)
       end
     end
   end
