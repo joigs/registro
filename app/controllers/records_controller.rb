@@ -253,6 +253,11 @@ SQL
 
 
     end
+
+
+    # ---------DEBUG-----------------
+
+
     flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
 
     rows_ok
@@ -260,7 +265,23 @@ SQL
       .group_by { |r| r.CerManNombre.to_s.strip.presence || r.CerManRut.to_s }
       .each do |empresa_peq, filas|
 
-      puts "▶️  Empresa: #{empresa_peq.ljust(25)} — Registros movil. #{filas.size}"
+
+
+      filas.each do |f|
+        pat = f.respond_to?(:patente_considerada) ? f.patente_considerada : f.CertActivoNro
+        uf  = (f.monto_checklist.to_d / @uf).truncate(4)
+
+        puts "   • chk=#{f.CertChkLstId.to_s.ljust(6)}  "\
+               "pat=#{pat.ljust(10)}  "\
+               "orig=#{f.CertChkLstFch}  fac=#{f.CertChkLstFchFac}  "\
+               "ind=#{f.CertChkLstIndividual ? 1 : 0}  "\
+               "reIns=#{f.CertChkLstReIns ? 1 : 0}  "\
+               "estado=#{f.CertChkLstEstado || '?'}  "\
+               "pla=#{f.CertClasePlantillaId.to_s.ljust(4)}  "\
+               "AT=#{f.CertActivoATrabId.to_s.ljust(4)}  "\
+               "$=#{sprintf('%.2f', f.monto_checklist)}  "\
+               "(#{uf.to_f} UF)"
+      end
 
 
 
@@ -282,14 +303,21 @@ SQL
           uf:    (g.sum { |r| r.monto_checklist.to_d } / @uf).truncate(4)
         }
       end
-
+      puts "   -- DESGLOSE EMPRESA #{empresa_peq} --"
+      des.each do |d|
+        puts "      AT=#{d[:atrab]}  Pla=#{d[:pla]}  Tipo=#{d[:tipo]}  "\
+               "Ins=#{d[:ins]}  ReIns=#{d[:reins]}  UF=#{d[:uf]}  "\
+               "Patentes: #{d[:pats].join(', ')}"
+      end
+      puts
     end
+    puts "========================================================================"
+
+
 
 
     @empresa_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
     @empresa_month   = Hash.new(BigDecimal('0'))
-    @empresa_day_count  = Hash.new { |h,k| h[k] = Hash.new(0) }
-    @empresa_month_count= Hash.new(0)
     @emp_to_mandante = {}
     rows_ok
       .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
@@ -313,8 +341,6 @@ SQL
       @empresa_month[empresa]          += monto_uf
 
 
-      @empresa_day_count[empresa][fecha.day]    += filas_dia.size
-      @empresa_month_count[empresa]             += filas_dia.size
 
       ref          = filas_dia.first
       mand_rut     = ref.CerManRutN.to_s
@@ -330,8 +356,6 @@ SQL
     @mandante_names  = {}
     mandante_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
     mandante_month   = Hash.new(BigDecimal('0'))
-    mandante_day_count   = Hash.new { |h,k| h[k] = Hash.new(0) }
-    mandante_month_count = Hash.new(0)
 
 
     @empresa_day.each do |empresa, per_day|
@@ -339,13 +363,9 @@ SQL
       @mandante_names[mand_rut] ||= mand_nom
       per_day.each { |d,val| mandante_day[mand_rut][d] += val }
       mandante_month[mand_rut]  += @empresa_month[empresa]
-      mandante_month_count[mand_rut] += @empresa_month_count[empresa]
     end
 
-    @empresa_day_count.each do |empresa, per_day_count|
-      mand_rut, = @emp_to_mandante[empresa]
-      per_day_count.each { |d, c| mandante_day_count[mand_rut][d] += c }
-    end
+
 
 
     @movilidad_day_company      = mandante_day
@@ -355,8 +375,6 @@ SQL
                                                 per_day.each { |d,val| h[d] += val }
                                               }
     @movilidad_total_uf         = mandante_month.values.sum
-    @movilidad_day_company_count   = mandante_day_count
-    @movilidad_month_by_empresa_count = mandante_month_count
 
 
 
@@ -366,8 +384,6 @@ SQL
 
     grp_day   = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
     grp_month = Hash.new(BigDecimal("0"))
-    grp_day_count   = Hash.new { |h,k| h[k] = Hash.new(0) }
-    grp_month_count = Hash.new(0)
 
 
     mandante_day.each do |rut, per_day|
@@ -384,8 +400,7 @@ SQL
       per_day.each { |d,v| grp_day[key][d] += v }
       grp_month[key]       += mandante_month[rut]
 
-      mandante_day_count[rut].each { |d, c| grp_day_count[key][d] += c }
-      grp_month_count[key] += mandante_month_count[rut]
+
 
 
     end
@@ -393,8 +408,6 @@ SQL
     @movil_split_day_company      = grp_day
     @movil_split_month_by_empresa = grp_month
 
-    @movil_split_day_company_count      = grp_day_count
-    @movil_split_month_by_empresa_count = grp_month_count
 
 
     @movil_split_daily_uf         = grp_day.values
@@ -402,17 +415,6 @@ SQL
                                              per.each { |d,v| h[d] += v }
                                            }
     @movil_split_total_uf         = grp_month.values.sum
-
-
-    @movilidad_daily_count = mandante_day_count.values
-                                               .each_with_object(Hash.new(0)) { |per_day, h| per_day.each { |d, val| h[d] += val } }
-
-    @movilidad_total_count = mandante_month_count.values.sum
-
-    @movil_split_daily_count = grp_day_count.values
-                                            .each_with_object(Hash.new(0)) { |per, h| per.each { |d, v| h[d] += v } }
-
-    @movil_split_total_count = grp_month_count.values.sum
 
 
 
@@ -442,69 +444,6 @@ SQL
 
 
 
-    puts "▶️ MOVILIDAD: Por empresa/día"
-    @empresa_day.each do |empresa, por_dia|
-      por_dia.each do |dia, valor|
-        count = @empresa_day_count[empresa][dia]
-        puts "  Empresa: #{empresa.ljust(25)} Día: #{dia.to_s.rjust(2)}  => [#{valor}, #{count}]"
-      end
-    end
-    puts
-    puts "▶️ MOVILIDAD: Por empresa/mes"
-    @empresa_month.each do |empresa, valor|
-      count = @empresa_month_count[empresa]
-      puts "  Empresa: #{empresa.ljust(25)} Mes => [#{valor}, #{count}]"
-    end
-    puts
-    puts "▶️ MOVILIDAD: Por mandante/día"
-    @movilidad_day_company.each do |mandante, por_dia|
-      por_dia.each do |dia, valor|
-        count = @movilidad_day_company_count[mandante][dia]
-        puts "  Mandante: #{mandante.ljust(35)} Día: #{dia.to_s.rjust(2)}  => [#{valor}, #{count}]"
-      end
-    end
-    puts
-    puts "▶️ MOVILIDAD: Por mandante/mes"
-    @movilidad_month_by_empresa.each do |mandante, valor|
-      count = @movilidad_month_by_empresa_count[mandante]
-      puts "  Mandante: #{mandante.ljust(35)} Mes => [#{valor}, #{count}]"
-    end
-    puts
-    puts "▶️ MOVILIDAD: Por grupo/día"
-    @movil_split_day_company.each do |grupo, por_dia|
-      por_dia.each do |dia, valor|
-        count = @movil_split_day_company_count[grupo][dia]
-        puts "  Grupo: #{grupo.ljust(35)} Día: #{dia.to_s.rjust(2)}  => [#{valor}, #{count}]"
-      end
-    end
-    puts
-    puts "▶️ MOVILIDAD: Por grupo/mes"
-    @movil_split_month_by_empresa.each do |grupo, valor|
-      count = @movil_split_month_by_empresa_count[grupo]
-      puts "  Grupo: #{grupo.ljust(35)} Mes => [#{valor}, #{count}]"
-    end
-    puts
-    puts "▶️ MOVILIDAD: Totales diarios"
-    (1..@days_in_month).each do |dia|
-      valor = @movilidad_daily_uf[dia]
-      count = @movilidad_daily_count[dia]
-      puts "  Día #{dia.to_s.rjust(2)} => [#{valor}, #{count}]"
-    end
-    puts
-    puts "▶️ MOVILIDAD: Total mes"
-    puts "  Total mes => [#{@movilidad_total_uf}, #{@movilidad_total_count}]"
-    puts
-    puts "▶️ MOVILIDAD: Totales diarios por grupo"
-    (1..@days_in_month).each do |dia|
-      valor = @movil_split_daily_uf[dia]
-      count = @movil_split_daily_count[dia]
-      puts "  Día #{dia.to_s.rjust(2)} => [#{valor}, #{count}]"
-    end
-    puts
-    puts "▶️ MOVILIDAD: Total mes (grupo)"
-    puts "  Total mes (grupo) => [#{@movil_split_total_uf}, #{@movil_split_total_count}]"
-    puts
-
 
 
 
@@ -519,19 +458,55 @@ SQL
     @cmpc_total_uf = to_decimal(@current_cmpc&.total_uf)
 
 
+    @vertical_total_count = @facturacions.size + @convenios.size
+    puts("vertical_total_count=#{@vertical_total_count} ")
+    @oxy_total_count = @current_oxy ? @current_oxy.oxy_records.size : 0
+    @cmpc_total_count = @current_cmpc ? @current_cmpc.cmpc_records.size : 0
+
+    puts("cmpc_total_count=#{@cmpc_total_count} ")
+    puts("oxy_total_count=#{@oxy_total_count} ")
+
+
     # ---------- ALD (único) ----------
     @ald_total_uf = to_decimal(@current_ald&.total_uf)
+
+    if @current_ald
+
+      @ald_total_count = (@current_ald.n1.to_i || 0) + (@current_ald.n2.to_i || 0)
+
+    else
+      @ald_total_count = 0
+
+    end
+
     @ald_daily_uf = Hash.new(BigDecimal("0")).tap do |h|
       if @current_ald
         h[@days_in_month] = @ald_total_uf
       end
     end
+
+
+    @ald_daily_count = Hash.new(0).tap do |h|
+      if @current_ald
+        h[@days_in_month] = @ald_total_count
+      end
+    end
+
     @ald_month_by_empresa = { "ALD" => @ald_total_uf }
+    @ald_month_count_by_empresa = { "ALD" => @ald_total_count }
 
     @otros_month_by_empresa = month_sums_by_company_otros(@otros)
     @otros_total_uf         = @otros_month_by_empresa.values.sum
     @otros_daily_uf         = daily_sums_otros(@otros)
     @otros_day_company      = daily_company_otros(@otros)
+
+    @otros_total_count      = @otros.sum { |o| o.n1.to_i + o.n2.to_i }
+    @otros_daily_count      = daily_counts_otros(@otros)
+    @otros_day_company_count = daily_counts_company_otros(@otros)
+    @otros_month_by_empresa_count = month_sums_by_company_otros_count(@otros)
+
+
+
 
 
 
@@ -543,6 +518,8 @@ SQL
     target_rut ||= "Forestal Arauco SA"
 
     arauco_keys = @otros_month_by_empresa.keys.select { |k| norm[k].include?("arauco") }
+    arauco_keys_count = @otros_month_by_empresa_count.keys.select { |k| norm[k].include?("arauco") }
+
 
     unless arauco_keys.empty?
       total_arauco = arauco_keys.sum { |k| @otros_month_by_empresa[k] }
@@ -559,33 +536,95 @@ SQL
       ar_day_tot.each { |d,v| @otros_day_company[target_rut][d] += v }
     end
 
+    unless arauco_keys_count.empty?
+      # Totales mensuales de count
+      total_arauco_count = arauco_keys_count.sum { |k| @otros_month_by_empresa_count[k].to_i }
+      @otros_month_by_empresa_count[target_rut] ||= 0
+      @otros_month_by_empresa_count[target_rut]  += total_arauco_count
+      arauco_keys_count.each { |k| @otros_month_by_empresa_count.delete(k) }
+
+      # Totales diarios de count
+      ar_day_count_tot = Hash.new(0)
+      arauco_keys_count.each do |k|
+        @otros_day_company_count[k].each { |d,v| ar_day_count_tot[d] += v }
+        @otros_day_company_count.delete(k)
+      end
+      @otros_day_company_count[target_rut] ||= Hash.new(0)
+      ar_day_count_tot.each { |d,v| @otros_day_company_count[target_rut][d] += v }
+    end
+
+    @otros_total_count      = @otros.sum { |o| o.n1.to_i + o.n2.to_i }
+    @otros_daily_count      = daily_counts_otros(@otros)
+    @otros_day_company_count = daily_counts_company_otros(@otros)
+    @otros_month_by_empresa_count = month_sums_by_company_otros_count(@otros)
+
+    puts("otros_total_count=#{@otros_total_count} ")
+    puts("otros_daily_count=#{@otros_daily_count.inspect} ")
+    puts("otros_day_company_count=#{@otros_day_company_count.inspect} ")
+    puts("otros_month_by_empresa_count=#{@otros_month_by_empresa_count.inspect} ")
+
 
     @evaluacion_vanilla_total = sum_precios(@evaluacions)
     @evaluacion_total_uf = @evaluacion_vanilla_total + @oxy_total_uf + @ald_total_uf + @otros_total_uf + @cmpc_total_uf
     @sum_month                = @vertical_total_uf + @evaluacion_total_uf + @movilidad_total_uf
 
+    @evaluacion_vanilla_count = @evaluacions.size
+
+    @evaluaciin_total_count = @evaluacion_vanilla_count + @oxy_total_count + @ald_total_count + @otros_total_count + @cmpc_total_count
+
+    #descomentar cuando esten los 3 modulos
+    #@count_month = @vertical_total_count + @evaluaciin_total_count + @movilidad_total_count
 
 
     vertical_facturacions_by_day = daily_sums(@facturacions, :fecha_venta)
+    vertical_counts_by_day = daily_counts(@facturacions, :fecha_venta)
     vertical_convenios_by_day    = daily_sums_convenios(@convenios)
+    convenios_counts_by_day = daily_counts_convenios(@convenios)
 
     @vertical_daily_uf = (1..@days_in_month).each_with_object(Hash.new(BigDecimal("0"))) do |day, h|
       h[day] = vertical_facturacions_by_day[day] + vertical_convenios_by_day[day]
     end
 
+    @vertical_daily_count = (1..@days_in_month).each_with_object(Hash.new(0)) do |day, h|
+      h[day] = vertical_counts_by_day[day].to_i + convenios_counts_by_day[day].to_i
+    end
+
+    puts("vertical_daily_count=#{@vertical_daily_count.inspect} ")
+
 
     @evaluacion_vanilla_daily = daily_sums(@evaluacions,   :fecha_inspeccion)
+    @evaluacion_vanilla_daily_count = daily_counts(@evaluacions, :fecha_inspeccion)
     @oxy_daily_uf             = oxy_daily_sums(@current_oxy)
-    @cmpc_daily_uf = cmpc_daily_sums(@current_cmpc)
+    @oxy_daily_count          = oxy_daily_counts(@current_oxy)
+    @cmpc_daily_uf            = cmpc_daily_sums(@current_cmpc)
+    @cmpc_daily_count         = cmpc_daily_counts(@current_cmpc)
     @evaluacion_daily_uf = merge_daily(
       merge_daily(@evaluacion_vanilla_daily, @oxy_daily_uf),
       merge_daily(merge_daily(@ald_daily_uf, @otros_daily_uf), @cmpc_daily_uf)
     )
 
+
+    @evaluacion_daily_count = merge_daily_count(
+      merge_daily_count(@evaluacion_vanilla_daily_count, @oxy_daily_count),
+      merge_daily_count(merge_daily_count(@ald_daily_count, @otros_daily_count), @cmpc_daily_count)
+    )
+
+    puts("evaluacion_daily_count=#{@evaluacion_daily_count.inspect} ")
+
+
+
     @sum_daily_uf = merge_daily(
       merge_daily(@vertical_daily_uf, @evaluacion_daily_uf),
       @movilidad_daily_uf
     )
+
+
+
+    #descomnentar cuando se tengan todos
+    #   @sum_daily_count = merge_daily_count(
+    #  merge_daily_count(@vertical_daily_count, @evaluacion_daily_count),
+    #    @movilidad_daily_count
+    #   )
 
     vertical_facturacions_by_empresa = month_sums_by_company(@facturacions)
     vertical_convenios_by_empresa    = month_sums_by_company_convenios(@convenios)
@@ -617,21 +656,40 @@ SQL
     vertical_convenios_by_day_company    = daily_company_convenios(@convenios)
 
     @vertical_day_company = {}
+    @vertical_day_company_count = {}
+
+    vertical_facturacion_count_by_day_company = daily_count_company(@facturacions, :fecha_venta)
+    vertical_convenio_count_by_day_company    = daily_count_company_convenios(@convenios)
+
 
     (empresas = vertical_facturacions_by_day_company.keys | vertical_convenios_by_day_company.keys).each do |empresa|
       dias = vertical_facturacions_by_day_company[empresa].keys | vertical_convenios_by_day_company[empresa].keys
       @vertical_day_company[empresa] ||= Hash.new(BigDecimal("0"))
+      @vertical_day_company_count[empresa] ||= Hash.new(0)
       dias.each do |day|
         monto_f = vertical_facturacions_by_day_company[empresa][day] || BigDecimal("0")
         monto_c = vertical_convenios_by_day_company[empresa][day]    || BigDecimal("0")
         @vertical_day_company[empresa][day] = monto_f + monto_c
+        @vertical_day_company_count[empresa][day] = (vertical_facturacion_count_by_day_company[empresa][day] || 0) + (vertical_convenio_count_by_day_company[empresa][day] || 0)
       end
     end
 
+    puts("vertical_day_company_count=#{@vertical_day_company_count.inspect} ")
+
 
     @eval_vanilla_day_comp  = daily_company(@evaluacions,  :fecha_inspeccion)
+    @eval_vanilla_day_comp_count = daily_count_company(@evaluacions, :fecha_inspeccion)
+
+
     @oxy_day_company        = build_oxy_day_company(@current_oxy)
+    @oxy_day_company_count = build_oxy_day_company_count(@current_oxy)
+
+
     @cmpc_day_company        = build_cmpc_day_company(@current_cmpc)
+    @cmpc_day_company_count = build_cmpc_day_company_count(@current_cmpc)
+
+
+
     @evaluation_day_company = merge_nested(
       @eval_vanilla_day_comp,
       @oxy_day_company,
@@ -640,10 +698,27 @@ SQL
       @otros_day_company
     )
 
+    @evaluation_day_company_count = merge_nested_count(
+      @eval_vanilla_day_comp_count,
+      @oxy_day_company_count,
+      @cmpc_day_company_count,
+      @ald_day_company_count ||= { "ALD" => @ald_daily_count },
+      @otros_day_company_count
+    )
+
+    puts("evaluation_day_company_count=#{@evaluation_day_company_count.inspect} ")
+
+
 
     @day_company            = merge_nested(@vertical_day_company,
                                            @evaluation_day_company,
                                            @movilidad_day_company)
+
+    #descomentar cuando esten los 3
+    #@day_company_count      = merge_nested_count(@vertical_day_company_count,
+    #                                             @evaluation_day_company_count,
+    #                                             @movilidad_day_company_count)
+
 
 
     @module_months = {
@@ -656,6 +731,8 @@ SQL
       "Movilidad"                  => @movilidad_month_by_empresa,
 
     }
+
+
 
   end
 
@@ -893,6 +970,30 @@ SQL
 
 
 
+  def daily_counts(records, date_attr)
+    Hash.new(0).tap do |h|
+      Array(records).each do |r|
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+
+        day = Date.parse(date_str.to_s).day rescue next
+        h[day] += 1
+      end
+    end
+  end
+
+  def daily_counts_convenios(records)
+    Hash.new(0).tap do |h|
+      Array(records).each do |r|
+        date_str = r&.fecha_venta
+        next if date_str.blank?
+
+        day = Date.parse(date_str.to_s).day rescue next
+        h[day] += 1
+      end
+    end
+  end
+
   def month_sums_by_company(records)
     Hash.new(BigDecimal("0")).tap do |h|
       Array(records).each do |r|
@@ -931,6 +1032,11 @@ SQL
     Hash.new(BigDecimal("0")).tap { |h| range.each { |d| h[d] = a[d] + b[d] } }
   end
 
+  def merge_daily_count(a, b)
+    range = 1..@days_in_month
+    Hash.new(0).tap { |h| range.each { |d| h[d] = (a[d] || 0) + (b[d] || 0) } }
+  end
+
   def merge_hashes(*hashes)
     Hash.new(BigDecimal("0")).tap do |h|
       hashes.each { |hh| hh.each { |k,v| h[k] += v } }
@@ -946,6 +1052,15 @@ SQL
     end
   end
 
+  def merge_nested_count(*levels)
+    range = 1..@days_in_month
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
+      levels.each do |lvl|
+        lvl.each { |k,sub| range.each { |d| h[k][d] += sub[d] } }
+      end
+    end
+  end
+
   def daily_company(records, date_attr)
     Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
       Array(records).each do |r|
@@ -954,6 +1069,8 @@ SQL
       end
     end
   end
+
+
 
   def daily_company_convenios(records)
     Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
@@ -964,6 +1081,27 @@ SQL
       end
     end
   end
+
+  def daily_count_company(records, date_attr)
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
+      Array(records).each do |r|
+        day = Date.parse(r.public_send(date_attr).to_s).day rescue next
+        h[r.empresa.presence || "sin_empresa"][day] += 1
+      end
+    end
+  end
+
+  def daily_count_company_convenios(records)
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
+      Array(records).each do |r|
+        day = Date.parse(r.fecha_venta.to_s).day rescue next
+        empresa = r.empresa_nombre.presence || "sin_empresa"
+        h[empresa][day] += 1
+      end
+    end
+  end
+
+
   def sum_precios_otros(records)
     Array(records).sum(BigDecimal("0")) { |r| to_decimal(r.total) }
   end
@@ -978,11 +1116,30 @@ SQL
     end
   end
 
+  def daily_counts_otros(records)
+    Hash.new(0).tap do |h|
+      Array(records).each do |r|
+        next if r.fecha.blank?
+        day = (r.fecha.is_a?(Date) ? r.fecha : Date.parse(r.fecha.to_s)).day rescue next
+        h[day] += 1
+      end
+    end
+  end
+
   def month_sums_by_company_otros(records)
     Hash.new(BigDecimal("0")).tap do |h|
       Array(records).each do |r|
         empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
         h[empresa] += to_decimal(r.total)
+      end
+    end
+  end
+
+  def month_sums_by_company_otros_count(records)
+    Hash.new(0).tap do |h|
+      Array(records).each do |r|
+        empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
+        h[empresa] += r.n1.to_i + r.n2.to_i
       end
     end
   end
@@ -998,6 +1155,17 @@ SQL
     end
   end
 
+  def daily_counts_company_otros(records)
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
+      Array(records).each do |r|
+        next if r.fecha.blank?
+        day = (r.fecha.is_a?(Date) ? r.fecha : Date.parse(r.fecha.to_s)).day rescue next
+        empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
+        h[empresa][day] += 1
+      end
+    end
+  end
+
 
   def build_oxy_day_company(current_oxy)
     return {} unless current_oxy
@@ -1006,9 +1174,23 @@ SQL
     { "Oxy" => daily }
   end
 
+  def build_oxy_day_company_count(current_oxy)
+    return {} unless current_oxy
+    daily = oxy_daily_counts(current_oxy)
+
+    { "Oxy" => daily }
+  end
+
   def build_cmpc_day_company(current_cmpc)
     return {} unless current_cmpc
     daily = cmpc_daily_sums(current_cmpc)
+
+    { "Transporte de personal CMPC" => daily }
+  end
+
+  def build_cmpc_day_company_count(current_cmpc)
+    return {} unless current_cmpc
+    daily = cmpc_daily_counts(current_cmpc)
 
     { "Transporte de personal CMPC" => daily }
   end
@@ -1030,7 +1212,17 @@ SQL
     end
   end
 
+  def oxy_daily_counts(current_oxy)
+    return Hash.new(0) unless current_oxy
 
+    Hash.new(0).tap do |h|
+      current_oxy.oxy_records.each do |rec|
+        day = (rec.fecha.is_a?(Date) ? rec.fecha : Date.parse(rec.fecha.to_s)).day
+        h[day] += 1
+      end
+      h[1] += current_oxy.arrastre unless current_oxy.arrastre.zero?
+    end
+  end
 
   def cmpc_daily_sums(current_cmpc)
     return Hash.new(BigDecimal("0")) unless current_cmpc
@@ -1045,4 +1237,17 @@ SQL
       end
     end
   end
+
+  def cmpc_daily_counts(current_cmpc)
+    return Hash.new(0) unless current_cmpc
+
+    Hash.new(0).tap do |h|
+      current_cmpc.cmpc_records.each do |rec|
+        day = (rec.fecha.is_a?(Date) ? rec.fecha : Date.parse(rec.fecha.to_s)).day
+        h[day] += 1
+      end
+    end
+  end
+
+
 end
