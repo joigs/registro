@@ -6,8 +6,14 @@
 
 <% mods_full = {
   "Transporte Vertical"        => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
-  "Evaluación de Competencias" => [@evaluacion_total_uf, @evaluacion_daily_uf, @evaluation_day_company],
+  "Evaluación de Competencias" => [@evaluacion_total_count, @evaluacion_daily_count, @evaluation_day_company_count],
   "Movilidad"                  => [@movilidad_total_uf,  @movilidad_daily_uf,  @movilidad_day_company]
+} %>
+
+<% mods_full_count = {
+  "Transporte Vertical"        => [@vertical_total_count, @vertical_daily_count, @vertical_day_company_count],
+  "Evaluación de Competencias" => [@evaluacion_total_count, @evaluacion_daily_count, @evaluation_day_company_count],
+  "Movilidad"                  => [@movilidad_total_count,  @movilidad_daily_count,  @movilidad_day_company_count]
 } %>
 
 <%= form_with url: records_path, method: :get, local: true,
@@ -36,23 +42,27 @@
   <% unless exact_rec %>(valor aproximado)<% end %>
 </p>
 
-<main class="max-w-5xl mx-auto space-y-10 text-gray-900 dark:text-gray-100">
+<main class="max-w-7xl mx-auto space-y-10 text-gray-900 dark:text-gray-100">
 
   <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
     <h1 class="text-3xl sm:text-4xl font-semibold mb-4">
       Total <%= meses_es[@month-1] %> <%= @year %>: <%= uf_clp[@sum_month] %>
+      <br>
+      N° Servicios: <%= @count_month %>
     </h1>
 
     <table class="w-full text-sm border-collapse">
       <thead>
       <tr>
         <th class="py-2 border border-gray-300 dark:border-slate-600">Módulo</th>
-        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Total</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600">Total</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600">N° Servicios</th>
       </tr>
       </thead>
 
       <tbody>
       <% mods_full.each do |mod,(tot,_,_)| %>
+        <% count_tot = mods_full_count[mod].first %>
         <% if mod == "Movilidad" %>
           <tr>
             <td class="py-2 border border-gray-300 dark:border-slate-600">
@@ -76,15 +86,20 @@
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
               <%= uf_clp[@movil_split_total_uf] %>
             </td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600"><%= count_tot %></td>
+
           </tr>
         <% else %>
           <tr>
             <td class="py-2 border border-gray-300 dark:border-slate-600"><%= mod %></td>
-            <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+            <td class="py-2 border border-gray-300 dark:border-slate-600">
               <%= uf_clp[tot] %>
             </td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600"><%= count_tot %></td>
+
           </tr>
         <% end %>
+
       <% end %>
       </tbody>
     </table>

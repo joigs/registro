@@ -260,6 +260,9 @@ SQL
 
     flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
 
+
+
+
     rows_ok
       .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
       .group_by { |r| r.CerManNombre.to_s.strip.presence || r.CerManRut.to_s }
@@ -319,10 +322,21 @@ SQL
     @empresa_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
     @empresa_month   = Hash.new(BigDecimal('0'))
     @emp_to_mandante = {}
+
+
+
+
+
+    @empresa_day_count   = Hash.new { |h, k| h[k] = Hash.new(0) }
+    @empresa_month_count = Hash.new(0)
     rows_ok
       .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
       .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac.to_date] }
       .each do |(_rut, empresa, fecha), filas_dia|
+      @empresa_day_count[empresa][fecha.day] += filas_dia.size
+      @empresa_month_count[empresa]          += filas_dia.size
+
+
 
       monto_pesos = if _rut == 91_440_000
                       filas_dia.sum { |r| r.monto_checklist.to_d }
@@ -365,7 +379,31 @@ SQL
       mandante_month[mand_rut]  += @empresa_month[empresa]
     end
 
+    mandante_day_count   = Hash.new { |h, k| h[k] = Hash.new(0) }
+    mandante_month_count = Hash.new(0)
 
+    @empresa_day_count.each do |empresa, per_day|
+      mand_rut, _mand_nom = @emp_to_mandante[empresa]
+      per_day.each { |d, v| mandante_day_count[mand_rut][d] += v }
+      mandante_month_count[mand_rut] += @empresa_month_count[empresa]
+    end
+
+
+    @movilidad_day_company_count      = mandante_day_count          # Mandante → día → N servicios
+    @movilidad_month_by_empresa_count = mandante_month_count        # Mandante → N servicios mes
+    @movilidad_daily_count = mandante_day_count.values              # Día → N servicios (todo el módulo)
+                                               .each_with_object(Hash.new(0)) { |per_day, h|
+                                                 per_day.each { |d, v| h[d] += v }
+                                               }
+    @movilidad_total_count = mandante_month_count.values.sum        # N servicios mes (todo el módulo)
+
+
+    puts "@empresa_day_count                = #{@empresa_day_count.inspect}"
+    puts "@empresa_month_count              = #{@empresa_month_count.inspect}"
+    puts "@movilidad_day_company_count      = #{@movilidad_day_company_count.inspect}"
+    puts "@movilidad_month_by_empresa_count = #{@movilidad_month_by_empresa_count.inspect}"
+    puts "@movilidad_daily_count            = #{@movilidad_daily_count.inspect}"
+    puts "@movilidad_total_count            = #{@movilidad_total_count}"  # <-- no es hash, pero útil ver el total
 
 
     @movilidad_day_company      = mandante_day
@@ -461,6 +499,7 @@ SQL
     @vertical_total_count = @facturacions.size + @convenios.size
     puts("vertical_total_count=#{@vertical_total_count} ")
     @oxy_total_count = @current_oxy ? @current_oxy.oxy_records.size : 0
+    @oxy_total_count += @current_oxy.arrastre if @current_oxy
     @cmpc_total_count = @current_cmpc ? @current_cmpc.cmpc_records.size : 0
 
     puts("cmpc_total_count=#{@cmpc_total_count} ")
@@ -570,10 +609,20 @@ SQL
 
     @evaluacion_vanilla_count = @evaluacions.size
 
-    @evaluaciin_total_count = @evaluacion_vanilla_count + @oxy_total_count + @ald_total_count + @otros_total_count + @cmpc_total_count
+    @evaluacion_total_count = @evaluacion_vanilla_count + @oxy_total_count + @ald_total_count + @otros_total_count + @cmpc_total_count
 
-    #descomentar cuando esten los 3 modulos
-    #@count_month = @vertical_total_count + @evaluaciin_total_count + @movilidad_total_count
+
+    puts("evaluacion_vanilla_count=#{@evaluacion_vanilla_count} ")
+    puts("oxy_total_count=#{@oxy_total_count} ")
+    puts("ald_total_count=#{@ald_total_count} ")
+    puts("otros_total_count=#{@otros_total_count} ")
+    puts("cmpc_total_count=#{@cmpc_total_count} ")
+
+    puts("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+    puts(@evaluacion_total_count.inspect)
+
+
+    @count_month = @vertical_total_count + @evaluacion_total_count + @movilidad_total_count
 
 
     vertical_facturacions_by_day = daily_sums(@facturacions, :fecha_venta)
@@ -620,11 +669,10 @@ SQL
 
 
 
-    #descomnentar cuando se tengan todos
-    #   @sum_daily_count = merge_daily_count(
-    #  merge_daily_count(@vertical_daily_count, @evaluacion_daily_count),
-    #    @movilidad_daily_count
-    #   )
+       @sum_daily_count = merge_daily_count(
+         merge_daily_count(@vertical_daily_count, @evaluacion_daily_count),
+         @movilidad_daily_count
+       )
 
     vertical_facturacions_by_empresa = month_sums_by_company(@facturacions)
     vertical_convenios_by_empresa    = month_sums_by_company_convenios(@convenios)
@@ -714,10 +762,9 @@ SQL
                                            @evaluation_day_company,
                                            @movilidad_day_company)
 
-    #descomentar cuando esten los 3
-    #@day_company_count      = merge_nested_count(@vertical_day_company_count,
-    #                                             @evaluation_day_company_count,
-    #                                             @movilidad_day_company_count)
+    @day_company_count      = merge_nested_count(@vertical_day_company_count,
+                                                 @evaluation_day_company_count,
+                                                 @movilidad_day_company_count)
 
 
 
