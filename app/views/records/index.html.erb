@@ -72,15 +72,17 @@
                   Movilidad
                 </summary>
 
-                <ul class="mt-2 ml-5 list-disc">
+                <ul class="mt-2 mx-5 list-disc">
                   <% @movil_split_month_by_empresa.each do |k,v| %>
                     <% next if v.zero? %>
+                    <% c = @movil_split_month_by_empresa_count[k].to_i %>
                     <li class="flex justify-between">
                       <span><%= k %></span>
-                      <span><%= uf_clp[v] %></span>
+                      <span><%= uf_clp[v] %> — <%= number_with_delimiter(c) %> servicios</span>
                     </li>
                   <% end %>
                 </ul>
+
               </details>
             </td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
@@ -145,19 +147,31 @@
                   <br>
                   <%= pluralize(@movilidad_daily_count[d].to_i, 'Servicio', 'Servicios') unless @movilidad_daily_count[d].to_i.zero? %>
                 </summary>
-
                 <table class="mt-1 text-xs w-full border-collapse">
+                  <thead>
+                  <tr>
+                    <th class="text-center pr-2 py-0.5 border-t border-gray-600">Grupo</th>
+                    <th class="text-center py-0.5 border-t border-gray-600">UF</th>
+                    <th class="text-center py-0.5 border-t border-gray-600">Servicios</th>
+                  </tr>
+                  </thead>
+                  <tbody>
                   <% { "Forestal Arauco SA"                     => "Forestal Arauco SA",
                        "Planta Acreditación Vehículos Forestal" => "Planta Acreditación Vehículos Forestal",
                        "Otros"                                  => "Otros" }.each do |key,label| %>
-                    <% val = (@movil_split_day_company[key] || {})[d].to_d %>
+                    <% val  = (@movil_split_day_company[key] || {})[d].to_d %>
                     <% next if val.zero? %>
+                    <% cnt  = (@movil_split_day_company_count[key] || {})[d].to_i %>
                     <tr>
-                      <td class="pr-2 py-0.5 border-t border-gray-600"><%= label %></td>
-                      <td class="py-0.5 border-t border-gray-600 text-right whitespace-nowrap"><%= uf_clp[val] %></td>
-
+                      <td class="pr-2 py-0.5 border-t border-gray-600 text-center"><%= label %></td>
+                      <td class="py-0.5 border-t border-gray-600 text-center whitespace-nowrap"><%= uf_clp[val] %></td>
+                      <td class="py-0.5 border-t border-gray-600 text-center whitespace-nowrap">
+                        <%= number_with_delimiter(cnt) %>
+                      </td>
                     </tr>
                   <% end %>
+
+                  </tbody>
                 </table>
               </details>
             <% end %>

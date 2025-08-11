@@ -456,6 +456,34 @@ SQL
 
 
 
+
+    grp_day_count   = Hash.new { |h,k| h[k] = Hash.new(0) }
+    grp_month_count = Hash.new(0)
+
+    mandante_day_count.each do |rut, per_day_count|
+      raw_name = @mandante_names[rut] || rut
+      key =
+        if   norm[raw_name].include?("forestalarauco")
+          "Forestal Arauco SA"
+        elsif norm[raw_name].include?("forestalmininco")
+          "Planta Acreditación Vehículos Forestal"
+        else
+          "Otros"
+        end
+
+      per_day_count.each { |d,cnt| grp_day_count[key][d] += cnt }
+      grp_month_count[key] += per_day_count.values.sum
+    end
+
+    @movil_split_day_company_count      = grp_day_count
+    @movil_split_month_by_empresa_count = grp_month_count
+    @movil_split_daily_count            = grp_day_count.values
+                                                       .each_with_object(Hash.new(0)) { |per,h|
+                                                         per.each { |d,c| h[d] += c }
+                                                       }
+    @movil_split_total_count            = grp_month_count.values.sum
+
+
     @facturacions.select! do |f|
       date = (f.fecha_venta && Date.parse(f.fecha_venta) rescue nil)
       date && date.year == @year && date.month == @month
