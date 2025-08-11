@@ -65,9 +65,9 @@
         <% count_tot = mods_full_count[mod].first %>
         <% if mod == "Movilidad" %>
           <tr>
-            <td class="py-2 border border-gray-300 dark:border-slate-600">
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
               <details>
-                <summary class="cursor-pointer select-none flex items-center gap-1">
+                <summary class="cursor-pointer select-none flex items-center justify-center gap-1">
                   <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
                   Movilidad
                 </summary>
@@ -83,19 +83,19 @@
                 </ul>
               </details>
             </td>
-            <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
               <%= uf_clp[@movil_split_total_uf] %>
             </td>
-            <td class="py-2 border border-gray-300 dark:border-slate-600"><%= count_tot %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= count_tot %></td>
 
           </tr>
         <% else %>
           <tr>
-            <td class="py-2 border border-gray-300 dark:border-slate-600"><%= mod %></td>
-            <td class="py-2 border border-gray-300 dark:border-slate-600">
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= mod %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
               <%= uf_clp[tot] %>
             </td>
-            <td class="py-2 border border-gray-300 dark:border-slate-600"><%= count_tot %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= count_tot %></td>
 
           </tr>
         <% end %>
@@ -110,11 +110,11 @@
     <table class="w-full text-sm border-collapse">
       <thead>
       <tr>
-        <th class="py-2 border border-gray-300 dark:border-slate-600 w-12">Día</th>
-        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Transporte Vertical</th>
-        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Evaluación de Competencias</th>
-        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Movilidad</th>
-        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Total</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 w-12 text-center">Día</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Transporte Vertical</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Evaluación de Competencias</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Movilidad</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Total</th>
       </tr>
       </thead>
 
@@ -122,20 +122,20 @@
       <% (1..@days_in_month).each do |d| %>
         <% next if @sum_daily_uf[d].zero? %>
         <tr>
-          <td class="py-2 border border-gray-300 dark:border-slate-600"><%= d %></td>
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= d %></td>
 
-          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
             <%= uf_clp[@vertical_daily_uf[d]] unless @vertical_daily_uf[d].zero? %>
           </td>
 
-          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
             <%= uf_clp[@evaluacion_daily_uf[d]] unless @evaluacion_daily_uf[d].zero? %>
           </td>
 
-          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right">
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
             <% if @movil_split_daily_uf[d].positive? %>
               <details class="inline-block">
-                <summary class="cursor-pointer select-none flex items-center gap-1">
+                <summary class="cursor-pointer select-none flex items-center justify-center gap-1">
                   <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
                   <%= uf_clp[@movil_split_daily_uf[d]] %>
                 </summary>
@@ -156,7 +156,7 @@
             <% end %>
           </td>
 
-          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right font-medium">
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
             <%= uf_clp[@sum_daily_uf[d]] %>
           </td>
         </tr>
@@ -255,7 +255,7 @@
       <thead>
       <tr>
         <th class="py-2 border border-gray-300 dark:border-slate-600">Cliente</th>
-        <th class="py-2 border border-gray-300 dark:border-slate-600 text-right">Total</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Total</th>
       </tr>
       </thead>
       <tbody>
@@ -302,7 +302,7 @@
               <% end %>
             </details>
           </td>
-          <td class="py-2 border border-gray-300 dark:border-slate-600 text-right font-medium">
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
             <%= uf_clp[cli_val] %>
           </td>
         </tr>

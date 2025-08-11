@@ -19,10 +19,13 @@
         <%= link_to 'Cerrar sesión',
                     session_path(Current.user.id),
                     class: "absolute right-4 text-lg text-red-600 hover:text-red-500 transition",
-                    data: { controller: "logout-confirmation",
-                            action: "click->logout-confirmation#deleteSession",
-                            delete_confirmation_redirect_url_value: home_path } %>
-      <% end %>
+                    data: {
+                      controller: "logout-confirmation",
+                      action: "click->logout-confirmation#deleteSession",
+                      "logout-confirmation-redirect-url-value": new_session_path
+                    } %>
+
+    <% end %>
     </div>
   </div>
 </div>
