@@ -624,6 +624,7 @@ SQL
 
     @count_month = @vertical_total_count + @evaluacion_total_count + @movilidad_total_count
 
+    puts("count_month=#{@count_month} ")
 
     vertical_facturacions_by_day = daily_sums(@facturacions, :fecha_venta)
     vertical_counts_by_day = daily_counts(@facturacions, :fecha_venta)
@@ -700,6 +701,9 @@ SQL
                                      @ald_month_by_empresa,
                                      @otros_month_by_empresa)
 
+
+    puts("month_by_empresa=#{@month_by_empresa.inspect} ")
+
     vertical_facturacions_by_day_company = daily_company(@facturacions, :fecha_venta)
     vertical_convenios_by_day_company    = daily_company_convenios(@convenios)
 
@@ -724,6 +728,9 @@ SQL
 
     puts("vertical_day_company_count=#{@vertical_day_company_count.inspect} ")
 
+    @vertical_month_by_empresa_count = @vertical_day_company_count.transform_values { |per_day| per_day.values.sum }
+
+    puts("vertical_month_by_empresa_count=#{@vertical_month_by_empresa_count.inspect} ")
 
     @eval_vanilla_day_comp  = daily_company(@evaluacions,  :fecha_inspeccion)
     @eval_vanilla_day_comp_count = daily_count_company(@evaluacions, :fecha_inspeccion)
@@ -755,7 +762,10 @@ SQL
     )
 
     puts("evaluation_day_company_count=#{@evaluation_day_company_count.inspect} ")
+    @evaluation_month_by_empresa_count =
+      @evaluation_day_company_count.transform_values { |per_day| per_day.values.sum }
 
+    puts("evaluation_month_by_empresa_count=#{@evaluation_month_by_empresa_count.inspect} ")
 
 
     @day_company            = merge_nested(@vertical_day_company,
@@ -768,6 +778,8 @@ SQL
 
 
 
+    puts("day_company_count=#{@day_company_count.inspect} ")
+
     @module_months = {
       "Transporte Vertical"        => @vertical_month_by_empresa,
       "Evaluación de Competencias" => merge_hashes(@evaluacion_month_by_empresa,
@@ -779,7 +791,14 @@ SQL
 
     }
 
+    @month_by_empresa_count = merge_counts_hashes(
+      @vertical_month_by_empresa_count,
+      @evaluation_month_by_empresa_count,
+      @movilidad_month_by_empresa_count,
+    )
 
+
+    puts("month_by_empresa_count=#{@month_by_empresa_count.inspect} ")
 
   end
 
@@ -934,6 +953,7 @@ SQL
       month:      data["month"],
       year:       data["year"],
       n1:         data["n1"],
+      n2:         data["n2"],
       total_uf:   to_decimal(data["total"])
     )
   end
@@ -1089,6 +1109,13 @@ SQL
       hashes.each { |hh| hh.each { |k,v| h[k] += v } }
     end
   end
+
+  def merge_counts_hashes(*hashes)
+    Hash.new(0).tap do |h|
+      hashes.each { |hh| hh.each { |k,v| h[k] += v.to_i } }
+    end
+  end
+
 
   def merge_nested(*levels)
     range = 1..@days_in_month

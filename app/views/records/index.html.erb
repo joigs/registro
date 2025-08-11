@@ -37,7 +37,7 @@
 <% end %>
 
 <% exact_rec = Iva.find_by(year: @year, month: @month) rescue nil %>
-<p class="text-center text-lg mb-6 text-gray-800 dark:text-gray-200">
+<p class="text-center text-lg mb-6 text-gray-800 dark:text-black">
   1 UF = <%= fmt_clp[@uf] %> CLP
   <% unless exact_rec %>(valor aproximado)<% end %>
 </p>
@@ -126,10 +126,14 @@
 
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
             <%= uf_clp[@vertical_daily_uf[d]] unless @vertical_daily_uf[d].zero? %>
+            <br>
+            <%= pluralize(@vertical_daily_count[d].to_i, 'Servicio', 'Servicios') unless @vertical_daily_count[d].to_i.zero? %>
           </td>
 
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
             <%= uf_clp[@evaluacion_daily_uf[d]] unless @evaluacion_daily_uf[d].zero? %>
+            <br>
+            <%= pluralize(@evaluacion_daily_count[d].to_i, 'Servicio', 'Servicios') unless @evaluacion_daily_count[d].to_i.zero? %>
           </td>
 
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
@@ -138,6 +142,8 @@
                 <summary class="cursor-pointer select-none flex items-center justify-center gap-1">
                   <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
                   <%= uf_clp[@movil_split_daily_uf[d]] %>
+                  <br>
+                  <%= pluralize(@movilidad_daily_count[d].to_i, 'Servicio', 'Servicios') unless @movilidad_daily_count[d].to_i.zero? %>
                 </summary>
 
                 <table class="mt-1 text-xs w-full border-collapse">
@@ -149,6 +155,7 @@
                     <tr>
                       <td class="pr-2 py-0.5 border-t border-gray-600"><%= label %></td>
                       <td class="py-0.5 border-t border-gray-600 text-right whitespace-nowrap"><%= uf_clp[val] %></td>
+
                     </tr>
                   <% end %>
                 </table>
@@ -158,6 +165,8 @@
 
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
             <%= uf_clp[@sum_daily_uf[d]] %>
+            <br>
+            <%= pluralize(@sum_daily_count[d].to_i, 'Servicio', 'Servicios') unless @sum_daily_count[d].to_i.zero? %>
           </td>
         </tr>
       <% end %>
@@ -256,6 +265,7 @@
       <tr>
         <th class="py-2 border border-gray-300 dark:border-slate-600">Cliente</th>
         <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Total</th>
+        <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">N° Servicios</th>
       </tr>
       </thead>
       <tbody>
@@ -304,6 +314,9 @@
           </td>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
             <%= uf_clp[cli_val] %>
+          </td>
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
+            <%= number_with_delimiter(@month_by_empresa_count[cli_key].to_i) %>
           </td>
         </tr>
       <% end %>
