@@ -495,8 +495,15 @@ SQL
     @oxy_total_uf             = to_decimal(@current_oxy&.total_uf)
     @cmpc_total_uf = to_decimal(@current_cmpc&.total_uf)
 
+    @convenios_total_count = @convenios.sum { |c| c.n1.to_i + c.n2.to_i }
+    @facturacions_total_count = @facturacions.sum { |f| f.inspections.size }
 
-    @vertical_total_count = @facturacions.size + @convenios.size
+
+    puts("convenios_total_count=#{@convenios_total_count} ")
+    puts("facturacions_total_count=#{@facturacions_total_count} ")
+
+
+    @vertical_total_count = @facturacions.size + @convenios_total_count
     puts("vertical_total_count=#{@vertical_total_count} ")
     @oxy_total_count = @current_oxy ? @current_oxy.oxy_records.size : 0
     @oxy_total_count += @current_oxy.arrastre if @current_oxy

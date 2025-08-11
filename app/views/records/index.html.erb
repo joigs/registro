@@ -183,37 +183,63 @@
     <h2 class="text-2xl font-semibold mb-4">Detalle por módulo</h2>
 
     <ul class="space-y-2">
-      <% mods_full.each_with_index do |(mod,(tot,daily,day_comp)),idx| %>
+      <% mods_full.each_with_index do |(mod,(tot,daily,day_comp)), idx| %>
+        <%# --- fuentes de conteo según módulo --- %>
+        <% case mod
+           when "Transporte Vertical"
+             mod_total_count    = @vertical_total_count.to_i
+             daily_count_map    = @vertical_daily_count || {}
+             day_comp_count_map = @vertical_day_company_count || {}
+           when "Evaluación de Competencias"
+             mod_total_count    = @evaluacion_total_count.to_i
+             daily_count_map    = @evaluacion_daily_count || {}
+             day_comp_count_map = @evaluation_day_company_count || {}
+           when "Movilidad"
+             mod_total_count    = @movilidad_total_count.to_i
+             daily_count_map    = @movilidad_daily_count || {}
+             day_comp_count_map = @movilidad_day_company_count || {}
+           else
+             mod_total_count    = 0
+             daily_count_map    = {}
+             day_comp_count_map = {}
+           end %>
+
         <li data-action="click->cube#toggle"
             class="cursor-pointer px-4 py-2 rounded-md transition-colors border
-                   <%= idx.even? ? 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700'
-                                            : 'bg-gray-50  hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' %>">
+                 <%= idx.even? ? 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700'
+                                          : 'bg-gray-50  hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' %>">
           <span><%= mod %></span>
-          <span class="float-right"><%= uf_clp[tot] %></span>
+          <span class="float-right">
+          <%= uf_clp[tot] %> — <%= number_with_delimiter(mod_total_count) %> servicios
+        </span>
 
           <ul class="hidden mt-2 space-y-1">
             <% daily.keys.sort.each do |d| %>
               <% next if daily[d].zero? %>
               <li data-action="click->cube#toggle"
                   class="cursor-pointer px-3 py-1 rounded-md transition-colors border
-                         <%= d.odd? ? 'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600'
-                                                        : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
+                       <%= d.odd? ? 'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600'
+                                                      : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
                 Día <%= d %>
-                <span class="float-right"><%= uf_clp[daily[d]] %></span>
+                <span class="float-right">
+                <%= uf_clp[daily[d]] %> — <%= number_with_delimiter(daily_count_map[d].to_i) %> servicios
+              </span>
 
                 <% entities = day_comp.transform_values { |h| h[d] }.reject { |_,v| v.zero? } %>
 
                 <% if mod == "Movilidad" %>
                   <% unless entities.empty? %>
                     <ul class="hidden mt-1 space-y-1">
-                      <% entities.each_with_index do |(mand_rut,val),i| %>
+                      <% entities.each_with_index do |(mand_rut, val), i| %>
                         <% mand_name = @mandante_names[mand_rut] || mand_rut %>
                         <li data-action="click->cube#toggle"
                             class="cursor-pointer px-3 py-1 rounded-md transition-colors border
-                                   <%= i.even? ? 'bg-gray-50 dark:bg-slate-700'
-                                                                            : 'bg-gray-100 dark:bg-slate-800' %>">
+                                 <%= i.even? ? 'bg-gray-50 dark:bg-slate-700'
+                                                                          : 'bg-gray-100 dark:bg-slate-800' %>">
                           <%= mand_name %>
-                          <span class="float-right"><%= uf_clp[val] %></span>
+                          <span class="float-right">
+                          <%= uf_clp[val] %> — <%= number_with_delimiter(day_comp_count_map.dig(mand_rut, d).to_i) %> servicios
+                        </span>
 
                           <% emps = @empresa_day
                             .select { |emp,_| @emp_to_mandante[emp]&.first == mand_rut }
@@ -221,12 +247,15 @@
                             .reject { |_,v| v.zero? } %>
                           <% unless emps.empty? %>
                             <ul class="hidden mt-1 space-y-1">
-                              <% emps.each_with_index do |(emp,val_e),j| %>
+                              <% emps.each_with_index do |(emp, val_e), j| %>
+                                <% c_emp = @empresa_day_count.dig(emp, d).to_i %>
                                 <li class="px-3 py-1 rounded-md border
-                                           <%= j.even? ? 'bg-gray-50 dark:bg-slate-700'
-                                                                                            : 'bg-gray-100 dark:bg-slate-800' %>">
+                                         <%= j.even? ? 'bg-gray-50 dark:bg-slate-700'
+                                                                                          : 'bg-gray-100 dark:bg-slate-800' %>">
                                   <%= emp %>
-                                  <span class="float-right"><%= uf_clp[val_e] %></span>
+                                  <span class="float-right">
+                                  <%= uf_clp[val_e] %> — <%= number_with_delimiter(c_emp) %> servicios
+                                </span>
                                 </li>
                               <% end %>
                             </ul>
@@ -238,12 +267,14 @@
                 <% else %>
                   <% unless entities.empty? %>
                     <ul class="hidden mt-1 space-y-1">
-                      <% entities.each_with_index do |(emp,val),i| %>
+                      <% entities.each_with_index do |(emp, val), i| %>
                         <li class="px-3 py-1 rounded-md border
-                                   <%= i.even? ? 'bg-gray-50 dark:bg-slate-700'
-                                                                            : 'bg-gray-100 dark:bg-slate-800' %>">
+                                 <%= i.even? ? 'bg-gray-50 dark:bg-slate-700'
+                                                                          : 'bg-gray-100 dark:bg-slate-800' %>">
                           <%= show_name[emp] %>
-                          <span class="float-right"><%= uf_clp[val] %></span>
+                          <span class="float-right">
+                          <%= uf_clp[val] %> — <%= number_with_delimiter(day_comp_count_map.dig(emp, d).to_i) %> servicios
+                        </span>
                         </li>
                       <% end %>
                     </ul>
@@ -256,6 +287,7 @@
       <% end %>
     </ul>
   </section>
+
 
   <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
     <h2 class="text-2xl font-semibold mb-4">Clientes (mes completo)</h2>
