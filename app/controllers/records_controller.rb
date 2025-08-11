@@ -524,7 +524,7 @@ SQL
     @cmpc_total_uf = to_decimal(@current_cmpc&.total_uf)
 
     @convenios_total_count = @convenios.sum { |c| c.n1.to_i + c.n2.to_i }
-    @facturacions_total_count = @facturacions.sum { |f| f.inspections.size }
+    @facturacions_total_count = @facturacions.sum { |f| f.n1.to_i }
 
 
     puts("convenios_total_count=#{@convenios_total_count} ")
@@ -899,6 +899,7 @@ SQL
         entregado:        f["entregado"],
         resultado:        f["resultado"],
         oc:               f["oc"],
+        n1:               f["n1"],
         fecha_entrega:    f["fecha_entrega"],
         factura:          f["factura"],
         fecha_venta:      f["fecha_venta"],
