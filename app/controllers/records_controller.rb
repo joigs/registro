@@ -766,7 +766,12 @@ SQL
       @evaluation_day_company_count.transform_values { |per_day| per_day.values.sum }
 
     puts("evaluation_month_by_empresa_count=#{@evaluation_month_by_empresa_count.inspect} ")
+    @evaluation_month_by_empresa_count_rolled =
+      rollup_counts_to_mandante(@evaluation_month_by_empresa_count)
 
+    # Si quieres ser 100% consistente, también puedes “subir” Vertical:
+    @vertical_month_by_empresa_count_rolled =
+      rollup_counts_to_mandante(@vertical_month_by_empresa_count)
 
     @day_company            = merge_nested(@vertical_day_company,
                                            @evaluation_day_company,
@@ -791,11 +796,36 @@ SQL
 
     }
 
+
+    if oxy_rut && @evaluation_month_by_empresa_count.key?("Oxy")
+      @evaluation_month_by_empresa_count[oxy_rut] =
+        @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i +
+          @evaluation_month_by_empresa_count.delete("Oxy").to_i
+    end
+
+    cmpc_label  = "Transporte de personal CMPC"
+    if cmpc_rut && @evaluation_month_by_empresa_count.key?(cmpc_label)
+      @evaluation_month_by_empresa_count[cmpc_rut] =
+        @evaluation_month_by_empresa_count.fetch(cmpc_rut, 0).to_i +
+          @evaluation_month_by_empresa_count.delete(cmpc_label).to_i
+    end
+
+    @module_months_count = {
+      "Transporte Vertical"        => @vertical_month_by_empresa_count_rolled,
+      "Evaluación de Competencias" => @evaluation_month_by_empresa_count_rolled,
+      "Movilidad"                  => @movilidad_month_by_empresa_count
+    }
+
+
+
+    puts("@module_months_count=#{@module_months_count.inspect} ")
+
+
     @month_by_empresa_count = merge_counts_hashes(
-      @vertical_month_by_empresa_count,
-      @evaluation_month_by_empresa_count,
+      @vertical_month_by_empresa_count_rolled,
+      @evaluation_month_by_empresa_count_rolled,
       @movilidad_month_by_empresa_count,
-    )
+      )
 
 
     puts("month_by_empresa_count=#{@month_by_empresa_count.inspect} ")
@@ -1323,5 +1353,17 @@ SQL
     end
   end
 
+  def rollup_counts_to_mandante(map)
+    Hash.new(0).tap do |rolled|
+      map.each do |k, v|
+        if @emp_to_mandante.key?(k)
+          mand_rut, _ = @emp_to_mandante[k]
+          rolled[mand_rut] += v.to_i
+        else
+          rolled[k] += v.to_i
+        end
+      end
+    end
+  end
 
 end

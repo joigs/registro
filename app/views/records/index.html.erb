@@ -283,7 +283,10 @@
                   <% @empresas_por_mandante[cli_key].each do |emp| %>
                     <% m_emp = @empresa_month[emp] %>
                     <% next if m_emp.zero? %>
-                    <li><%= emp %>: <%= uf_clp[m_emp] %></li>
+                    <% c_emp = @empresa_month_count[emp].to_i %>
+                    <li>
+                      <%= emp %>: <%= uf_clp[m_emp] %> — <%= number_with_delimiter(c_emp) %> servicios
+                    </li>
                   <% end %>
                 </ul>
 
@@ -296,7 +299,9 @@
                 <% unless mods_by_val.empty? %>
                   <ul class="mt-2 ml-4 list-disc">
                     <% mods_by_val.each do |mod, val| %>
-                      <li><%= mod %>: <%= uf_clp[val] %></li>
+                      <% cnt = (@module_months_count.fetch(mod, {}).fetch(cli_key, 0).to_i +
+                        @empresas_por_mandante[cli_key].sum { |e| @module_months_count.fetch(mod, {}).fetch(e, 0).to_i }) %>
+                      <li><%= mod %>: <%= uf_clp[val] %> — <%= number_with_delimiter(cnt) %> servicios</li>
                     <% end %>
                   </ul>
                 <% end %>
@@ -306,7 +311,11 @@
                   <% @module_months.each do |mod_name, hash| %>
                     <% v_mod = hash[cli_key].to_d %>
                     <% next if v_mod.zero? %>
-                    <li><%= mod_name %>: <%= uf_clp[v_mod] %></li>
+                    <% cnt_mod = @module_months_count.fetch(mod_name, {}).fetch(cli_key, 0).to_i %>
+
+                    <li>
+                      <%= mod_name %>: <%= uf_clp[v_mod] %> — <%= number_with_delimiter(cnt_mod) %> servicios
+                    </li>
                   <% end %>
                 </ul>
               <% end %>
