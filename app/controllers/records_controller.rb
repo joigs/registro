@@ -735,7 +735,7 @@ SQL
         @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i + c.to_i
     end
     
-    if (c = @evaluation_month_by_empresa_count.delete(cmpc_label))
+    if (c = @evaluation_month_by_empresa_count.delete(cmpc_name))
       @evaluation_month_by_empresa_count[cmpc_rut] =
         @evaluation_month_by_empresa_count.fetch(cmpc_rut, 0).to_i + c.to_i
     end
