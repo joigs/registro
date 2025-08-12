@@ -623,10 +623,7 @@ SQL
       ar_day_count_tot.each { |d,v| @otros_day_company_count[target_rut][d] += v }
     end
 
-    @otros_total_count      = @otros.sum { |o| o.n1.to_i + o.n2.to_i }
-    @otros_daily_count      = daily_counts_otros(@otros)
-    @otros_day_company_count = daily_counts_company_otros(@otros)
-    @otros_month_by_empresa_count = month_sums_by_company_otros_count(@otros)
+
 
     puts("otros_total_count=#{@otros_total_count} ")
     puts("otros_daily_count=#{@otros_daily_count.inspect} ")
