@@ -1236,7 +1236,7 @@ SQL
       Array(records).each do |r|
         day = Date.parse(r.fecha_venta.to_s).day rescue next
         empresa = r.empresa_nombre.presence || "sin_empresa"
-        h[empresa][day] += 1
+        h[empresa][day] += r.n1
       end
     end
   end
