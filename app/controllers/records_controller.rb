@@ -728,6 +728,18 @@ SQL
     @oxy_month_by_empresa = { oxy_rut => @oxy_total_uf }
     @cmpc_month_by_empresa = { cmpc_rut => @cmpc_total_uf }
 
+
+    
+    if (c = @evaluation_month_by_empresa_count.delete("Oxy"))
+      @evaluation_month_by_empresa_count[oxy_rut] =
+        @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i + c.to_i
+    end
+    
+    if (c = @evaluation_month_by_empresa_count.delete(cmpc_label))
+      @evaluation_month_by_empresa_count[cmpc_rut] =
+        @evaluation_month_by_empresa_count.fetch(cmpc_rut, 0).to_i + c.to_i
+    end
+
     @month_by_empresa = merge_hashes(@vertical_month_by_empresa,
                                      @evaluacion_month_by_empresa,
                                      @movilidad_month_by_empresa,
@@ -804,7 +816,6 @@ SQL
     @evaluation_month_by_empresa_count_rolled =
       rollup_counts_to_mandante(@evaluation_month_by_empresa_count)
 
-    # Si quieres ser 100% consistente, también puedes “subir” Vertical:
     @vertical_month_by_empresa_count_rolled =
       rollup_counts_to_mandante(@vertical_month_by_empresa_count)
 
@@ -832,18 +843,6 @@ SQL
     }
 
 
-    if oxy_rut && @evaluation_month_by_empresa_count.key?("Oxy")
-      @evaluation_month_by_empresa_count[oxy_rut] =
-        @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i +
-          @evaluation_month_by_empresa_count.delete("Oxy").to_i
-    end
-
-    cmpc_label  = "Transporte de personal CMPC"
-    if cmpc_rut && @evaluation_month_by_empresa_count.key?(cmpc_label)
-      @evaluation_month_by_empresa_count[cmpc_rut] =
-        @evaluation_month_by_empresa_count.fetch(cmpc_rut, 0).to_i +
-          @evaluation_month_by_empresa_count.delete(cmpc_label).to_i
-    end
 
     @module_months_count = {
       "Transporte Vertical"        => @vertical_month_by_empresa_count_rolled,
