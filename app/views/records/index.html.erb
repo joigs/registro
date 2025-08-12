@@ -198,7 +198,6 @@
 
     <ul class="space-y-2">
       <% mods_full.each_with_index do |(mod,(tot,daily,day_comp)), idx| %>
-        <%# --- fuentes de conteo según módulo --- %>
         <% case mod
            when "Transporte Vertical"
              mod_total_count    = @vertical_total_count.to_i
