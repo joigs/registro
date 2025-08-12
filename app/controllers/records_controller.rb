@@ -1,8 +1,4 @@
-# app/controllers/records_controller.rb
-
-
 require Rails.root.join("app/models/secondary_models.rb")
-
 
 
 
@@ -395,7 +391,7 @@ SQL
                                                .each_with_object(Hash.new(0)) { |per_day, h|
                                                  per_day.each { |d, v| h[d] += v }
                                                }
-    @movilidad_total_count = mandante_month_count.values.sum    
+    @movilidad_total_count = mandante_month_count.values.sum        # N servicios mes (todo el módulo)
 
 
     puts "@empresa_day_count                = #{@empresa_day_count.inspect}"
@@ -403,7 +399,7 @@ SQL
     puts "@movilidad_day_company_count      = #{@movilidad_day_company_count.inspect}"
     puts "@movilidad_month_by_empresa_count = #{@movilidad_month_by_empresa_count.inspect}"
     puts "@movilidad_daily_count            = #{@movilidad_daily_count.inspect}"
-    puts "@movilidad_total_count            = #{@movilidad_total_count}"  
+    puts "@movilidad_total_count            = #{@movilidad_total_count}"  # <-- no es hash, pero útil ver el total
 
 
     @movilidad_day_company      = mandante_day
@@ -728,18 +724,6 @@ SQL
     @oxy_month_by_empresa = { oxy_rut => @oxy_total_uf }
     @cmpc_month_by_empresa = { cmpc_rut => @cmpc_total_uf }
 
-
-    
-    if (c = @evaluation_month_by_empresa_count.delete("Oxy"))
-      @evaluation_month_by_empresa_count[oxy_rut] =
-        @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i + c.to_i
-    end
-    
-    if (c = @evaluation_month_by_empresa_count.delete("Transporte de personal CMPC"))
-      @evaluation_month_by_empresa_count[cmpc_rut] =
-        @evaluation_month_by_empresa_count.fetch(cmpc_rut, 0).to_i + c.to_i
-    end
-
     @month_by_empresa = merge_hashes(@vertical_month_by_empresa,
                                      @evaluacion_month_by_empresa,
                                      @movilidad_month_by_empresa,
@@ -816,6 +800,7 @@ SQL
     @evaluation_month_by_empresa_count_rolled =
       rollup_counts_to_mandante(@evaluation_month_by_empresa_count)
 
+    # Si quieres ser 100% consistente, también puedes “subir” Vertical:
     @vertical_month_by_empresa_count_rolled =
       rollup_counts_to_mandante(@vertical_month_by_empresa_count)
 
@@ -843,6 +828,18 @@ SQL
     }
 
 
+    if oxy_rut && @evaluation_month_by_empresa_count.key?("Oxy")
+      @evaluation_month_by_empresa_count[oxy_rut] =
+        @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i +
+          @evaluation_month_by_empresa_count.delete("Oxy").to_i
+    end
+
+    cmpc_label  = "Transporte de personal CMPC"
+    if cmpc_rut && @evaluation_month_by_empresa_count.key?(cmpc_label)
+      @evaluation_month_by_empresa_count[cmpc_rut] =
+        @evaluation_month_by_empresa_count.fetch(cmpc_rut, 0).to_i +
+          @evaluation_month_by_empresa_count.delete(cmpc_label).to_i
+    end
 
     @module_months_count = {
       "Transporte Vertical"        => @vertical_month_by_empresa_count_rolled,
