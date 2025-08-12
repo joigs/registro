@@ -730,7 +730,7 @@ SQL
 
 
     
-    if (c = @evaluation_month_by_empresa_count.delete("oxy_name"))
+    if (c = @evaluation_month_by_empresa_count.delete(oxy_name))
       @evaluation_month_by_empresa_count[oxy_rut] =
         @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i + c.to_i
     end
