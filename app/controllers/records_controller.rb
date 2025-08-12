@@ -1259,7 +1259,7 @@ end
       Array(records).each do |r|
         next if r.fecha.blank?
         day = (r.fecha.is_a?(Date) ? r.fecha : Date.parse(r.fecha.to_s)).day rescue next
-        h[day] += 1
+        h[day] += r.n1.to_i + r.n2.to_i
       end
     end
   end
@@ -1299,7 +1299,7 @@ end
         next if r.fecha.blank?
         day = (r.fecha.is_a?(Date) ? r.fecha : Date.parse(r.fecha.to_s)).day rescue next
         empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
-        h[empresa][day] += 1
+        h[empresa][day] += r.n1.to_i + r.n2.to_i
       end
     end
   end
