@@ -190,9 +190,7 @@
 
 
 
-
-
-  <section data-controller="cube"
+<section data-controller="cube"
            class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
     <h2 class="text-2xl font-semibold mb-4">Detalle por módulo</h2>
 
@@ -280,21 +278,16 @@
                 <% else %>
                   <% unless entities.empty? %>
                     <ul class="hidden mt-1 space-y-1">
-                       <% entities.each_with_index do |(emp, val), i| %>
-                        <% cnt = day_comp_count_map.dig(emp, d).to_i %>
-                        <% if cnt.zero? && @mandante_names.respond_to?(:key) %>
-                          <% alt_key = @mandante_names.key(emp) %>
-                          <% cnt = day_comp_count_map.dig(alt_key, d).to_i if alt_key %>
-                        <% end %>
-                      
-                        <li class="px-3 py-1 rounded-md border <%= i.even? ? 'bg-gray-50 dark:bg-slate-700' : 'bg-gray-100 dark:bg-slate-800' %>">
+                      <% entities.each_with_index do |(emp, val), i| %>
+                        <li class="px-3 py-1 rounded-md border
+                                 <%= i.even? ? 'bg-gray-50 dark:bg-slate-700'
+                                                                          : 'bg-gray-100 dark:bg-slate-800' %>">
                           <%= show_name[emp] %>
                           <span class="float-right">
-                            <%= uf_clp[val] %> — <%= number_with_delimiter(cnt) %> servicios
-                          </span>
+                          <%= uf_clp[val] %> — <%= number_with_delimiter(day_comp_count_map.dig(emp, d).to_i) %> servicios
+                        </span>
                         </li>
                       <% end %>
-
                     </ul>
                   <% end %>
                 <% end %>
@@ -305,7 +298,6 @@
       <% end %>
     </ul>
   </section>
-
 
   <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
     <h2 class="text-2xl font-semibold mb-4">Clientes (mes completo)</h2>
