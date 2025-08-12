@@ -1122,7 +1122,7 @@ SQL
         next if date_str.blank?
 
         day = Date.parse(date_str.to_s).day rescue next
-        h[day] += 1
+        h[day] += r.n1
       end
     end
   end
