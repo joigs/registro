@@ -796,13 +796,26 @@ SQL
     @evaluation_month_by_empresa_count =
       @evaluation_day_company_count.transform_values { |per_day| per_day.values.sum }
 
-    puts("evaluation_month_by_empresa_count=#{@evaluation_month_by_empresa_count.inspect} ")
-    @evaluation_month_by_empresa_count_rolled =
-      rollup_counts_to_mandante(@evaluation_month_by_empresa_count)
+oxy_label  = "Oxy"
+cmpc_label = "Transporte de personal CMPC"
 
-    # Si quieres ser 100% consistente, también puedes “subir” Vertical:
-    @vertical_month_by_empresa_count_rolled =
-      rollup_counts_to_mandante(@vertical_month_by_empresa_count)
+if oxy_rut && @evaluation_month_by_empresa_count.key?(oxy_label)
+  @evaluation_month_by_empresa_count[oxy_rut] =
+    @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i +
+    @evaluation_month_by_empresa_count.delete(oxy_label).to_i
+end
+
+if cmpc_rut && @evaluation_month_by_empresa_count.key?(cmpc_label)
+  @evaluation_month_by_empresa_count[cmpc_rut] =
+    @evaluation_month_by_empresa_count.fetch(cmpc_rut, 0).to_i +
+    @evaluation_month_by_empresa_count.delete(cmpc_label).to_i
+end
+
+@evaluation_month_by_empresa_count_rolled =
+  rollup_counts_to_mandante(@evaluation_month_by_empresa_count)
+
+@vertical_month_by_empresa_count_rolled =
+  rollup_counts_to_mandante(@vertical_month_by_empresa_count)
 
     @day_company            = merge_nested(@vertical_day_company,
                                            @evaluation_day_company,
@@ -828,18 +841,7 @@ SQL
     }
 
 
-    if oxy_rut && @evaluation_month_by_empresa_count.key?("Oxy")
-      @evaluation_month_by_empresa_count[oxy_rut] =
-        @evaluation_month_by_empresa_count.fetch(oxy_rut, 0).to_i +
-          @evaluation_month_by_empresa_count.delete("Oxy").to_i
-    end
 
-    cmpc_label  = "Transporte de personal CMPC"
-    if cmpc_rut && @evaluation_month_by_empresa_count.key?(cmpc_label)
-      @evaluation_month_by_empresa_count[cmpc_rut] =
-        @evaluation_month_by_empresa_count.fetch(cmpc_rut, 0).to_i +
-          @evaluation_month_by_empresa_count.delete(cmpc_label).to_i
-    end
 
     @module_months_count = {
       "Transporte Vertical"        => @vertical_month_by_empresa_count_rolled,
