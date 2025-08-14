@@ -21,6 +21,35 @@ class RecordsController < ApplicationController
   def index
     query = build_query
     @year  = (params[:year]  || Date.current.year ).to_i
+    @full_year = params[:month].to_s == 'all'
+
+    if @full_year
+
+      meta_resp = HTTParty.get(VERTICAL_URL, headers: { "X-API-KEY" => VERTICAL_KEY }, query: { meta: 1 })
+      @filter_options = meta_resp.code == 200 ? JSON.parse(meta_resp.body) : { "anios" => [], "meses" => (1..12).to_a, "empresas" => [] }
+
+      fact_resp = api_get(VERTICAL_URL, VERTICAL_KEY, { year: @year })
+      fact_json = fact_resp.code == 200 ? JSON.parse(fact_resp.body) : {}
+
+      puts(fact_json)
+
+      @facturacions = parse_facturacions_anual(fact_json["facturacions"] || fact_json)
+      @convenios    = parse_convenios_anual(fact_json["convenios"] || [])
+
+      eval_resp = api_get(EVAL_URL, EVAL_KEY, { year: @year })
+      if eval_resp.code == 200
+        body = JSON.parse(eval_resp.body)
+        if body.is_a?(Hash)
+          @evaluacions  = parse_evaluacions_anual(body["facturacions"] || [])
+          @current_oxy  = parse_oxy_anual(body["current_oxy"])     if body["current_oxy"].present?
+          @current_cmpc = parse_cmpc_anual(body["current_cmpc"])   if body["current_cmpc"].present?
+          @current_ald  = parse_ald_anual(body["current_ald"])     if body["current_ald"].present?
+          @otros        = parse_otros_anual(body["otros"] || [])
+        end
+      end
+
+  else
+
     @month = (params[:month] || Date.current.month).to_i
     @days_in_month = Date.civil(@year, @month, -1).day
     meta_resp = HTTParty.get(VERTICAL_URL, headers: { "X-API-KEY" => VERTICAL_KEY },
@@ -859,7 +888,7 @@ end
 
 
     puts("month_by_empresa_count=#{@month_by_empresa_count.inspect} ")
-
+    end
   end
 
 
@@ -1396,5 +1425,181 @@ end
       end
     end
   end
+
+
+
+
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+  #Funciones anuales
+
+
+
+
+  def parse_facturacions_anual(arr)
+    Array(arr).map do |f|
+      OpenStruct.new(
+        id:               f["id"],
+        number:           f["number"],
+        name:             f["name"],
+        solicitud:        f["solicitud"],
+        emicion:          f["emicion"],
+        entregado:        f["entregado"],
+        resultado:        f["resultado"],
+        oc:               f["oc"],
+        n1:               f["n1"],
+        fecha_entrega:    f["fecha_entrega"],
+        factura:          f["factura"],
+        fecha_venta:      f["fecha_venta"],
+        fecha_inspeccion: f["fecha_inspeccion"],
+        empresa:          f["empresa"],
+        precio:           f["precio"],
+        pesos:            to_pesos(f["precio"], f["fecha_venta"]),
+        inspections:      Array(f["inspections"]).map do |i|
+          OpenStruct.new(
+            id:        i["id"],
+            ins_date:  i["ins_date"],
+            state:     i["state"],
+            principal: i["principal"],
+            comuna:    i["comuna"],
+            region:    i["region"]
+          )
+        end
+      )
+    end
+  end
+
+  def parse_convenios_anual(arr)
+    Array(arr).map do |c|
+      OpenStruct.new(
+        id:             c["id"],
+        fecha_venta:    c["fecha_venta"],
+        n1:             c["n1"],
+        v1:             c["v1"],
+        empresa_id:     c["empresa_id"],
+        empresa_nombre: c["empresa_nombre"] || c["empresa"]
+      )
+    end
+  end
+
+  def parse_evaluacions_anual(arr)
+    Array(arr).map do |f|
+      OpenStruct.new(
+        id:               f["id"],
+        number:           f["number"],
+        name:             f["name"],
+        solicitud:        f["solicitud"],
+        emicion:          f["emicion"],
+        entregado:        f["entregado"],
+        resultado:        f["resultado"],
+        oc:               f["oc"],
+        factura:          f["factura"],
+        empresa:          f["empresa"],
+        fecha_inspeccion: f["fecha_inspeccion"],
+        precio:           f["precio"],
+        pesos:            to_pesos(f["precio"], f["fecha_inspeccion"]),
+        created_at:       f["created_at"],
+        updated_at:       f["updated_at"]
+      )
+    end
+  end
+
+  def ensure_array(x)
+    return [] if x.nil?
+    x.is_a?(Array) ? x : [x]
+  end
+
+  def parse_oxy_anual(arr)
+    ensure_array(arr).select { |e| e.is_a?(Hash) }.map do |data|
+      OpenStruct.new(
+        id:                 data["id"] || data[:id],
+        month:              data["month"] || data[:month],
+        year:               data["year"] || data[:year],
+        numero_conductores: data["numero_conductores"] || data[:numero_conductores],
+        arrastre:           data["arrastre"] || data[:arrastre],
+        suma:               data["suma"] || data[:suma],
+        total_uf:           data["total_uf"] || data[:total_uf],
+        oxy_records:        ensure_array(data["oxy_records"] || data[:oxy_records]).select { |r| r.is_a?(Hash) }.map do |r|
+          OpenStruct.new(
+            id:         r["id"] || r[:id],
+            fecha:      r["fecha"] || r[:fecha],
+            created_at: r["created_at"] || r[:created_at],
+            updated_at: r["updated_at"] || r[:updated_at]
+          )
+        end
+      )
+    end
+  end
+
+  def parse_cmpc_anual(arr)
+    ensure_array(arr).select { |e| e.is_a?(Hash) }.map do |data|
+      OpenStruct.new(
+        id:               data["id"] || data[:id],
+        month:            data["month"] || data[:month],
+        year:             data["year"] || data[:year],
+        numero_servicios: data["numero_servicios"] || data[:numero_servicios],
+        total_uf:         to_decimal((data["total_uf"] || data[:total_uf] || data["total"] || data[:total] || 0.0)),
+        cmpc_records:     ensure_array(data["cmpc_records"] || data[:cmpc_records]).select { |r| r.is_a?(Hash) }.map do |r|
+          OpenStruct.new(
+            id:         r["id"] || r[:id],
+            suma:       r["suma"] || r[:suma],
+            fecha:      r["fecha"] || r[:fecha],
+            created_at: r["created_at"] || r[:created_at],
+            updated_at: r["updated_at"] || r[:updated_at]
+          )
+        end
+      )
+    end
+  end
+
+  def parse_ald_anual(arr)
+    ensure_array(arr).select { |e| e.is_a?(Hash) }.map do |data|
+      OpenStruct.new(
+        id:       data["id"] || data[:id],
+        month:    data["month"] || data[:month],
+        year:     data["year"] || data[:year],
+        n1:       data["n1"] || data[:n1],
+        n2:       data["n2"] || data[:n2],
+        total_uf: to_decimal(data["total"] || data[:total])
+      )
+    end
+  end
+
+  def parse_otros_anual(arr)
+    ensure_array(arr).select { |e| e.is_a?(Hash) }.map do |o|
+      empresa_hash = o["empresa"] || o[:empresa] || {}
+      fecha_str = o["fecha"] || o[:fecha]
+      fecha_parsed = fecha_str && (Date.parse(fecha_str) rescue nil)
+
+      OpenStruct.new(
+        id:             o["id"] || o[:id],
+        fecha:          fecha_parsed,
+        month:          o["month"] || o[:month] || fecha_parsed&.month,
+        year:           o["year"]  || o[:year]  || fecha_parsed&.year,
+        n1:             to_decimal(o["n1"] || o[:n1]),
+        n2:             to_decimal(o["n2"] || o[:n2]),
+        total:          to_decimal(o["total"] || o[:total]),
+        v1:             to_decimal((o["v1"] || o[:v1] || "0.1")),
+        empresa_id:     empresa_hash["id"] || empresa_hash[:id] || o["empresa_id"] || o[:empresa_id],
+        empresa_nombre: empresa_hash["nombre"] || empresa_hash[:nombre] || o["empresa_nombre"] || o[:empresa_nombre] || o["empresa"] || o[:empresa] || "sin_empresa"
+      )
+    end
+  end
+
+
 
 end

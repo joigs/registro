@@ -1,42 +1,117 @@
-<% fmt       = ->v { number_with_delimiter(v, delimiter: ".", separator: ",")            } %>
-<% fmt_clp   = ->v { number_with_delimiter(v.to_i, delimiter: ".", separator: ",")       } %>
-<% uf_clp    = ->uf { "#{fmt[uf]} UF (#{fmt_clp[uf.to_d * @uf]} CLP)"                    } %>
-<% show_name = ->key { @mandante_names&.[](key) || key                                   } %>
+<% fmt       = ->v { number_with_delimiter(v, delimiter: ".", separator: ",") } %>
+<% fmt_clp   = ->v { number_with_delimiter(v.to_i, delimiter: ".", separator: ",") } %>
+<% show_name = ->key { @mandante_names&.[](key) || key } %>
 <% meses_es  = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
 
-<% mods_full = {
-  "Transporte Vertical"        => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
-  "Evaluación de Competencias" => [@evaluacion_total_uf, @evaluacion_daily_uf, @evaluation_day_company],
-  "Movilidad"                  => [@movilidad_total_uf,  @movilidad_daily_uf,  @movilidad_day_company]
-} %>
-
-<% mods_full_count = {
-  "Transporte Vertical"        => [@vertical_total_count, @vertical_daily_count, @vertical_day_company_count],
-  "Evaluación de Competencias" => [@evaluacion_total_count, @evaluacion_daily_count, @evaluation_day_company_count],
-  "Movilidad"                  => [@movilidad_total_count,  @movilidad_daily_count,  @movilidad_day_company_count]
-} %>
-
-<%= form_with url: records_path, method: :get, local: true,
-              class: "mb-6 max-w-5xl mx-auto" do |f| %>
+<%= form_with url: records_path, method: :get, local: true, class: "mb-6 max-w-5xl mx-auto" do |f| %>
   <div class="flex flex-wrap gap-4 items-end">
     <div>
       <%= f.label :year, "Año", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
       <%= f.select :year, (2025..Date.current.year).to_a, { selected: @year },
                    class: "border rounded-md px-2 py-1 bg-white dark:bg-slate-800 dark:text-gray-200 shadow-sm" %>
     </div>
-
     <div>
       <%= f.label :month, "Mes", class: "block text-sm font-medium text-gray-700 dark:text-gray-300" %>
-      <%= f.select :month, meses_es.map.with_index { |m,i| [m, i+1] }, { selected: @month },
+      <%= f.select :month,
+                   options_for_select([["Año completo","all"]] + meses_es.map.with_index { |m,i| [m, i+1] },
+                                      (defined?(@full_year) && @full_year) ? "all" : @month),
+                   {},
                    class: "border rounded-md px-2 py-1 bg-white dark:bg-slate-800 dark:text-gray-200 shadow-sm" %>
     </div>
-
-    <%= f.submit "Filtrar",
-                 class: "bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md" %>
+    <%= f.submit "Filtrar", class: "bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md" %>
   </div>
 <% end %>
 
-<% exact_rec = Iva.find_by(year: @year, month: @month) rescue nil %>
+<% if @full_year %>
+  <% max_month = (@year.to_i == Date.current.year ? Date.current.month : 12) %>
+  <% iva_recs = Iva.where(year: @year, month: 1..max_month) %>
+  <% ufs_map = (1..max_month).each_with_object({}) { |m,h| r = iva_recs.find { |x| x.month == m }; h[m] = (r && (r[:value] || r[:valor] || r[:uf] || r[:monto])) || @uf } %>
+  <% uf_clp_m = ->(uf, m) { v = (ufs_map[m] || @uf).to_d; "#{fmt[uf]} UF (#{fmt_clp[uf.to_d * v]} CLP)" } %>
+
+  <% vertical_uf_by_m   = @vertical_by_month_uf   || {} %>
+  <% evaluacion_uf_by_m = @evaluacion_by_month_uf || {} %>
+  <% movilidad_uf_by_m  = @movilidad_by_month_uf  || {} %>
+
+  <% vertical_ct_by_m   = @vertical_by_month_count   || {} %>
+  <% evaluacion_ct_by_m = @evaluacion_by_month_count || {} %>
+  <% movilidad_ct_by_m  = @movilidad_by_month_count  || {} %>
+
+  <% month_uf  = {} %>
+  <% month_cnt = {} %>
+  <% (1..max_month).each do |m| %>
+    <% uf_v = vertical_uf_by_m[m].to_d + evaluacion_uf_by_m[m].to_d + movilidad_uf_by_m[m].to_d %>
+    <% ct_v = vertical_ct_by_m[m].to_i + evaluacion_ct_by_m[m].to_i + movilidad_ct_by_m[m].to_i %>
+    <% month_uf[m]  = uf_v %>
+    <% month_cnt[m] = ct_v %>
+  <% end %>
+
+  <% annual_total_uf  = month_uf.values.reduce(0.to_d, :+) %>
+  <% annual_total_clp = month_uf.sum { |m,ufv| ufv.to_d * (ufs_map[m] || @uf).to_d } %>
+  <% annual_total_ct  = month_cnt.values.sum %>
+
+  <p class="text-center text-lg mb-6 text-gray-800 dark:text-black">
+    <span>UF por mes en <%= @year %>:</span>
+    <% (1..max_month).each do |m| %>
+      <span class="inline-block px-2 py-1 mx-1 my-1 rounded bg-gray-100 dark:bg-slate-800">
+        <%= meses_es[m-1] %>: <%= fmt_clp[ufs_map[m]] %> CLP
+      </span>
+    <% end %>
+  </p>
+
+  <main class="max-w-7xl mx-auto space-y-10 text-gray-900 dark:text-gray-100">
+    <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
+      <h1 class="text-3xl sm:text-4xl font-semibold mb-2">
+        Total Año <%= @year %>: <%= "#{fmt[annual_total_uf]} UF (#{fmt_clp[annual_total_clp]} CLP)" %>
+      </h1>
+      <p class="text-base mb-4">N° Servicios: <%= number_with_delimiter(annual_total_ct) %></p>
+
+      <table class="w-full text-sm border-collapse">
+        <thead>
+        <tr>
+          <th class="py-2 border border-gray-300 dark:border-slate-600">Mes</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">1 UF (CLP)</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Transporte Vertical</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Evaluación de Competencias</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Movilidad</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Total Mes</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">N° Servicios</th>
+        </tr>
+        </thead>
+        <tbody>
+        <% (1..max_month).each do |m| %>
+          <% v_uf  = vertical_uf_by_m[m].to_d %>
+          <% e_uf  = evaluacion_uf_by_m[m].to_d %>
+          <% mo_uf = movilidad_uf_by_m[m].to_d %>
+          <% t_uf  = month_uf[m] %>
+          <% ct    = month_cnt[m] %>
+          <tr>
+            <td class="py-2 border border-gray-300 dark:border-slate-600"><%= meses_es[m-1] %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= fmt_clp[ufs_map[m]] %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[v_uf, m] %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[e_uf, m] %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[mo_uf, m] %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium"><%= uf_clp_m[t_uf, m] %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium"><%= number_with_delimiter(ct) %></td>
+          </tr>
+        <% end %>
+        </tbody>
+      </table>
+    </section>
+  </main>
+<% else %>
+  <% uf_clp    = ->uf { "#{fmt[uf]} UF (#{fmt_clp[uf.to_d * @uf]} CLP)" } %>
+  <% mods_full = {
+    "Transporte Vertical"        => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
+    "Evaluación de Competencias" => [@evaluacion_total_uf, @evaluacion_daily_uf, @evaluation_day_company],
+    "Movilidad"                  => [@movilidad_total_uf,  @movilidad_daily_uf,  @movilidad_day_company]
+  } %>
+  <% mods_full_count = {
+    "Transporte Vertical"        => [@vertical_total_count, @vertical_daily_count, @vertical_day_company_count],
+    "Evaluación de Competencias" => [@evaluacion_total_count, @evaluacion_daily_count, @evaluation_day_company_count],
+    "Movilidad"                  => [@movilidad_total_count,  @movilidad_daily_count,  @movilidad_day_company_count]
+  } %>
+  <% exact_rec = Iva.find_by(year: @year, month: @month) rescue nil %>
+
 <p class="text-center text-lg mb-6 text-gray-800 dark:text-black">
   1 UF = <%= fmt_clp[@uf] %> CLP
   <% unless exact_rec %>(valor aproximado)<% end %>
@@ -376,3 +451,4 @@
   </section>
 
 </main>
+<% end %>
