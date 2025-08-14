@@ -21,12 +21,10 @@
     <%= f.submit "Filtrar", class: "bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md" %>
   </div>
 <% end %>
-
 <% if @full_year %>
-  <% max_month = (@year.to_i == Date.current.year ? Date.current.month : 12) %>
-  <% iva_recs = Iva.where(year: @year, month: 1..max_month) %>
-  <% ufs_map = (1..max_month).each_with_object({}) { |m,h| r = iva_recs.find { |x| x.month == m }; h[m] = (r && (r[:value] || r[:valor] || r[:uf] || r[:monto])) || @uf } %>
-  <% uf_clp_m = ->(uf, m) { v = (ufs_map[m] || @uf).to_d; "#{fmt[uf]} UF (#{fmt_clp[uf.to_d * v]} CLP)" } %>
+  <% max_month = @max_month || (@year.to_i == Date.current.year ? Date.current.month : 12) %>
+  <% ufs_map = (@uf_map || {}).presence || (Iva.where(year: @year, month: 1..max_month).each_with_object({}) { |r,h| h[r.month] = (r.valor || r.value || r.uf || r.monto).to_d }) %>
+  <% uf_clp_m = ->(uf, m) { v = (ufs_map[m] || 0).to_d; "#{number_with_delimiter(uf, delimiter: '.', separator: ',')} UF (#{number_with_delimiter((uf.to_d * v).to_i, delimiter: '.', separator: ',')} CLP)" } %>
 
   <% vertical_uf_by_m   = @vertical_by_month_uf   || {} %>
   <% evaluacion_uf_by_m = @evaluacion_by_month_uf || {} %>
@@ -46,34 +44,87 @@
   <% end %>
 
   <% annual_total_uf  = month_uf.values.reduce(0.to_d, :+) %>
-  <% annual_total_clp = month_uf.sum { |m,ufv| ufv.to_d * (ufs_map[m] || @uf).to_d } %>
+  <% annual_total_clp = month_uf.sum { |m,ufv| ufv.to_d * (ufs_map[m] || 0).to_d } %>
   <% annual_total_ct  = month_cnt.values.sum %>
 
-  <p class="text-center text-lg mb-6 text-gray-800 dark:text-black">
-    <span>UF por mes en <%= @year %>:</span>
+  <% mods_full_y = {
+    "Transporte Vertical"        => [@vertical_total_uf.to_d,  vertical_uf_by_m,   {}],
+    "Evaluación de Competencias" => [@evaluacion_total_uf.to_d, evaluacion_uf_by_m, {}],
+    "Movilidad"                  => [@movilidad_total_uf.to_d,  movilidad_uf_by_m,  {}]
+  } %>
+
+  <% mods_full_count_y = {
+    "Transporte Vertical"        => [@vertical_total_count.to_i,  vertical_ct_by_m,   {}],
+    "Evaluación de Competencias" => [@evaluacion_total_count.to_i, evaluacion_ct_by_m, {}],
+    "Movilidad"                  => [@movilidad_total_count.to_i,  movilidad_ct_by_m,  {}]
+  } %>
+
+  <p class="text-center text-lg mb-6 text-gray-800 dark:text-black dark:text-white">
     <% (1..max_month).each do |m| %>
       <span class="inline-block px-2 py-1 mx-1 my-1 rounded bg-gray-100 dark:bg-slate-800">
-        <%= meses_es[m-1] %>: <%= fmt_clp[ufs_map[m]] %> CLP
+        <%= meses_es[m-1] %>: <%= number_with_delimiter((ufs_map[m] || 0).to_i, delimiter: ".", separator: ",") %> CLP
       </span>
     <% end %>
   </p>
 
   <main class="max-w-7xl mx-auto space-y-10 text-gray-900 dark:text-gray-100">
     <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
-      <h1 class="text-3xl sm:text-4xl font-semibold mb-2">
-        Total Año <%= @year %>: <%= "#{fmt[annual_total_uf]} UF (#{fmt_clp[annual_total_clp]} CLP)" %>
+      <h1 class="text-3xl sm:text-4xl font-semibold mb-4">
+        Total Año <%= @year %>: <%= "#{number_with_delimiter(annual_total_uf, delimiter: '.', separator: ',')} UF (#{number_with_delimiter(annual_total_clp.to_i, delimiter: '.', separator: ',')} CLP)" %>
+        <br>
+        N° Servicios: <%= number_with_delimiter(annual_total_ct) %>
       </h1>
-      <p class="text-base mb-4">N° Servicios: <%= number_with_delimiter(annual_total_ct) %></p>
 
       <table class="w-full text-sm border-collapse">
         <thead>
         <tr>
-          <th class="py-2 border border-gray-300 dark:border-slate-600">Mes</th>
-          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">1 UF (CLP)</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600">Módulo</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Total UF (Año)</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">N° Servicios (Año)</th>
+        </tr>
+        </thead>
+        <tbody>
+        <% mods_full_y.each do |mod,(tot, per_month, _)| %>
+          <% count_tot = mods_full_count_y[mod].first %>
+          <tr>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
+              <details>
+                <summary class="cursor-pointer select-none flex items-center justify-center gap-1">
+                  <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
+                  <%= mod %>
+                </summary>
+                <ul class="mt-2 mx-5 list-disc">
+                  <% (1..max_month).each do |m| %>
+                    <% val = per_month[m].to_d %>
+                    <% next if val.zero? %>
+                    <li class="flex justify-between">
+                      <span><%= meses_es[m-1] %></span>
+                      <span><%= uf_clp_m[val, m] %> — <%= number_with_delimiter(mods_full_count_y[mod][1][m].to_i) %> servicios</span>
+                    </li>
+                  <% end %>
+                </ul>
+              </details>
+            </td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
+              <%= number_with_delimiter(tot, delimiter: ".", separator: ",") %> UF
+            </td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= number_with_delimiter(count_tot) %></td>
+          </tr>
+        <% end %>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
+      <h2 class="text-2xl font-semibold mb-4">Valor Mensual por Módulo</h2>
+      <table class="w-full text-sm border-collapse">
+        <thead>
+        <tr>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 w-24 text-center">Mes</th>
           <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Transporte Vertical</th>
           <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Evaluación de Competencias</th>
           <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Movilidad</th>
-          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Total Mes</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Total</th>
           <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">N° Servicios</th>
         </tr>
         </thead>
@@ -82,11 +133,10 @@
           <% v_uf  = vertical_uf_by_m[m].to_d %>
           <% e_uf  = evaluacion_uf_by_m[m].to_d %>
           <% mo_uf = movilidad_uf_by_m[m].to_d %>
-          <% t_uf  = month_uf[m] %>
-          <% ct    = month_cnt[m] %>
+          <% t_uf  = month_uf[m].to_d %>
+          <% ct    = month_cnt[m].to_i %>
           <tr>
-            <td class="py-2 border border-gray-300 dark:border-slate-600"><%= meses_es[m-1] %></td>
-            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= fmt_clp[ufs_map[m]] %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= meses_es[m-1] %></td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[v_uf, m] %></td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[e_uf, m] %></td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[mo_uf, m] %></td>
@@ -97,8 +147,149 @@
         </tbody>
       </table>
     </section>
+
+    <section data-controller="cube" class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
+      <h2 class="text-2xl font-semibold mb-4">Detalle por módulo</h2>
+      <ul class="space-y-2">
+        <% mods_full_y.each_with_index do |(mod,(tot,monthly_map,month_comp)), idx| %>
+          <% case mod
+             when "Transporte Vertical"
+               mod_total_count    = @vertical_total_count.to_i
+               monthly_count_map  = vertical_ct_by_m || {}
+               month_comp_count   = {}
+             when "Evaluación de Competencias"
+               mod_total_count    = @evaluacion_total_count.to_i
+               monthly_count_map  = evaluacion_ct_by_m || {}
+               month_comp_count   = {}
+             when "Movilidad"
+               mod_total_count    = @movilidad_total_count.to_i
+               monthly_count_map  = movilidad_ct_by_m || {}
+               month_comp_count   = {}
+             else
+               mod_total_count    = 0
+               monthly_count_map  = {}
+               month_comp_count   = {}
+             end %>
+
+          <li data-action="click->cube#toggle"
+              class="cursor-pointer px-4 py-2 rounded-md transition-colors border
+                   <%= idx.even? ? 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700'
+                                              : 'bg-gray-50  hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' %>">
+            <span><%= mod %></span>
+            <span class="float-right">
+              <%= number_with_delimiter(tot, delimiter: ".", separator: ",") %> UF — <%= number_with_delimiter(mod_total_count) %> servicios
+            </span>
+
+            <ul class="hidden mt-2 space-y-1">
+              <% monthly_map.keys.sort.each do |m| %>
+                <% val = monthly_map[m].to_d %>
+                <% next if val.zero? %>
+                <li data-action="click->cube#toggle"
+                    class="cursor-pointer px-3 py-1 rounded-md transition-colors border
+                         <%= m.odd? ? 'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600'
+                                                          : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
+                  Mes <%= meses_es[m-1] %>
+                  <span class="float-right">
+                    <%= uf_clp_m[val, m] %> — <%= number_with_delimiter(monthly_count_map[m].to_i) %> servicios
+                  </span>
+
+                  <% entities = month_comp.transform_values { |h| h[m] }.reject { |_,v| v.to_d.zero? } %>
+                  <% unless entities.empty? %>
+                    <ul class="hidden mt-1 space-y-1">
+                      <% entities.each_with_index do |(emp, v), i| %>
+                        <li class="px-3 py-1 rounded-md border
+                                 <%= i.even? ? 'bg-gray-50 dark:bg-slate-700'
+                                                                          : 'bg-gray-100 dark:bg-slate-800' %>">
+                          <%= show_name[emp] %>
+                          <span class="float-right">
+                            <%= uf_clp_m[v.to_d, m] %> — <%= number_with_delimiter(month_comp_count.dig(emp, m).to_i) %> servicios
+                          </span>
+                        </li>
+                      <% end %>
+                    </ul>
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+
+    <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
+      <h2 class="text-2xl font-semibold mb-4">Clientes (año completo)</h2>
+
+      <% empresa_totales_uf   = @month_by_empresa || {} %>
+      <% empresa_totales_cnt  = @month_by_empresa_count || {} %>
+      <% empresa_por_mes_uf   = defined?(@empresa_by_month_uf) ? (@empresa_by_month_uf || {}) : {} %>
+
+      <% uf_clp_empresa = ->(cli_key, total_uf) do
+        per_m = empresa_por_mes_uf[cli_key]
+        if per_m.is_a?(Hash) && per_m.any?
+          clp = per_m.sum { |m,ufv| ufv.to_d * (ufs_map[m] || 0).to_d }
+          "#{number_with_delimiter(total_uf, delimiter: '.', separator: ',')} UF (#{number_with_delimiter(clp.to_i, delimiter: '.', separator: ',')} CLP)"
+        else
+          "#{number_with_delimiter(total_uf, delimiter: '.', separator: ',')} UF"
+        end
+      end %>
+
+      <table class="w-full text-sm border-collapse">
+        <thead>
+        <tr>
+          <th class="py-2 border border-gray-300 dark:border-slate-600">Cliente</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Total</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">N° Servicios</th>
+        </tr>
+        </thead>
+        <tbody>
+        <% empresa_totales_uf.each do |cli_key, cli_val| %>
+          <tr>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 align-top">
+              <details>
+                <summary class="cursor-pointer select-none">
+                  <%= show_name[cli_key] %>
+                </summary>
+
+                <% mods_y = {
+                  "Transporte Vertical"        => @vertical_by_month_uf,
+                  "Evaluación de Competencias" => @evaluacion_by_month_uf,
+                  "Movilidad"                  => @movilidad_by_month_uf
+                } %>
+                <% mods_counts_y = {
+                  "Transporte Vertical"        => @vertical_by_month_count,
+                  "Evaluación de Competencias" => @evaluacion_by_month_count,
+                  "Movilidad"                  => @movilidad_by_month_count
+                } %>
+
+                <ul class="mt-2 ml-4 list-disc">
+                  <% mods_y.each do |mod, hash| %>
+                    <% per_m = (empresa_por_mes_uf.dig(cli_key, :by_module, mod) rescue nil) %>
+                    <% next unless per_m.is_a?(Hash) %>
+                    <% val_mod = per_m.values.sum { |v| v.to_d } %>
+                    <% next if val_mod.zero? %>
+                    <% cnt_mod = (empresa_por_mes_uf.dig(cli_key, :by_module_count, mod)&.values&.sum || 0).to_i %>
+                    <li>
+                      <%= mod %>: <%= uf_clp_empresa[cli_key, val_mod] %> — <%= number_with_delimiter(cnt_mod) %> servicios
+                    </li>
+                  <% end %>
+                </ul>
+              </details>
+            </td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
+              <%= uf_clp_empresa[cli_key, cli_val.to_d] %>
+            </td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
+              <%= number_with_delimiter(empresa_totales_cnt[cli_key].to_i) %>
+            </td>
+          </tr>
+        <% end %>
+        </tbody>
+      </table>
+    </section>
   </main>
 <% else %>
+
+
   <% uf_clp    = ->uf { "#{fmt[uf]} UF (#{fmt_clp[uf.to_d * @uf]} CLP)" } %>
   <% mods_full = {
     "Transporte Vertical"        => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
