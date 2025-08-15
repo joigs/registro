@@ -24,29 +24,251 @@ class RecordsController < ApplicationController
     @full_year = params[:month].to_s == 'all'
 
     if @full_year
+      @max_month = (@year.to_i == Date.current.year ? Date.current.month : 12)
 
       meta_resp = HTTParty.get(VERTICAL_URL, headers: { "X-API-KEY" => VERTICAL_KEY }, query: { meta: 1 })
       @filter_options = meta_resp.code == 200 ? JSON.parse(meta_resp.body) : { "anios" => [], "meses" => (1..12).to_a, "empresas" => [] }
 
       fact_resp = api_get(VERTICAL_URL, VERTICAL_KEY, { year: @year })
       fact_json = fact_resp.code == 200 ? JSON.parse(fact_resp.body) : {}
-
-      puts(fact_json)
-
       @facturacions = parse_facturacions_anual(fact_json["facturacions"] || fact_json)
       @convenios    = parse_convenios_anual(fact_json["convenios"] || [])
 
+      eval_body = nil
       eval_resp = api_get(EVAL_URL, EVAL_KEY, { year: @year })
       if eval_resp.code == 200
-        body = JSON.parse(eval_resp.body)
-        if body.is_a?(Hash)
-          @evaluacions  = parse_evaluacions_anual(body["facturacions"] || [])
-          @current_oxy  = parse_oxy_anual(body["current_oxy"])     if body["current_oxy"].present?
-          @current_cmpc = parse_cmpc_anual(body["current_cmpc"])   if body["current_cmpc"].present?
-          @current_ald  = parse_ald_anual(body["current_ald"])     if body["current_ald"].present?
-          @otros        = parse_otros_anual(body["otros"] || [])
+        eval_body = JSON.parse(eval_resp.body) rescue nil
+        if eval_body.is_a?(Hash)
+          @evaluacions   = parse_evaluacions_anual(eval_body["facturacions"] || [])
+          @current_oxies = parse_oxy_anual(eval_body["current_oxy"])     if eval_body["current_oxy"].present?
+          @current_cmpcs = parse_cmpc_anual(eval_body["current_cmpc"])   if eval_body["current_cmpc"].present?
+          @current_alds  = parse_ald_anual(eval_body["current_ald"])     if eval_body["current_ald"].present?
+          @otros         = parse_otros_anual(eval_body["otros"] || [])
+        else
+          @evaluacions   = parse_evaluacions_anual(eval_body || [])
+          @current_oxies = []
+          @current_cmpcs = []
+          @current_alds  = []
+          @otros         = []
         end
+      else
+        @evaluacions   = []
+        @current_oxies = []
+        @current_cmpcs = []
+        @current_alds  = []
+        @otros         = []
       end
+
+      @uf_map = uf_map_for_year(@year)
+      last_uf = @uf_map[@max_month] || @uf_map.values.compact.last
+      @uf = BigDecimal((last_uf || 0).to_s)
+
+      fact_month_uf   = monthly_sums_anual(@facturacions, :fecha_venta, @year)
+      fact_month_cnt  = monthly_counts_anual(@facturacions, :fecha_venta, @year)
+      conv_month_uf   = monthly_sums_convenios_anual(@convenios, @year)
+      conv_month_cnt  = monthly_counts_convenios_anual(@convenios, @year)
+      @vertical_by_month_uf     = merge_monthly_anual(fact_month_uf,  conv_month_uf,  @year)
+      @vertical_by_month_count  = merge_monthly_count_anual(fact_month_cnt, conv_month_cnt, @year)
+
+      eval_van_month_uf  = monthly_sums_anual(@evaluacions, :fecha_inspeccion, @year)
+      eval_van_month_cnt = monthly_counts_anual(@evaluacions, :fecha_inspeccion, @year)
+      oxy_month_uf       = oxy_monthly_sums_anual(@current_oxies, @year)
+      oxy_month_cnt      = oxy_monthly_counts_anual(@current_oxies, @year)
+      cmpc_month_uf      = cmpc_monthly_sums_anual(@current_cmpcs, @year)
+      cmpc_month_cnt     = cmpc_monthly_counts_anual(@current_cmpcs, @year)
+      ald_month_uf       = ald_monthly_sums_anual(@current_alds, @year)
+      ald_month_cnt      = ald_monthly_counts_anual(@current_alds, @year)
+      otros_month_uf     = monthly_sums_otros_anual(@otros, @year)
+      otros_month_cnt    = monthly_counts_otros_anual(@otros, @year)
+
+      tmp_eval_uf  = merge_monthly_anual(eval_van_month_uf, oxy_month_uf, @year)
+      tmp_eval_uf2 = merge_monthly_anual(ald_month_uf, otros_month_uf, @year)
+      tmp_eval_uf3 = merge_monthly_anual(tmp_eval_uf2, cmpc_month_uf, @year)
+      @evaluacion_by_month_uf = merge_monthly_anual(tmp_eval_uf, tmp_eval_uf3, @year)
+
+      tmp_eval_ct  = merge_monthly_count_anual(eval_van_month_cnt, oxy_month_cnt, @year)
+      tmp_eval_ct2 = merge_monthly_count_anual(ald_month_cnt, otros_month_cnt, @year)
+      tmp_eval_ct3 = merge_monthly_count_anual(tmp_eval_ct2, cmpc_month_cnt, @year)
+      @evaluacion_by_month_count = merge_monthly_count_anual(tmp_eval_ct, tmp_eval_ct3, @year)
+
+      @movilidad_by_month_uf    = Hash.new(BigDecimal("0"))
+      @movilidad_by_month_count = Hash.new(0)
+
+      flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
+
+      (1..@max_month).each do |mm|
+        iva_row = Iva.find_by(year: @year, month: mm) ||
+          Iva.where("DATE(CONCAT(year,'-',month,'-01')) <= ?", Date.new(@year, mm, 1) << 1)
+             .order(year: :desc, month: :desc).first ||
+          Iva.order(year: :desc, month: :desc).first
+        uf_m = BigDecimal(iva_row.valor.to_s)
+
+        fecha_ini = Date.new(@year, mm, 1)
+        fecha_fin = Date.civil(@year, mm, -1)
+
+        checklists = SecondaryModels::CertChkLstExternal
+                       .joins("JOIN CertActivo ON CertActivo.CertActivoId = CertChkLst.CertActivoId")
+                       .joins("JOIN CerMan      ON CerMan.CerManRut      = CertActivo.CerManRut")
+                       .joins(<<~SQL)
+LEFT JOIN Valor
+       ON Valor.CerManRut            = CertActivo.CerManRut
+      AND Valor.CertActivoATrabId    = CertActivo.CertActivoATrabId
+      AND Valor.CertClasePlantillaId = CertActivo.CertClasePlantillaId
+      AND (
+           (CertChkLst.CertChkLstReIns = 1 AND Valor.ValorTipoInspec = 2) OR
+           (IFNULL(CertChkLst.CertChkLstReIns,0) = 0 AND Valor.ValorTipoInspec = 1)
+          )
+SQL
+                       .where("CertChkLst.CertChkLstFchFac BETWEEN ? AND ?", fecha_ini, fecha_fin)
+                       .where("COALESCE(CertChkLst.CertChkLstSinCosto,0) = 0")
+                       .select(
+                         "CertChkLst.*",
+                         "CertActivo.CertActivoId",
+                         "CertActivo.CertActivoNro",
+                         "CertActivo.CertActivoNombre",
+                         "CertActivo.ActivoPadre",
+                         "CertActivo.CertClasePlantillaId",
+                         "CertActivo.CertActivoATrabId",
+                         "CertActivo.CertTipoActId",
+                         "CerMan.CerManRut",
+                         "CerMan.CerManNombre",
+                         "CerMan.CerManRutN",
+                         "CerMan.CerManRazonSocial",
+                         "COALESCE(SUM(CASE
+   WHEN Valor.ValorMoneda = 1
+        THEN Valor.ValorValor * #{uf_m}
+   WHEN Valor.ValorMoneda = 2
+        THEN IF(CertChkLst.CertChkLstIndividual = 1,
+                Valor.ValorValorSolo ,
+                Valor.ValorValor      )
+   ELSE 0
+ END),0) AS monto_checklist"
+                       )
+                       .group(
+                         "CertChkLst.CertChkLstId, CertActivo.CertActivoId, CertActivo.ActivoPadre,
+ CertActivo.CertClasePlantillaId, CertActivo.CertActivoATrabId,
+ CertActivo.CertTipoActId, CerMan.CerManRut,  CerMan.CerManRutN, CerMan.CerManRazonSocial, CertChkLst.CertChkLstIndividual"
+                       )
+
+        require "set"
+        parent_ids = checklists.map(&:ActivoPadre).map(&:to_i).reject(&:zero?).uniq
+        parent_info = {}
+        unless parent_ids.empty?
+          SecondaryModels::CertActivoExternal
+            .where(CertActivoId: parent_ids)
+            .pluck(:CertActivoId, :CertActivoNro, :CertActivoNombre,
+                   :CertActivoATrabId, :CertClasePlantillaId, :CertTipoActId)
+            .each do |id, nro, nombre, atrab, plantilla, tipo|
+            parent_info[id] = {
+              patente:   [nro, nombre].map { _1.to_s.strip }.reject(&:blank?).first || id.to_s,
+              atrab:     atrab,
+              plantilla: plantilla,
+              tipo_act:  tipo
+            }
+          end
+        end
+
+        parents_by_orig = Set.new
+        checklists.each do |row|
+          if row.CertActivoId.to_i == row.ActivoPadre.to_i && !row.ActivoPadre.to_i.zero?
+            parents_by_orig << [row.ActivoPadre.to_i, row.CertChkLstFch.to_date]
+          end
+        end
+
+        per_padre_rows      = {}
+        individual_children = []
+
+        checklists.each do |row|
+          pid = row.ActivoPadre.to_i
+          next if pid.zero?
+
+          orig_day = row.CertChkLstFch.to_date
+          key      = [pid, orig_day]
+
+          if row.CertChkLstIndividual
+            individual_children << row
+            next
+          end
+
+          if row.CertActivoId.to_i == pid
+            if per_padre_rows.key?(key)
+              existing = per_padre_rows[key]
+              if existing.CertChkLstReIns != row.CertChkLstReIns
+                individual_children << row
+              else
+                per_padre_rows[key] = row
+              end
+            else
+              per_padre_rows[key] = row
+            end
+          else
+            if row.CertChkLstIndividual && parents_by_orig.include?(key)
+              individual_children << row
+            end
+          end
+        end
+
+        per_padre_rows.each_value do |row|
+          next if row.CertChkLstIndividual == 1
+          info = parent_info[row.ActivoPadre.to_i]
+          next unless info
+          row.define_singleton_method(:patente_considerada) { info[:patente] }
+          row.CertActivoATrabId    = info[:atrab]
+          row.CertClasePlantillaId = info[:plantilla]
+          row.CertTipoActId        = info[:tipo_act]
+        end
+
+        rows_ok = per_padre_rows.values + individual_children
+
+        @empresa_month_count = Hash.new(0)
+        @empresa_month       = Hash.new(BigDecimal("0"))
+        @emp_to_mandante     = {}
+
+        rows_ok
+          .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
+          .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac.to_date] }
+          .each do |(_rut, empresa, fecha), filas_dia|
+          @empresa_month_count[empresa] += filas_dia.size
+          monto_pesos = if _rut == 91_440_000
+                          filas_dia.sum { |r| r.monto_checklist.to_d }
+                        else
+                          filas_dia
+                            .group_by { |r| [r.CertActivoATrabId, r.CertClasePlantillaId, r.CertTipoActId] }
+                            .sum { |_k,g| g.all? { |x| x.monto_checklist.to_d == g.first.monto_checklist.to_d } ?
+                                            g.first.monto_checklist.to_d * g.size :
+                                            g.sum { |x| x.monto_checklist.to_d } }
+                        end
+          monto_uf = (monto_pesos / uf_m).truncate(4)
+          @empresa_month[empresa] += monto_uf
+
+          ref          = filas_dia.first
+          mand_rut     = ref.CerManRutN.to_s
+          mand_nom     = ref.CerManRazonSocial.to_s.strip.presence || mand_rut
+          @emp_to_mandante[empresa] = [mand_rut, mand_nom]
+        end
+
+        @empresas_por_mandante = Hash.new { |h,k| h[k] = [] }
+        @emp_to_mandante.each { |empresa, (mand_rut, _)| @empresas_por_mandante[mand_rut] << empresa }
+
+        mandante_month        = Hash.new(BigDecimal("0"))
+        mandante_month_count  = Hash.new(0)
+        @empresa_month.each do |empresa, uf_total|
+          mand_rut, _mand_nom = @emp_to_mandante[empresa]
+          mandante_month[mand_rut]       += uf_total
+          mandante_month_count[mand_rut] += @empresa_month_count[empresa]
+        end
+
+        @movilidad_by_month_uf[mm]    = mandante_month.values.sum
+        @movilidad_by_month_count[mm] = mandante_month_count.values.sum
+      end
+
+      @vertical_total_uf     = @vertical_by_month_uf.values.sum
+      @vertical_total_count  = @vertical_by_month_count.values.sum
+      @evaluacion_total_uf   = @evaluacion_by_month_uf.values.sum
+      @evaluacion_total_count= @evaluacion_by_month_count.values.sum
+      @movilidad_total_uf    = @movilidad_by_month_uf.values.sum
+      @movilidad_total_count = @movilidad_by_month_count.values.sum
+
 
   else
 
@@ -898,7 +1120,6 @@ end
     {}.tap do |q|
       q[:year]    = params[:year]    if params[:year].present?
       q[:month]   = params[:month]   if params[:month].present?
-      q[:empresa] = params[:empresa] if params[:empresa].present?
     end
   end
 
@@ -1600,6 +1821,384 @@ end
     end
   end
 
+  def months_range_for_year(year)
+    y = year.to_i
+    end_m = (y == Date.current.year ? Date.current.month : 12)
+    (1..end_m)
+  end
+
+  def uf_value_for(year, month)
+    rec = Iva.find_by(year: year.to_i, month: month.to_i)
+    (rec&.valor || rec&.value || rec&.uf || rec&.monto).to_d
+  end
+
+  def uf_map_for_year(year)
+    months_range_for_year(year).each_with_object({}) { |m,h| h[m] = uf_value_for(year, m) }
+  end
+
+  def monthly_sums_anual(records, date_attr, year)
+    Hash.new(BigDecimal("0")).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0.to_d }
+      Array(records).each do |r|
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[month] += to_decimal(r.precio)
+      end
+    end
+  end
+
+  def monthly_counts_anual(records, date_attr, year)
+    Hash.new(0).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0 }
+      Array(records).each do |r|
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[month] += 1
+      end
+    end
+  end
+
+  def monthly_sums_convenios_anual(records, year)
+    Hash.new(BigDecimal("0")).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0.to_d }
+      Array(records).each do |r|
+        date_str = r&.fecha_venta
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[month] += to_decimal(r.v1)
+      end
+    end
+  end
+
+  def monthly_counts_convenios_anual(records, year)
+    Hash.new(0).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0 }
+      Array(records).each do |r|
+        date_str = r&.fecha_venta
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[month] += r.n1.to_i
+      end
+    end
+  end
+
+  def monthly_sums_by_company_anual(records, date_attr, year)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        empresa  = (r.empresa.presence || "sin_empresa").to_s
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[empresa][month] += to_decimal(r.precio)
+      end
+      months_range_for_year(year).each do |m|
+        h.keys.each { |emp| h[emp][m] ||= 0.to_d }
+      end
+    end
+  end
+
+  def year_sums_by_company_anual(records)
+    Hash.new(BigDecimal("0")).tap do |h|
+      Array(records).each do |r|
+        empresa = (r.empresa.presence || "sin_empresa").to_s
+        h[empresa] += to_decimal(r.precio)
+      end
+    end
+  end
+
+  def monthly_sums_by_company_convenios_anual(records, year)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
+        date_str = r&.fecha_venta
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[empresa][month] += to_decimal(r.v1)
+      end
+      months_range_for_year(year).each do |m|
+        h.keys.each { |emp| h[emp][m] ||= 0.to_d }
+      end
+    end
+  end
+
+  def merge_monthly_anual(a, b, year)
+    range = months_range_for_year(year)
+    Hash.new(BigDecimal("0")).tap { |h| range.each { |m| h[m] = a[m].to_d + b[m].to_d } }
+  end
+
+  def merge_monthly_count_anual(a, b, year)
+    range = months_range_for_year(year)
+    Hash.new(0).tap { |h| range.each { |m| h[m] = a[m].to_i + b[m].to_i } }
+  end
+
+  def merge_nested_monthly_anual(*levels, year:)
+    range = months_range_for_year(year)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      levels.each do |lvl|
+        lvl.each { |k,sub| range.each { |m| h[k][m] += sub[m].to_d } }
+      end
+    end
+  end
+
+  def merge_nested_count_monthly_anual(*levels, year:)
+    range = months_range_for_year(year)
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
+      levels.each do |lvl|
+        lvl.each { |k,sub| range.each { |m| h[k][m] += sub[m].to_i } }
+      end
+    end
+  end
+
+  def monthly_company_anual(records, date_attr, year)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        empresa = (r.empresa.presence || "sin_empresa").to_s
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[empresa][month] += to_decimal(r.precio)
+      end
+      months_range_for_year(year).each do |m|
+        h.keys.each { |emp| h[emp][m] ||= 0.to_d }
+      end
+    end
+  end
+
+  def monthly_company_convenios_anual(records, year)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        empresa = r.empresa_nombre.presence || "sin_empresa"
+        date_str = r&.fecha_venta
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[empresa][month] += to_decimal(r.v1)
+      end
+      months_range_for_year(year).each do |m|
+        h.keys.each { |emp| h[emp][m] ||= 0.to_d }
+      end
+    end
+  end
+
+  def monthly_count_company_anual(records, date_attr, year)
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
+      Array(records).each do |r|
+        empresa = (r.empresa.presence || "sin_empresa").to_s
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[empresa][month] += 1
+      end
+      months_range_for_year(year).each do |m|
+        h.keys.each { |emp| h[emp][m] ||= 0 }
+      end
+    end
+  end
+
+  def monthly_count_company_convenios_anual(records, year)
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
+      Array(records).each do |r|
+        empresa = r.empresa_nombre.presence || "sin_empresa"
+        date_str = r&.fecha_venta
+        next if date_str.blank?
+        month = Date.parse(date_str.to_s).month rescue next
+        h[empresa][month] += r.n1.to_i
+      end
+      months_range_for_year(year).each do |m|
+        h.keys.each { |emp| h[emp][m] ||= 0 }
+      end
+    end
+  end
+
+  def sum_precios_otros_anual(records)
+    Array(records).sum(BigDecimal("0")) { |r| to_decimal(r.total) }
+  end
+
+  def monthly_sums_otros_anual(records, year)
+    Hash.new(BigDecimal("0")).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0.to_d }
+      Array(records).each do |r|
+        next if r.fecha.blank?
+        month = (r.fecha.is_a?(Date) ? r.fecha.month : (Date.parse(r.fecha.to_s).month rescue nil))
+        next unless month
+        h[month] += to_decimal(r.total)
+      end
+    end
+  end
+
+  def monthly_counts_otros_anual(records, year)
+    Hash.new(0).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0 }
+      Array(records).each do |r|
+        next if r.fecha.blank?
+        month = (r.fecha.is_a?(Date) ? r.fecha.month : (Date.parse(r.fecha.to_s).month rescue nil))
+        next unless month
+        h[month] += r.n1.to_i + r.n2.to_i
+      end
+    end
+  end
+
+  def monthly_company_otros_anual(records, year)
+    Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }.tap do |h|
+      Array(records).each do |r|
+        next if r.fecha.blank?
+        month = (r.fecha.is_a?(Date) ? r.fecha.month : (Date.parse(r.fecha.to_s).month rescue nil))
+        next unless month
+        empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
+        h[empresa][month] += to_decimal(r.total)
+      end
+      months_range_for_year(year).each do |m|
+        h.keys.each { |emp| h[emp][m] ||= 0.to_d }
+      end
+    end
+  end
+
+  def monthly_counts_company_otros_anual(records, year)
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
+      Array(records).each do |r|
+        next if r.fecha.blank?
+        month = (r.fecha.is_a?(Date) ? r.fecha.month : (Date.parse(r.fecha.to_s).month rescue nil))
+        next unless month
+        empresa = (r.empresa_nombre.presence || "sin_empresa").to_s
+        h[empresa][month] += r.n1.to_i + r.n2.to_i
+      end
+      months_range_for_year(year).each do |m|
+        h.keys.each { |emp| h[emp][m] ||= 0 }
+      end
+    end
+  end
+
+  def oxy_monthly_sums_anual(oxies, year)
+    Hash.new(BigDecimal("0")).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0.to_d }
+      Array(oxies).each do |o|
+        price_per_rec = to_decimal(o&.suma)
+        arrastre_cnt  = to_decimal(o&.arrastre)
+        month_key = o&.month.to_i
+        if month_key > 0
+          h[month_key] += (o.oxy_records.to_a.size.to_d * price_per_rec) + (arrastre_cnt * price_per_rec)
+        else
+          o.oxy_records.to_a.each do |rec|
+            m = (rec.fecha.is_a?(Date) ? rec.fecha.month : (Date.parse(rec.fecha.to_s).month rescue nil))
+            next unless m
+            h[m] += price_per_rec
+          end
+          h[1] += arrastre_cnt * price_per_rec unless arrastre_cnt.zero?
+        end
+      end
+    end
+  end
+
+  def oxy_monthly_counts_anual(oxies, year)
+    Hash.new(0).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0 }
+      Array(oxies).each do |o|
+        month_key = o&.month.to_i
+        if month_key > 0
+          h[month_key] += o.oxy_records.to_a.size
+          h[1] += o.arrastre.to_i unless o.arrastre.to_i.zero?
+        else
+          o.oxy_records.to_a.each do |rec|
+            m = (rec.fecha.is_a?(Date) ? rec.fecha.month : (Date.parse(rec.fecha.to_s).month rescue nil))
+            next unless m
+            h[m] += 1
+          end
+        end
+      end
+    end
+  end
+
+  def cmpc_monthly_sums_anual(cmpcs, year)
+    Hash.new(BigDecimal("0")).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0.to_d }
+      Array(cmpcs).each do |c|
+        c.cmpc_records.to_a.each do |rec|
+          m = (rec.fecha.is_a?(Date) ? rec.fecha.month : (Date.parse(rec.fecha.to_s).month rescue nil))
+          next unless m
+          h[m] += to_decimal(rec.suma)
+        end
+      end
+    end
+  end
+
+  def cmpc_monthly_counts_anual(cmpcs, year)
+    Hash.new(0).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0 }
+      Array(cmpcs).each do |c|
+        c.cmpc_records.to_a.each do |rec|
+          m = (rec.fecha.is_a?(Date) ? rec.fecha.month : (Date.parse(rec.fecha.to_s).month rescue nil))
+          next unless m
+          h[m] += 1
+        end
+      end
+    end
+  end
+
+  def ald_monthly_sums_anual(alds, year)
+    Hash.new(BigDecimal("0")).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0.to_d }
+      Array(alds).each do |a|
+        m = a&.month.to_i
+        next unless m > 0
+        h[m] += to_decimal(a.total_uf || a.total)
+      end
+    end
+  end
+
+  def ald_monthly_counts_anual(alds, year)
+    Hash.new(0).tap do |h|
+      months_range_for_year(year).each { |m| h[m] = 0 }
+      Array(alds).each do |a|
+        m = a&.month.to_i
+        next unless m > 0
+        h[m] += a.n1.to_i + a.n2.to_i
+      end
+    end
+  end
+
+  def build_oxy_month_company_anual(oxies, year)
+    { "Oxy" => oxy_monthly_sums_anual(oxies, year) }
+  end
+
+  def build_oxy_month_company_count_anual(oxies, year)
+    { "Oxy" => oxy_monthly_counts_anual(oxies, year) }
+  end
+
+  def build_cmpc_month_company_anual(cmpcs, year)
+    { "Transporte de personal CMPC" => cmpc_monthly_sums_anual(cmpcs, year) }
+  end
+
+  def build_cmpc_month_company_count_anual(cmpcs, year)
+    { "Transporte de personal CMPC" => cmpc_monthly_counts_anual(cmpcs, year) }
+  end
+
+  def rollup_counts_to_mandante_monthly_anual(map, year)
+    Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |rolled|
+      map.each do |k, sub|
+        key = if @emp_to_mandante.key?(k)
+                Array(@emp_to_mandante[k]).first
+              else
+                k
+              end
+        months_range_for_year(year).each do |m|
+          rolled[key][m] += sub[m].to_i
+        end
+      end
+    end
+  end
+
+  def clp_by_month_from_uf_map(monthly_uf_map, year)
+    Hash.new(0).tap do |h|
+      ufm = uf_map_for_year(year)
+      monthly_uf_map.each { |m, ufv| h[m] = (ufv.to_d * ufm[m].to_d).round(0, BigDecimal::ROUND_HALF_UP).to_i }
+    end
+  end
+
+  def clp_total_from_monthly_uf(monthly_uf_map, year)
+    ufm = uf_map_for_year(year)
+    monthly_uf_map.sum { |m, ufv| (ufv.to_d * ufm[m].to_d) }.round(0, BigDecimal::ROUND_HALF_UP).to_i
+  end
 
 
 end
