@@ -29,13 +29,13 @@ class RecordsController < ApplicationController
       meta_resp = HTTParty.get(VERTICAL_URL, headers: { "X-API-KEY" => VERTICAL_KEY }, query: { meta: 1 })
       @filter_options = meta_resp.code == 200 ? JSON.parse(meta_resp.body) : { "anios" => [], "meses" => (1..12).to_a, "empresas" => [] }
 
-      fact_resp = api_get(VERTICAL_URL, VERTICAL_KEY, { year: @year })
+      fact_resp = api_get(VERTICAL_URL, VERTICAL_KEY, { year: @year, month: "all" })
       fact_json = fact_resp.code == 200 ? JSON.parse(fact_resp.body) : {}
       @facturacions = parse_facturacions_anual(fact_json["facturacions"] || fact_json)
       @convenios    = parse_convenios_anual(fact_json["convenios"] || [])
 
       eval_body = nil
-      eval_resp = api_get(EVAL_URL, EVAL_KEY, { year: @year })
+      eval_resp = api_get(EVAL_URL, EVAL_KEY, { year: @year, month: "all" })
       if eval_resp.code == 200
         eval_body = JSON.parse(eval_resp.body) rescue nil
         if eval_body.is_a?(Hash)
@@ -58,6 +58,15 @@ class RecordsController < ApplicationController
         @current_alds  = []
         @otros         = []
       end
+
+
+      puts("evaluacions_anual: #{@evaluacions.inspect}")
+      puts("current_oxies_anual: #{@current_oxies.inspect}")
+      puts("current_cmpcs_anual: #{@current_cmpcs.inspect}")
+      puts("current_alds_anual: #{@current_alds.inspect}")
+      puts("otros_anual: #{@otros.inspect}")
+
+
 
       @uf_map = uf_map_for_year(@year)
       last_uf = @uf_map[@max_month] || @uf_map.values.compact.last

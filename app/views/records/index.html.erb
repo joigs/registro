@@ -139,6 +139,7 @@
         <thead>
         <tr>
           <th class="py-2 border border-gray-300 dark:border-slate-600 w-24 text-center">Mes</th>
+          <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Valor Uf</th>
           <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Transporte Vertical</th>
           <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Evaluación de Competencias</th>
           <th class="py-2 border border-gray-300 dark:border-slate-600 text-center">Movilidad</th>
@@ -155,6 +156,7 @@
           <% ct    = month_cnt[m].to_i %>
           <tr>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= meses_es[m-1] %></td>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= number_with_delimiter((ufs_map[m] || 0).to_i, delimiter: ".", separator: ",") %> CLP</td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[v_uf, m] %></td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[e_uf, m] %></td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= uf_clp_m[mo_uf, m] %></td>
