@@ -180,7 +180,8 @@ SQL
 
         checklists.each do |row|
           pid = row.ActivoPadre.to_i
-          next if pid.zero?
+
+          next if pid.zero? && !row.CertChkLstIndividual
 
           orig_day = row.CertChkLstFch.to_date
           key      = [pid, orig_day]
@@ -414,18 +415,17 @@ SQL
 
     checklists.each do |row|
       pid = row.ActivoPadre.to_i
-      next if pid.zero?
+
+      next if pid.zero? && !row.CertChkLstIndividual
 
       orig_day = row.CertChkLstFch.to_date
       key      = [pid, orig_day]
 
-
-
       if row.CertChkLstIndividual
-        next if pid.zero?
         individual_children << row
         next
       end
+
 
 
       if row.CertActivoId.to_i == pid
