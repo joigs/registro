@@ -194,10 +194,15 @@ SQL
           if row.CertActivoId.to_i == pid
             if per_padre_rows.key?(key)
               existing = per_padre_rows[key]
+
               if existing.CertChkLstReIns != row.CertChkLstReIns
                 individual_children << row
               else
-                per_padre_rows[key] = row
+                if row.CertChkLstReIns
+                  individual_children << row
+                else
+                  per_padre_rows[key] = row
+                end
               end
             else
               per_padre_rows[key] = row
@@ -432,11 +437,14 @@ SQL
         if per_padre_rows.key?(key)
           existing = per_padre_rows[key]
 
-
           if existing.CertChkLstReIns != row.CertChkLstReIns
             individual_children << row
           else
-            per_padre_rows[key] = row
+            if row.CertChkLstReIns
+              individual_children << row
+            else
+              per_padre_rows[key] = row
+            end
           end
         else
           per_padre_rows[key] = row
@@ -446,6 +454,7 @@ SQL
           individual_children << row
         end
       end
+
     end
 
 
