@@ -24,6 +24,7 @@ class RecordsController < ApplicationController
     @full_year = params[:month].to_s == 'all'
 
     if @full_year
+
       @max_month = (@year.to_i == Date.current.year ? Date.current.month : 12)
 
       meta_resp = HTTParty.get(VERTICAL_URL, headers: { "X-API-KEY" => VERTICAL_KEY }, query: { meta: 1 })
@@ -60,11 +61,11 @@ class RecordsController < ApplicationController
       end
 
 
-      puts("evaluacions_anual: #{@evaluacions.inspect}")
-      puts("current_oxies_anual: #{@current_oxies.inspect}")
-      puts("current_cmpcs_anual: #{@current_cmpcs.inspect}")
-      puts("current_alds_anual: #{@current_alds.inspect}")
-      puts("otros_anual: #{@otros.inspect}")
+      #puts("evaluacions_anual: #{@evaluacions.inspect}")
+      #puts("current_oxies_anual: #{@current_oxies.inspect}")
+      #puts("current_cmpcs_anual: #{@current_cmpcs.inspect}")
+      #puts("current_alds_anual: #{@current_alds.inspect}")
+      #puts("otros_anual: #{@otros.inspect}")
 
 
 
@@ -99,11 +100,20 @@ class RecordsController < ApplicationController
       tmp_eval_ct2 = merge_monthly_count_anual(ald_month_cnt, otros_month_cnt, @year)
       tmp_eval_ct3 = merge_monthly_count_anual(tmp_eval_ct2, cmpc_month_cnt, @year)
       @evaluacion_by_month_count = merge_monthly_count_anual(tmp_eval_ct, tmp_eval_ct3, @year)
-
+      #puts("@evaluacion_by_month_count = #{@evaluacion_by_month_count.inspect}")
       @movilidad_by_month_uf    = Hash.new(BigDecimal("0"))
       @movilidad_by_month_count = Hash.new(0)
 
       flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
+
+      @empresa_month_movilidad        = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
+      @empresa_month_movilidad_count  = Hash.new { |h,k| h[k] = Hash.new(0) }
+      @movilidad_month_mandante       = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
+      @movilidad_month_mandante_count = Hash.new { |h,k| h[k] = Hash.new(0) }
+
+      @mandante_names                 = {}
+      empresas_por_mandante_all       = Hash.new { |h,k| h[k] = [] }
+      emp_to_mandante_all             = {}
 
       (1..@max_month).each do |mm|
         iva_row = Iva.find_by(year: @year, month: mm) ||
@@ -275,7 +285,218 @@ SQL
 
         @movilidad_by_month_uf[mm]    = mandante_month.values.sum
         @movilidad_by_month_count[mm] = mandante_month_count.values.sum
+
+        (@empresa_month || {}).each do |empresa, uf_total|
+          @empresa_month_movilidad[empresa][mm]       += uf_total.to_d
+          @empresa_month_movilidad_count[empresa][mm] += (@empresa_month_count[empresa] || 0).to_i
+        end
+
+        (mandante_month || {}).each do |rut, uf_total|
+          @movilidad_month_mandante[rut][mm]       += uf_total.to_d
+          @movilidad_month_mandante_count[rut][mm] += (mandante_month_count[rut] || 0).to_i
+        end
+
+        (@emp_to_mandante || {}).each do |empresa, (rut, nom)|
+          emp_to_mandante_all[empresa] ||= [rut, nom]
+          @mandante_names[rut] ||= nom
+          empresas_por_mandante_all[rut] |= [empresa]
+        end
+
       end
+
+      @empresas_por_mandante = empresas_por_mandante_all
+      @emp_to_mandante       = emp_to_mandante_all
+
+      require "i18n" unless defined?(I18n)
+      norm = ->s { I18n.transliterate(s.to_s).gsub(/[\s\.]/,'').downcase }
+
+      grp_uf  = Hash.new(BigDecimal("0"))
+      grp_cnt = Hash.new(0)
+      @movilidad_month_mandante.each do |rut, per_month|
+        name = (@mandante_names[rut] || rut).to_s
+        key =
+          if   norm[name].include?("forestalarauco")
+            "Forestal Arauco SA"
+          elsif norm[name].include?("forestalmininco")
+            "Planta Acreditación Vehículos Forestal"
+          else
+            "Otros"
+          end
+        grp_uf[key]  += per_month.values.sum.to_d
+        grp_cnt[key] += (@movilidad_month_mandante_count[rut] || {}).values.sum.to_i
+      end
+      @movil_split_year_by_empresa       = grp_uf
+      @movil_split_year_by_empresa_count = grp_cnt
+      @movil_split_total_uf_year         = grp_uf.values.reduce(0.to_d, :+)
+
+      vert_emp_month  = monthly_sums_by_company_anual(@facturacions, :fecha_venta, @year)
+      conv_emp_month  = monthly_sums_by_company_convenios_anual(@convenios, @year)
+      @vertical_month_company = merge_nested_monthly_anual(vert_emp_month, conv_emp_month, year: @year)
+
+      vert_cnt_month  = monthly_count_company_anual(@facturacions, :fecha_venta, @year)
+      conv_cnt_month  = monthly_count_company_convenios_anual(@convenios, @year)
+      @vertical_month_company_count = merge_nested_count_monthly_anual(vert_cnt_month, conv_cnt_month, year: @year)
+      @movil_split_month_company       = Hash.new { |h,k| h[k] = Hash.new(BigDecimal("0")) }
+      @movil_split_month_company_count = Hash.new { |h,k| h[k] = Hash.new(0) }
+
+      require "i18n" unless defined?(I18n)
+      norm = ->s { I18n.transliterate(s.to_s).gsub(/[\s\.]/,'').downcase }
+
+      @movilidad_month_mandante.each do |rut, per_month|
+        raw_name = (@mandante_names[rut] || rut).to_s
+        key =
+          if   norm[raw_name].include?("forestalarauco")
+            "Forestal Arauco SA"
+          elsif norm[raw_name].include?("forestalmininco")
+            "Planta Acreditación Vehículos Forestal"
+          else
+            "Otros"
+          end
+
+        per_month.each do |m, ufv|
+          @movil_split_month_company[key][m] += ufv.to_d
+        end
+        (@movilidad_month_mandante_count[rut] || {}).each do |m, cnt|
+          @movil_split_month_company_count[key][m] += cnt.to_i
+        end
+      end
+
+      eval_emp_month      = monthly_company_anual(@evaluacions, :fecha_inspeccion, @year)
+      otros_emp_month     = monthly_company_otros_anual(@otros, @year)
+      ald_emp_month       = { "ALD" => ald_month_uf }
+
+      oxy_emp_month_raw   = build_oxy_month_company_anual(@current_oxies, @year)
+      cmpc_emp_month_raw  = build_cmpc_month_company_anual(@current_cmpcs, @year)
+
+      eval_cnt_month      = monthly_count_company_anual(@evaluacions, :fecha_inspeccion, @year)
+      otros_cnt_month     = monthly_counts_company_otros_anual(@otros, @year)
+      ald_cnt_month       = { "ALD" => ald_month_cnt }
+
+      oxy_cnt_month_raw   = build_oxy_month_company_count_anual(@current_oxies, @year)
+      cmpc_cnt_month_raw  = build_cmpc_month_company_count_anual(@current_cmpcs, @year)
+
+      oxy_name = "Occidental Chemical Chile Limitada"
+      cmpc_name = "EMPRESAS CMPC S.A"
+      oxy_rut  = @mandante_names.key(oxy_name) || oxy_name
+      cmpc_rut = @mandante_names.key(cmpc_name) || cmpc_name
+
+      oxy_emp_month  = {}
+      cmpc_emp_month = {}
+      if oxy_emp_month_raw["Oxy"]
+        oxy_emp_month[oxy_rut] = oxy_emp_month_raw["Oxy"]
+      end
+      if cmpc_emp_month_raw["Transporte de personal CMPC"]
+        cmpc_emp_month[cmpc_rut] = cmpc_emp_month_raw["Transporte de personal CMPC"]
+      end
+
+      oxy_cnt_month  = {}
+      cmpc_cnt_month = {}
+      if oxy_cnt_month_raw["Oxy"]
+        oxy_cnt_month[oxy_rut] = oxy_cnt_month_raw["Oxy"]
+      end
+      if cmpc_cnt_month_raw["Transporte de personal CMPC"]
+        cmpc_cnt_month[cmpc_rut] = cmpc_cnt_month_raw["Transporte de personal CMPC"]
+      end
+
+      @evaluation_month_company = merge_nested_monthly_anual(
+        eval_emp_month,
+        otros_emp_month,
+        ald_emp_month,
+        oxy_emp_month,
+        cmpc_emp_month,
+        year: @year
+      )
+
+      @evaluation_month_company_count = merge_nested_count_monthly_anual(
+        eval_cnt_month,
+        otros_cnt_month,
+        ald_cnt_month,
+        oxy_cnt_month,
+        cmpc_cnt_month,
+        year: @year
+      )
+
+      @vertical_year_by_empresa   = @vertical_month_company.transform_values   { |per_m| per_m.values.reduce(0.to_d, :+) }
+      @evaluation_year_by_empresa = @evaluation_month_company.transform_values { |per_m| per_m.values.reduce(0.to_d, :+) }
+      @movilidad_year_by_empresa  = @movilidad_month_mandante.transform_values { |per_m| per_m.values.reduce(0.to_d, :+) }
+
+      # Conteos: rolear a mandante y sumar meses
+      @vertical_month_by_empresa_count_rolled   = rollup_counts_to_mandante_monthly_anual(@vertical_month_company_count,   @year)
+      @evaluation_month_by_empresa_count_rolled = rollup_counts_to_mandante_monthly_anual(@evaluation_month_company_count, @year)
+
+      vertical_year_by_empresa_count_rolled   = @vertical_month_by_empresa_count_rolled.transform_values   { |per_m| per_m.values.sum }
+      evaluation_year_by_empresa_count_rolled = @evaluation_month_by_empresa_count_rolled.transform_values { |per_m| per_m.values.sum }
+      @movilidad_year_by_empresa_count        = @movilidad_month_mandante_count.transform_values           { |per_m| per_m.values.sum }
+
+      @module_years = {
+        "Transporte Vertical"        => @vertical_year_by_empresa,
+        "Evaluación de Competencias" => @evaluation_year_by_empresa,
+        "Movilidad"                  => @movilidad_year_by_empresa
+      }
+
+      @module_years_count = {
+        "Transporte Vertical"        => vertical_year_by_empresa_count_rolled,
+        "Evaluación de Competencias" => evaluation_year_by_empresa_count_rolled,
+        "Movilidad"                  => @movilidad_year_by_empresa_count
+      }
+      @alias_empresas_por_mandante_year = Hash.new { |h,k| h[k] = [] }
+
+      mandantes_year = (@movilidad_year_by_empresa || {}).keys
+      all_empresas_year = (@module_years || {})
+                            .values.flat_map(&:keys).uniq
+
+      mandantes_year.each do |mand_key|
+        mname = display_name_for(mand_key).to_s
+        all_empresas_year.each do |emp_key|
+          next if emp_key == mand_key
+          next if (@empresas_por_mandante || {})[mand_key].to_a.include?(emp_key)
+
+          ename = display_name_for(emp_key).to_s
+          if names_match?(ename, mname)
+            @alias_empresas_por_mandante_year[mand_key] << emp_key
+          end
+        end
+        @alias_empresas_por_mandante_year[mand_key].uniq!
+      end
+
+      @year_by_empresa       = merge_hashes(@vertical_year_by_empresa, @evaluation_year_by_empresa, @movilidad_year_by_empresa)
+      @year_by_empresa_count = merge_counts_hashes(vertical_year_by_empresa_count_rolled, evaluation_year_by_empresa_count_rolled, @movilidad_year_by_empresa_count)
+      require "set"
+      require "i18n" unless defined?(I18n)
+
+
+      _module_company_keys = (@vertical_year_by_empresa.keys | @evaluation_year_by_empresa.keys)
+
+      @year_by_empresa       = @year_by_empresa.dup
+      @year_by_empresa_count = @year_by_empresa_count.dup
+
+      moved_keys = Set.new
+
+      (@mandante_names || {}).each do |mand_rut, mand_name|
+        next if mand_name.blank?
+
+        _matches = @year_by_empresa.keys.select do |comp_name|
+          next false if comp_name.to_s == mand_rut.to_s
+          next false unless _module_company_keys.include?(comp_name)
+          fuzzy_same_or_contains?(comp_name, mand_name)
+        end
+
+        _matches.each do |comp_name|
+          next if moved_keys.include?(comp_name)
+
+          val = @year_by_empresa.delete(comp_name)
+          @year_by_empresa[mand_rut] = @year_by_empresa.fetch(mand_rut, 0.to_d) + (val || 0.to_d)
+
+          cnt = @year_by_empresa_count.delete(comp_name)
+          @year_by_empresa_count[mand_rut] = @year_by_empresa_count.fetch(mand_rut, 0) + (cnt || 0)
+
+          moved_keys << comp_name
+        end
+      end
+
+      @empresa_year       = @empresa_month_movilidad.transform_values       { |per_m| per_m.values.reduce(0.to_d, :+) }
+      @empresa_year_count = @empresa_month_movilidad_count.transform_values { |per_m| per_m.values.sum }
+
 
       @vertical_total_uf     = @vertical_by_month_uf.values.sum
       @vertical_total_count  = @vertical_by_month_count.values.sum
@@ -283,7 +504,6 @@ SQL
       @evaluacion_total_count= @evaluacion_by_month_count.values.sum
       @movilidad_total_uf    = @movilidad_by_month_uf.values.sum
       @movilidad_total_count = @movilidad_by_month_count.values.sum
-
 
   else
 
@@ -520,7 +740,6 @@ SQL
     end
 
 
-    # ---------DEBUG-----------------
 
 
     flag_on = ->(v) { v == true || v == 1 || v.to_s == "1" }
@@ -654,21 +873,21 @@ SQL
     end
 
 
-    @movilidad_day_company_count      = mandante_day_count          # Mandante → día → N servicios
-    @movilidad_month_by_empresa_count = mandante_month_count        # Mandante → N servicios mes
-    @movilidad_daily_count = mandante_day_count.values              # Día → N servicios (todo el módulo)
+    @movilidad_day_company_count      = mandante_day_count
+    @movilidad_month_by_empresa_count = mandante_month_count
+    @movilidad_daily_count = mandante_day_count.values
                                                .each_with_object(Hash.new(0)) { |per_day, h|
                                                  per_day.each { |d, v| h[d] += v }
                                                }
-    @movilidad_total_count = mandante_month_count.values.sum        # N servicios mes (todo el módulo)
+    @movilidad_total_count = mandante_month_count.values.sum
 
 
-    puts "@empresa_day_count                = #{@empresa_day_count.inspect}"
-    puts "@empresa_month_count              = #{@empresa_month_count.inspect}"
-    puts "@movilidad_day_company_count      = #{@movilidad_day_company_count.inspect}"
-    puts "@movilidad_month_by_empresa_count = #{@movilidad_month_by_empresa_count.inspect}"
-    puts "@movilidad_daily_count            = #{@movilidad_daily_count.inspect}"
-    puts "@movilidad_total_count            = #{@movilidad_total_count}"  # <-- no es hash, pero útil ver el total
+    #puts "@empresa_day_count                = #{@empresa_day_count.inspect}"
+    #puts "@empresa_month_count              = #{@empresa_month_count.inspect}"
+    #puts "@movilidad_day_company_count      = #{@movilidad_day_company_count.inspect}"
+    #puts "@movilidad_month_by_empresa_count = #{@movilidad_month_by_empresa_count.inspect}"
+    #puts "@movilidad_daily_count            = #{@movilidad_daily_count.inspect}"
+    #puts "@movilidad_total_count            = #{@movilidad_total_count}"
 
 
     @movilidad_day_company      = mandante_day
@@ -792,21 +1011,20 @@ SQL
     @facturacions_total_count = @facturacions.sum { |f| f.n1.to_i }
 
 
-    puts("convenios_total_count=#{@convenios_total_count} ")
-    puts("facturacions_total_count=#{@facturacions_total_count} ")
+    #puts("convenios_total_count=#{@convenios_total_count} ")
+    #puts("facturacions_total_count=#{@facturacions_total_count} ")
 
 
     @vertical_total_count = @facturacions.size + @convenios_total_count
-    puts("vertical_total_count=#{@vertical_total_count} ")
+    #puts("vertical_total_count=#{@vertical_total_count} ")
     @oxy_total_count = @current_oxy ? @current_oxy.oxy_records.size : 0
     @oxy_total_count += @current_oxy.arrastre if @current_oxy
     @cmpc_total_count = @current_cmpc ? @current_cmpc.cmpc_records.size : 0
 
-    puts("cmpc_total_count=#{@cmpc_total_count} ")
-    puts("oxy_total_count=#{@oxy_total_count} ")
+    #puts("cmpc_total_count=#{@cmpc_total_count} ")
+    #puts("oxy_total_count=#{@oxy_total_count} ")
 
 
-    # ---------- ALD (único) ----------
     @ald_total_uf = to_decimal(@current_ald&.total_uf)
 
     if @current_ald
@@ -876,13 +1094,11 @@ SQL
     end
 
     unless arauco_keys_count.empty?
-      # Totales mensuales de count
       total_arauco_count = arauco_keys_count.sum { |k| @otros_month_by_empresa_count[k].to_i }
       @otros_month_by_empresa_count[target_rut] ||= 0
       @otros_month_by_empresa_count[target_rut]  += total_arauco_count
       arauco_keys_count.each { |k| @otros_month_by_empresa_count.delete(k) }
 
-      # Totales diarios de count
       ar_day_count_tot = Hash.new(0)
       arauco_keys_count.each do |k|
         @otros_day_company_count[k].each { |d,v| ar_day_count_tot[d] += v }
@@ -894,10 +1110,10 @@ SQL
 
 
 
-    puts("otros_total_count=#{@otros_total_count} ")
-    puts("otros_daily_count=#{@otros_daily_count.inspect} ")
-    puts("otros_day_company_count=#{@otros_day_company_count.inspect} ")
-    puts("otros_month_by_empresa_count=#{@otros_month_by_empresa_count.inspect} ")
+    #puts("otros_total_count=#{@otros_total_count} ")
+    #puts("otros_daily_count=#{@otros_daily_count.inspect} ")
+    #puts("otros_day_company_count=#{@otros_day_company_count.inspect} ")
+    #puts("otros_month_by_empresa_count=#{@otros_month_by_empresa_count.inspect} ")
 
 
     @evaluacion_vanilla_total = sum_precios(@evaluacions)
@@ -909,19 +1125,18 @@ SQL
     @evaluacion_total_count = @evaluacion_vanilla_count + @oxy_total_count + @ald_total_count + @otros_total_count + @cmpc_total_count
 
 
-    puts("evaluacion_vanilla_count=#{@evaluacion_vanilla_count} ")
-    puts("oxy_total_count=#{@oxy_total_count} ")
-    puts("ald_total_count=#{@ald_total_count} ")
-    puts("otros_total_count=#{@otros_total_count} ")
-    puts("cmpc_total_count=#{@cmpc_total_count} ")
+    #puts("evaluacion_vanilla_count=#{@evaluacion_vanilla_count} ")
+    #puts("oxy_total_count=#{@oxy_total_count} ")
+    #puts("ald_total_count=#{@ald_total_count} ")
+    #puts("otros_total_count=#{@otros_total_count} ")
+    #puts("cmpc_total_count=#{@cmpc_total_count} ")
 
-    puts("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
-    puts(@evaluacion_total_count.inspect)
+    #puts(@evaluacion_total_count.inspect)
 
 
     @count_month = @vertical_total_count + @evaluacion_total_count + @movilidad_total_count
 
-    puts("count_month=#{@count_month} ")
+    #puts("count_month=#{@count_month} ")
 
     vertical_facturacions_by_day = daily_sums(@facturacions, :fecha_venta)
     vertical_counts_by_day = daily_counts(@facturacions, :fecha_venta)
@@ -936,7 +1151,7 @@ SQL
       h[day] = vertical_counts_by_day[day].to_i + convenios_counts_by_day[day].to_i
     end
 
-    puts("vertical_daily_count=#{@vertical_daily_count.inspect} ")
+    #puts("vertical_daily_count=#{@vertical_daily_count.inspect} ")
 
 
     @evaluacion_vanilla_daily = daily_sums(@evaluacions,   :fecha_inspeccion)
@@ -956,7 +1171,7 @@ SQL
       merge_daily_count(merge_daily_count(@ald_daily_count, @otros_daily_count), @cmpc_daily_count)
     )
 
-    puts("evaluacion_daily_count=#{@evaluacion_daily_count.inspect} ")
+    #puts("evaluacion_daily_count=#{@evaluacion_daily_count.inspect} ")
 
 
 
@@ -999,7 +1214,7 @@ SQL
                                      @otros_month_by_empresa)
 
 
-    puts("month_by_empresa=#{@month_by_empresa.inspect} ")
+    #puts("month_by_empresa=#{@month_by_empresa.inspect} ")
 
     vertical_facturacions_by_day_company = daily_company(@facturacions, :fecha_venta)
     vertical_convenios_by_day_company    = daily_company_convenios(@convenios)
@@ -1023,11 +1238,11 @@ SQL
       end
     end
 
-    puts("vertical_day_company_count=#{@vertical_day_company_count.inspect} ")
+    #puts("vertical_day_company_count=#{@vertical_day_company_count.inspect} ")
 
     @vertical_month_by_empresa_count = @vertical_day_company_count.transform_values { |per_day| per_day.values.sum }
 
-    puts("vertical_month_by_empresa_count=#{@vertical_month_by_empresa_count.inspect} ")
+    #puts("vertical_month_by_empresa_count=#{@vertical_month_by_empresa_count.inspect} ")
 
     @eval_vanilla_day_comp  = daily_company(@evaluacions,  :fecha_inspeccion)
     @eval_vanilla_day_comp_count = daily_count_company(@evaluacions, :fecha_inspeccion)
@@ -1058,7 +1273,7 @@ SQL
       @otros_day_company_count
     )
 
-    puts("evaluation_day_company_count=#{@evaluation_day_company_count.inspect} ")
+    #puts("evaluation_day_company_count=#{@evaluation_day_company_count.inspect} ")
     @evaluation_month_by_empresa_count =
       @evaluation_day_company_count.transform_values { |per_day| per_day.values.sum }
 
@@ -1115,6 +1330,25 @@ end
       "Movilidad"                  => @movilidad_month_by_empresa_count
     }
 
+    @alias_empresas_por_mandante_month = Hash.new { |h,k| h[k] = [] }
+
+    mandantes_month = (@movilidad_month_by_empresa || {}).keys
+    all_empresas_month = (@module_months || {})
+                           .values.flat_map(&:keys).uniq
+
+    mandantes_month.each do |mand_key|
+      mname = display_name_for(mand_key).to_s
+      all_empresas_month.each do |emp_key|
+        next if emp_key == mand_key
+        next if (@empresas_por_mandante || {})[mand_key].to_a.include?(emp_key)
+
+        ename = display_name_for(emp_key).to_s
+        if names_match?(ename, mname)
+          @alias_empresas_por_mandante_month[mand_key] << emp_key
+        end
+      end
+      @alias_empresas_por_mandante_month[mand_key].uniq!
+    end
 
 
     puts("@module_months_count=#{@module_months_count.inspect} ")
@@ -1125,6 +1359,36 @@ end
       @evaluation_month_by_empresa_count_rolled,
       @movilidad_month_by_empresa_count,
       )
+    require "set"
+    _module_company_keys = (
+      @vertical_month_by_empresa.keys |
+        @evaluacion_month_by_empresa.keys |
+        @otros_month_by_empresa.keys |
+        @ald_month_by_empresa.keys |
+        @oxy_month_by_empresa.keys |
+        @cmpc_month_by_empresa.keys
+    )
+
+    @month_by_empresa       = @month_by_empresa.dup
+    @month_by_empresa_count = @month_by_empresa_count.dup
+
+    moved = Set.new
+    (@mandante_names || {}).each do |mand_rut, mand_name|
+      next if mand_name.blank?
+      matches = @month_by_empresa.keys.select do |k|
+        k.to_s != mand_rut.to_s &&
+          _module_company_keys.include?(k) &&
+          names_match?(display_name_for(k), mand_name)
+      end
+      matches.each do |k|
+        next if moved.include?(k)
+        @month_by_empresa[mand_rut] =
+          @month_by_empresa.fetch(mand_rut, 0.to_d) + @month_by_empresa.delete(k).to_d
+        @month_by_empresa_count[mand_rut] =
+          @month_by_empresa_count.fetch(mand_rut, 0) + @month_by_empresa_count.delete(k).to_i
+        moved << k
+      end
+    end
 
 
     puts("month_by_empresa_count=#{@month_by_empresa_count.inspect} ")
@@ -2115,7 +2379,7 @@ end
         month_key = o&.month.to_i
         if month_key > 0
           h[month_key] += o.oxy_records.to_a.size
-          h[1] += o.arrastre.to_i unless o.arrastre.to_i.zero?
+          h[month_key] += o.arrastre.to_i unless o.arrastre.to_i.zero?
         else
           o.oxy_records.to_a.each do |rec|
             m = (rec.fecha.is_a?(Date) ? rec.fecha.month : (Date.parse(rec.fecha.to_s).month rescue nil))
@@ -2218,5 +2482,30 @@ end
     monthly_uf_map.sum { |m, ufv| (ufv.to_d * ufm[m].to_d) }.round(0, BigDecimal::ROUND_HALF_UP).to_i
   end
 
+  def normalize_key(str)
+    require "i18n" unless defined?(I18n)
+    I18n.transliterate(str.to_s).gsub(/\s+/, "").downcase
+  end
+
+  def fuzzy_same_or_contains?(a, b)
+    na = normalize_key(a)
+    nb = normalize_key(b)
+    return false if na.empty? || nb.empty?
+    na == nb || na.include?(nb) || nb.include?(na)
+  end
+  def norm_name(str)
+    require "i18n" unless defined?(I18n)
+    I18n.transliterate(str.to_s).gsub(/\s+/, "").downcase
+  end
+
+  def names_match?(a, b)
+    an = norm_name(a)
+    bn = norm_name(b)
+    an == bn || an.include?(bn) || bn.include?(an)
+  end
+
+  def display_name_for(key)
+    (@mandante_names || {})[key] || key
+  end
 
 end
