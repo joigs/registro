@@ -2380,12 +2380,7 @@ end
         if month_key > 0
           h[month_key] += o.oxy_records.to_a.size
           h[month_key] += o.arrastre.to_i unless o.arrastre.to_i.zero?
-        else
-          o.oxy_records.to_a.each do |rec|
-            m = (rec.fecha.is_a?(Date) ? rec.fecha.month : (Date.parse(rec.fecha.to_s).month rescue nil))
-            next unless m
-            h[m] += 1
-          end
+
         end
       end
     end
