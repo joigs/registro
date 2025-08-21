@@ -24,7 +24,7 @@
 <% if @full_year %>
   <% max_month = @max_month || (@year.to_i == Date.current.year ? Date.current.month : 12) %>
   <% ufs_map = (@uf_map || {}).presence || (Iva.where(year: @year, month: 1..max_month).each_with_object({}) { |r,h| h[r.month] = (r.valor || r.value || r.uf || r.monto).to_d }) %>
-  <% uf_clp_m = ->(uf, m) { v = (ufs_map[m] || 0).to_d; "#{number_with_delimiter(uf, delimiter: '.', separator: ',')} UF (#{number_with_delimiter((uf.to_d * v).to_i, delimiter: '.', separator: ',')} CLP)" } %>
+  <% uf_clp_m = ->(uf, m) { v = (ufs_map[m] || 0).to_d; "#{number_with_delimiter(uf, delimiter: '.', separator: ',')} UF (#{number_with_delimiter((uf.to_d * v), delimiter: '.', separator: ',')} CLP)" } %>
   <% meses_es  = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
   <% show_name = ->key { @mandante_names&.[](key) || key } %>
 
@@ -64,7 +64,7 @@
   <p class="text-center text-lg mb-6 text-gray-800 dark:text-white">
     <% (1..max_month).each do |m| %>
     <span class="inline-block px-2 py-1 mx-1 my-1 rounded bg-gray-100 dark:bg-slate-800">
-      <%= meses_es[m-1] %>: <%= number_with_delimiter((ufs_map[m] || 0).to_i, delimiter: ".", separator: ",") %> CLP
+      <%= meses_es[m-1] %>: <%= number_with_delimiter((ufs_map[m] || 0), delimiter: ".", separator: ",") %> CLP
     </span>
     <% end %>
   </p>
