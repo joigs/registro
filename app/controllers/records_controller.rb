@@ -315,7 +315,7 @@ SQL
       @movilidad_month_mandante.each do |rut, per_month|
         name = (@mandante_names[rut] || rut).to_s
         key =
-          if   norm[name].include?("forestalarauco")
+          if   norm[name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
           elsif norm[name].include?("forestalmininco")
             "Planta Acreditación Vehículos Forestal"
@@ -345,7 +345,7 @@ SQL
       @movilidad_month_mandante.each do |rut, per_month|
         raw_name = (@mandante_names[rut] || rut).to_s
         key =
-          if   norm[raw_name].include?("forestalarauco")
+          if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
           elsif norm[raw_name].include?("forestalmininco")
             "Planta Acreditación Vehículos Forestal"
@@ -911,7 +911,7 @@ SQL
     mandante_day.each do |rut, per_day|
       raw_name = @mandante_names[rut] || rut
       key =
-        if   norm[raw_name].include?("forestalarauco")
+        if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
           "Forestal Arauco SA"
         elsif norm[raw_name].include?("forestalmininco")
           "Planta Acreditación Vehículos Forestal"
@@ -947,7 +947,7 @@ SQL
     mandante_day_count.each do |rut, per_day_count|
       raw_name = @mandante_names[rut] || rut
       key =
-        if   norm[raw_name].include?("forestalarauco")
+        if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
           "Forestal Arauco SA"
         elsif norm[raw_name].include?("forestalmininco")
           "Planta Acreditación Vehículos Forestal"
