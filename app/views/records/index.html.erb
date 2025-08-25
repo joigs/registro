@@ -74,7 +74,7 @@
       <h1 class="text-3xl sm:text-4xl font-semibold mb-4">
         Total Año <%= @year %>: <%= "#{number_with_delimiter(annual_total_uf, delimiter: '.', separator: ',')} UF (#{number_with_delimiter(annual_total_clp.to_i, delimiter: '.', separator: ',')} CLP)" %>
         <br>
-        N° Servicios: <%= number_with_delimiter(annual_total_ct) %>
+        N° Servicios: <%= (annual_total_ct) %>
       </h1>
 
       <% uf_tot_v = mods_full_y["Transporte Vertical"].first %>
@@ -135,7 +135,7 @@
                     <span>
                   <%= number_with_delimiter(v_uf, delimiter: ".", separator: ",") %> UF
                   (<%= number_with_delimiter(v_clp, delimiter: ".", separator: ",") %> CLP)
-                  — <%= number_with_delimiter(c) %> servicios
+                  — <%= (c) %> servicios
                 </span>
                   </li>
                 <% end %>
@@ -146,7 +146,7 @@
             <%= number_with_delimiter((@movil_split_total_uf_year || uf_tot_m), delimiter: ".", separator: ",") %> UF
             (<%= number_with_delimiter(clp_tot_m, delimiter: ".", separator: ",") %> CLP)
           </td>
-          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= number_with_delimiter(ct_tot_m) %></td>
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= (ct_tot_m) %></td>
         </tr>
         </tbody>
       </table>
@@ -289,7 +289,7 @@
                                               : 'bg-gray-50  hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' %>">
             <span><%= mod %></span>
             <span class="float-right">
-              <%= number_with_delimiter(tot, delimiter: ".", separator: ",") %> UF — <%= number_with_delimiter(mod_total_count) %> servicios
+              <%= number_with_delimiter(tot, delimiter: ".", separator: ",") %> UF — <%= (mod_total_count) %> servicios
             </span>
 
             <ul class="hidden mt-2 space-y-1">
@@ -302,7 +302,7 @@
                                                           : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
                   Mes <%= meses_es[m-1] %>
                   <span class="float-right">
-                    <%= uf_clp_m[val_m, m] %> — <%= number_with_delimiter(monthly_count_map[m].to_i) %> servicios
+                    <%= uf_clp_m[val_m, m] %> — <%= (monthly_count_map[m].to_i) %> servicios
                   </span>
 
                   <% if mod == "Movilidad" %>
@@ -317,7 +317,7 @@
                                                                               : 'bg-gray-100 dark:bg-slate-800' %>">
                             <%= mand_name %>
                             <span class="float-right">
-                              <%= uf_clp_m[v_mand, m] %> — <%= number_with_delimiter((month_comp_count.dig(mand_rut, m) || 0).to_i) %> servicios
+                              <%= uf_clp_m[v_mand, m] %> — <%= ((month_comp_count.dig(mand_rut, m) || 0).to_i) %> servicios
                             </span>
 
                             <% emps = (@empresa_month_movilidad || {})
@@ -333,7 +333,7 @@
                                                                                               : 'bg-gray-100 dark:bg-slate-800' %>">
                                     <%= emp %>
                                     <span class="float-right">
-                                      <%= uf_clp_m[v_emp, m] %> — <%= number_with_delimiter(cnt_emp) %> servicios
+                                      <%= uf_clp_m[v_emp, m] %> — <%= (cnt_emp) %> servicios
                                     </span>
                                   </li>
                                 <% end %>
@@ -353,7 +353,7 @@
                                                                               : 'bg-gray-100 dark:bg-slate-800' %>">
                             <%= show_name[emp] %>
                             <span class="float-right">
-                              <%= uf_clp_m[v_emp, m] %> — <%= number_with_delimiter((month_comp_count.dig(emp, m) || 0).to_i) %> servicios
+                              <%= uf_clp_m[v_emp, m] %> — <%= ((month_comp_count.dig(emp, m) || 0).to_i) %> servicios
                             </span>
                           </li>
                         <% end %>
@@ -441,7 +441,7 @@
                 <% if is_mand %>
                   <ul class="mt-2 ml-4 list-disc">
                     <% (@empresas_por_mandante || {})[cli_key].to_a.each do |emp| %>
-                      <% m_emp_uf = (@empresa_year || {}).fetch(emp, 0).to_d %> <%# movilidad UF por empresa %>
+                      <% m_emp_uf = (@empresa_year || {}).fetch(emp, 0).to_d %>
                       <% next if m_emp_uf.zero? %>
                       <% c_emp   = (@empresa_year_count || {}).fetch(emp, 0).to_i %>
                       <% per_m   = mov_m_emp[emp] || {} %>
@@ -450,7 +450,7 @@
                         <%= emp %>:
                         <%= number_with_delimiter(m_emp_uf, delimiter: ".", separator: ",") %> UF
                         (<%= number_with_delimiter(m_emp_clp, delimiter: ".", separator: ",") %> CLP)
-                        — <%= number_with_delimiter(c_emp) %> servicios
+                        — <%= (c_emp) %> servicios
                       </li>
                     <% end %>
                   </ul>
@@ -491,7 +491,7 @@
                           <%= mod %>:
                           <%= number_with_delimiter(val_uf, delimiter: ".", separator: ",") %> UF
                           (<%= number_with_delimiter(val_clp, delimiter: ".", separator: ",") %> CLP)
-                          — <%= number_with_delimiter(cnt) %> servicios
+                          — <%= (cnt) %> servicios
                         </li>
                       <% end %>
                     </ul>
@@ -517,7 +517,7 @@
                         <%= mod_name %>:
                         <%= number_with_delimiter(v_mod, delimiter: ".", separator: ",") %> UF
                         (<%= number_with_delimiter(v_mod_clp, delimiter: ".", separator: ",") %> CLP)
-                        — <%= number_with_delimiter(cnt_mod) %> servicios
+                        — <%= (cnt_mod) %> servicios
                       </li>
                     <% end %>
                   </ul>
@@ -530,7 +530,7 @@
               (<%= number_with_delimiter(cli_clp_total, delimiter: ".", separator: ",") %> CLP)
             </td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
-              <%= number_with_delimiter(empresa_totales_cnt[cli_key].to_i) %>
+              <%= (empresa_totales_cnt[cli_key].to_i) %>
             </td>
           </tr>
         <% end %>
@@ -597,7 +597,7 @@
                     <% c = @movil_split_month_by_empresa_count[k].to_i %>
                     <li class="flex justify-between">
                       <span><%= k %></span>
-                      <span><%= uf_clp[v] %> — <%= number_with_delimiter(c) %> servicios</span>
+                      <span><%= uf_clp[v] %> — <%= (c) %> servicios</span>
                     </li>
                   <% end %>
                 </ul>
@@ -685,7 +685,7 @@
                       <td class="pr-2 py-0.5 border-t border-gray-600 text-center"><%= label %></td>
                       <td class="py-0.5 border-t border-gray-600 text-center whitespace-nowrap"><%= uf_clp[val] %></td>
                       <td class="py-0.5 border-t border-gray-600 text-center whitespace-nowrap">
-                        <%= number_with_delimiter(cnt) %>
+                        <%= (cnt) %>
                       </td>
                     </tr>
                   <% end %>
@@ -740,7 +740,7 @@
                                           : 'bg-gray-50  hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' %>">
           <span><%= mod %></span>
           <span class="float-right">
-          <%= uf_clp[tot] %> — <%= number_with_delimiter(mod_total_count) %> servicios
+          <%= uf_clp[tot] %> — <%= (mod_total_count) %> servicios
         </span>
 
           <ul class="hidden mt-2 space-y-1">
@@ -752,7 +752,7 @@
                                                       : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
                 Día <%= d %>
                 <span class="float-right">
-                <%= uf_clp[daily[d]] %> — <%= number_with_delimiter(daily_count_map[d].to_i) %> servicios
+                <%= uf_clp[daily[d]] %> — <%= (daily_count_map[d].to_i) %> servicios
               </span>
 
                 <% entities = day_comp.transform_values { |h| h[d] }.reject { |_,v| v.zero? } %>
@@ -768,7 +768,7 @@
                                                                           : 'bg-gray-100 dark:bg-slate-800' %>">
                           <%= mand_name %>
                           <span class="float-right">
-                          <%= uf_clp[val] %> — <%= number_with_delimiter(day_comp_count_map.dig(mand_rut, d).to_i) %> servicios
+                          <%= uf_clp[val] %> — <%= (day_comp_count_map.dig(mand_rut, d).to_i) %> servicios
                         </span>
 
                           <% emps = @empresa_day
@@ -784,7 +784,7 @@
                                                                                           : 'bg-gray-100 dark:bg-slate-800' %>">
                                   <%= emp %>
                                   <span class="float-right">
-                                  <%= uf_clp[val_e] %> — <%= number_with_delimiter(c_emp) %> servicios
+                                  <%= uf_clp[val_e] %> — <%= (c_emp) %> servicios
                                 </span>
                                 </li>
                               <% end %>
@@ -803,7 +803,7 @@
                                                                           : 'bg-gray-100 dark:bg-slate-800' %>">
                           <%= show_name[emp] %>
                           <span class="float-right">
-                          <%= uf_clp[val] %> — <%= number_with_delimiter(day_comp_count_map.dig(emp, d).to_i) %> servicios
+                          <%= uf_clp[val] %> — <%= (day_comp_count_map.dig(emp, d).to_i) %> servicios
                         </span>
                         </li>
                       <% end %>
@@ -846,7 +846,7 @@
                     <% next if m_emp.zero? %>
                     <% c_emp = @empresa_month_count[emp].to_i %>
                     <li>
-                      <%= emp %>: <%= uf_clp[m_emp] %> — <%= number_with_delimiter(c_emp) %> servicios
+                      <%= emp %>: <%= uf_clp[m_emp] %> — <%= (c_emp) %> servicios
                     </li>
                   <% end %>
                 </ul>
@@ -868,7 +868,7 @@
                         @empresas_por_mandante[cli_key].sum { |e| @module_months_count.fetch(mod, {}).fetch(e, 0).to_i } +
                         alias_children.sum { |e| @module_months_count.fetch(mod, {}).fetch(e, 0).to_i } %>
 
-                      <li><%= mod %>: <%= uf_clp[val] %> — <%= number_with_delimiter(cnt) %> servicios</li>
+                      <li><%= mod %>: <%= uf_clp[val] %> — <%= (cnt) %> servicios</li>
                     <% end %>
                   </ul>
                 <% end %>
@@ -881,7 +881,7 @@
                     <% cnt_mod = @module_months_count.fetch(mod_name, {}).fetch(cli_key, 0).to_i %>
 
                     <li>
-                      <%= mod_name %>: <%= uf_clp[v_mod] %> — <%= number_with_delimiter(cnt_mod) %> servicios
+                      <%= mod_name %>: <%= uf_clp[v_mod] %> — <%= (cnt_mod) %> servicios
                     </li>
                   <% end %>
                 </ul>
@@ -892,7 +892,7 @@
             <%= uf_clp[cli_val] %>
           </td>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
-            <%= number_with_delimiter(@month_by_empresa_count[cli_key].to_i) %>
+            <%= (@month_by_empresa_count[cli_key].to_i) %>
           </td>
         </tr>
       <% end %>
