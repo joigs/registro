@@ -80,8 +80,15 @@ class Authentication::UsersController < ApplicationController
   end
 
   def update
-    if Current.user&.admin
+
       @user = User.find(params[:id])
+
+
+      if !user_params[:password].present? || !user_params[:password_confirmation].present?
+          flash.now[:alert] = "Debes llenar los campos"
+          render :edit, status: :unprocessable_entity
+          return
+      end
       if user_params[:password].present? && user_params[:password_confirmation].present?
         unless user_params[:password] == user_params[:password_confirmation]
           flash.now[:alert] = "Las contraseñas no coinciden"
@@ -96,33 +103,7 @@ class Authentication::UsersController < ApplicationController
       else
         render :edit, status: :unprocessable_entity
       end
-    elsif Current.user.id == params[:id].to_i
-      @user = User.find(params[:id])
 
-      if user_params[:admin].present? || user_params[:real_name].present?
-        flash[:alert] = "No tienes permiso para modificar estos campos"
-        redirect_to home_path
-        return
-      end
-
-      if user_params[:password].present? && user_params[:password_confirmation].present?
-        unless user_params[:password] == user_params[:password_confirmation]
-          flash.now[:alert] = "Las contraseñas no coinciden"
-          render :edit, status: :unprocessable_entity
-          return
-        end
-      end
-
-      if @user.update(user_params)
-        flash[:notice] = "Usuario modificado"
-        redirect_to home_path
-      else
-        render :edit, status: :unprocessable_entity
-      end
-    else
-      flash[:alert] = "No tienes permiso"
-      redirect_to home_path
-    end
   end
 
 
