@@ -105,3 +105,4 @@ gem 'ransack'
 
 
 gem 'write_xlsx'
+gem "jwt",  ">= 3.1.2"

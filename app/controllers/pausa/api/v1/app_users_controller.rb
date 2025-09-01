@@ -1,14 +1,21 @@
-# app/controllers/pausa/api/v1/app_users_controller.rb
+# frozen_string_literal: true
+
+require "jwt"
+
 module Pausa
   module Api
     module V1
       class AppUsersController < ApplicationController
-        before_action :authenticate!
-        before_action :set_user, only: %i[show update destroy approve]
+        # Auth
+        before_action :authenticate!, except: [:create]  # registro público
+        before_action :set_user, only: %i[show update destroy approve push_token]
         before_action :authorize_admin!, only: %i[index pending approve destroy]
-        before_action :authorize_self_or_admin!, only: %i[show update]
+        before_action :authorize_self_or_admin!, only: %i[show update push_token]
 
-        # POST /app_users  (registro)
+        skip_before_action :verify_authenticity_token
+        skip_before_action :protect_pages
+
+        # ---- CRUD / Flujos ----
         def create
           user = AppUser.new(user_params)
           if user.save
@@ -18,23 +25,18 @@ module Pausa
           end
         end
 
-        # GET /app_users           (admin) lista completa
-        # GET /app_users/pending   (admin) sólo creados=false
         def index
-          users = AppUser.all
-          render json: users
+          render json: AppUser.all
         end
 
         def pending
           render json: AppUser.where(creado: false)
         end
 
-        # GET /app_users/:id       (self o admin)
         def show
           render json: @user
         end
 
-        # PATCH /app_users/:id     (self o admin)
         def update
           if @user.update(user_params.slice(:nombre, :correo))
             render json: @user
@@ -43,21 +45,35 @@ module Pausa
           end
         end
 
-        # PATCH /app_users/:id/approve   (admin)
         def approve
           @user.update(creado: true)
           head :no_content
         end
 
-        # DELETE /app_users/:id    (admin)
         def destroy
           @user.destroy
           head :no_content
         end
 
+        # ---- Extras convenientes ----
+        def me
+          render json: @current_user
+        end
+
+        def push_token
+          token = params[:expo_push_token].to_s
+          return render(json: { error: "Falta expo_push_token" }, status: :unprocessable_entity) if token.blank?
+
+          if @user.update(expo_push_token: token)
+            head :no_content
+          else
+            render json: { errors: @user.errors.full_messages }, status: :unprocessable_entity
+          end
+        end
+
         private
 
-        # ─── Helpers ───────────────────────────────────────────────────
+        # ─── Helpers ───────────────────────────────────────────────────────────
         def set_user
           @user = AppUser.find(params[:id])
         end
@@ -66,25 +82,37 @@ module Pausa
           params.require(:app_user).permit(:nombre, :rut, :correo)
         end
 
-        # ─── Autenticación JWT sencilla ───────────────────────────────
+        # ─── Auth ──────────────────────────────────────────────────────────────
+        def jwt_secret
+          Rails.application.credentials.jwt_secret || ENV["JWT_SECRET"] || Rails.application.secret_key_base
+        end
+
         def authenticate!
           header = request.headers["Authorization"]
-          return render(json: { error: "Falta token" }, status: :unauthorized) unless header&.start_with?("Bearer ")
+          unless header&.start_with?("Bearer ")
+            render json: { error: "Falta token" }, status: :unauthorized
+            return
+          end
 
           token = header.split(" ").last
-          payload = JWT.decode(token, Rails.application.credentials.jwt_secret).first
+          payload = JWT.decode(token, jwt_secret, true, algorithm: "HS256").first
           @current_user = AppUser.find(payload["id"])
+        rescue JWT::ExpiredSignature
+          render json: { error: "Token expirado" }, status: :unauthorized
         rescue StandardError
           render json: { error: "Token inválido" }, status: :unauthorized
         end
 
         def authorize_admin!
-          render json: { error: "Solo admin" }, status: :forbidden unless @current_user.admin
+          return if performed? # si authenticate! ya respondió, no sigas
+          unless @current_user&.admin
+            render json: { error: "Solo admin" }, status: :forbidden
+          end
         end
 
         def authorize_self_or_admin!
-          return if @current_user.admin || @current_user.id == @user.id
-
+          return if performed?
+          return if @current_user&.admin || @current_user&.id == @user.id
           render json: { error: "No autorizado" }, status: :forbidden
         end
       end
