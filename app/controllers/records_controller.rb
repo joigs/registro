@@ -1764,7 +1764,7 @@ end
     Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
       Array(records).each do |r|
         day = Date.parse(r.public_send(date_attr).to_s).day rescue next
-        h[r.empresa.presence || "sin_empresa"][day] += 1
+        h[r.empresa.presence || "sin_empresa"][day] += r.n1
       end
     end
   end
@@ -2148,7 +2148,7 @@ end
         date_str = r&.public_send(date_attr)
         next if date_str.blank?
         month = Date.parse(date_str.to_s).month rescue next
-        h[month] += 1
+        h[month] += r.n1.to_i + r.n2.to_i
       end
     end
   end
@@ -2281,7 +2281,7 @@ end
         date_str = r&.public_send(date_attr)
         next if date_str.blank?
         month = Date.parse(date_str.to_s).month rescue next
-        h[empresa][month] += 1
+        h[empresa][month] += r.n1.to_i + r.n2.to_i
       end
       months_range_for_year(year).each do |m|
         h.keys.each { |emp| h[emp][m] ||= 0 }
