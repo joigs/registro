@@ -12,7 +12,7 @@ Rails.application.routes.draw do
 
 
 
-    scope :pausa, module: :pausa, as: :pausa do        # ← solo :pausa
+    scope :pausa, module: :pausa, as: :pausa do
       get "manifest.json",     to: "service_worker#manifest",      defaults: { format: :json }
       get "service-worker.js", to: "service_worker#service_worker", defaults: { format: :js }
       root "home#index"
@@ -20,14 +20,39 @@ Rails.application.routes.draw do
         namespace :v1 do
           post "login", to: "sessions#create"
 
-          resources :app_users, except: %i[new edit] do
+          resources :app_users do
             collection do
-              get  "pending"
-              get  "me"
+              get :pending
+              get :me
             end
             member do
-              patch "approve"
-              patch "push_token"
+              patch :approve
+              patch :push_token
+              patch :active, to: "app_users#set_active"
+            end
+          end
+          post :login, to: "sessions#create"
+          resources :pause_windows, param: :id, only: [:index, :update]
+
+          resources :daily_logs, only: [] do
+            collection do
+              get  :today
+              patch :mark
+            end
+          end
+
+          # recordatorios/notificaciones
+          resources :reminders, only: [] do
+            collection do
+              post :trigger
+              post :opened
+            end
+          end
+
+          # reportes
+          resources :reports, only: [] do
+            collection do
+              get :pausas
             end
           end
 
