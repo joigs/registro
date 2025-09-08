@@ -1764,7 +1764,7 @@ end
     Hash.new { |h,k| h[k] = Hash.new(0) }.tap do |h|
       Array(records).each do |r|
         day = Date.parse(r.public_send(date_attr).to_s).day rescue next
-        h[r.empresa.presence || "sin_empresa"][day] += r.n1
+        h[r.empresa.presence || "sin_empresa"][day] += r.n1.to_i
       end
     end
   end
