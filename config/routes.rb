@@ -23,11 +23,14 @@ Rails.application.routes.draw do
           resources :app_users, except: %i[new edit] do
             collection do
               get  "pending"
+              get  "me"
             end
             member do
               patch "approve"
+              patch "push_token"
             end
           end
+
         end
       end
 
