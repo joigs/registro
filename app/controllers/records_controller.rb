@@ -1015,7 +1015,7 @@ SQL
     #puts("facturacions_total_count=#{@facturacions_total_count} ")
 
 
-    @vertical_total_count = @facturacions.size + @convenios_total_count
+    @vertical_total_count = @facturacions_total_count + @convenios_total_count
     #puts("vertical_total_count=#{@vertical_total_count} ")
     @oxy_total_count = @current_oxy ? @current_oxy.oxy_records.size : 0
     @oxy_total_count += @current_oxy.arrastre if @current_oxy
@@ -1139,7 +1139,7 @@ SQL
     #puts("count_month=#{@count_month} ")
 
     vertical_facturacions_by_day = daily_sums(@facturacions, :fecha_venta)
-    vertical_counts_by_day = daily_counts(@facturacions, :fecha_venta)
+    vertical_counts_by_day = vertical_daily_counts(@facturacions, :fecha_venta)
     vertical_convenios_by_day    = daily_sums_convenios(@convenios)
     convenios_counts_by_day = daily_counts_convenios(@convenios)
 
@@ -1642,6 +1642,17 @@ end
     end
   end
 
+  def vertical_daily_counts(records, date_attr)
+    Hash.new(0).tap do |h|
+      Array(records).each do |r|
+        date_str = r&.public_send(date_attr)
+        next if date_str.blank?
+
+        day = Date.parse(date_str.to_s).day rescue next
+        h[day] += r.n1.to_i
+      end
+    end
+  end
   def daily_counts_convenios(records)
     Hash.new(0).tap do |h|
       Array(records).each do |r|

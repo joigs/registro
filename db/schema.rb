@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_08_21_150415) do
+ActiveRecord::Schema[7.1].define(version: 2025_09_01_203744) do
   create_table "app_daily_logs", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.date "fecha", null: false
@@ -22,6 +22,16 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_21_150415) do
     t.datetime "updated_at", null: false
     t.index ["app_user_id", "fecha"], name: "index_app_daily_logs_on_app_user_id_and_fecha", unique: true
     t.index ["app_user_id"], name: "index_app_daily_logs_on_app_user_id"
+  end
+
+  create_table "app_pause_windows", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.string "moment", null: false
+    t.integer "hour", default: 11, null: false
+    t.integer "minute", default: 0, null: false
+    t.boolean "enabled", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["moment"], name: "index_app_pause_windows_on_moment", unique: true
   end
 
   create_table "app_reminders", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
@@ -42,7 +52,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_21_150415) do
     t.string "correo", null: false
     t.boolean "admin", default: false, null: false
     t.boolean "activo", default: true, null: false
-    t.boolean "estado", default: true, null: false
+    t.boolean "estado", default: false, null: false
     t.boolean "creado", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
