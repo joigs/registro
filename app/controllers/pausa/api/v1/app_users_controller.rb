@@ -9,7 +9,7 @@ module Pausa
         # Auth
         before_action :authenticate!, except: [:create]  # registro público
         before_action :set_user, only: %i[show update destroy approve push_token]
-        before_action :authorize_admin!, only: %i[index pending approve destroy]
+        before_action :authorize_admin!, only: %i[index pending approve destroy set_active]
         before_action :authorize_self_or_admin!, only: %i[show update push_token]
 
         skip_before_action :verify_authenticity_token
@@ -55,7 +55,6 @@ module Pausa
           head :no_content
         end
 
-        # ---- Extras convenientes ----
         def me
           render json: @current_user
         end
@@ -70,6 +69,14 @@ module Pausa
             render json: { errors: @user.errors.full_messages }, status: :unprocessable_entity
           end
         end
+
+        def set_active
+          @user = AppUser.find(params[:id])
+          value = ActiveModel::Type::Boolean.new.cast(params[:activo])
+          @user.update!(activo: value)
+          render json: { id: @user.id, activo: @user.activo }
+        end
+
 
         private
 
