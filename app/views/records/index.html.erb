@@ -119,30 +119,43 @@
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= number_with_delimiter(ct_tot_e) %></td>
         </tr>
         <tr>
-          <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
-            <details>
+          <td class="py-2 border border-gray-300 dark:border-slate-600 text-left sm:text-center">
+            <details class="w-full">
               <summary class="cursor-pointer select-none flex items-center justify-center gap-1">
-                <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
-                Movilidad
+
+              <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
+                <span>Movilidad</span>
               </summary>
-              <ul class="mt-2 mx-5 list-disc">
+
+              <ul class="mt-3 sm:mx-5 list-none divide-y divide-gray-200/70 dark:divide-slate-700">
                 <% (@movil_split_year_by_empresa || {}).each do |k, v_uf| %>
                   <% next if v_uf.to_d.zero? %>
                   <% c = (@movil_split_year_by_empresa_count || {})[k].to_i %>
                   <% per_m = mov_month_company[k] || {} %>
                   <% v_clp = to_clp_total.(per_m).to_i %>
-                  <li class="flex justify-between">
-                    <span><%= k %></span>
-                    <span>
-                  <%= number_with_delimiter(v_uf, delimiter: ".", separator: ",") %> UF
-                  (<%= number_with_delimiter(v_clp.round, delimiter: ".", separator: ",") %> CLP)
-                  - <%= (c) %> servicios
-                </span>
+
+                  <li class="py-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-4">
+                      <!-- Empresa -->
+                      <span class="sm:truncate leading-5"><%= k %></span>
+
+                      <!-- Monto y cantidad -->
+                      <span class="sm:text-right text-slate-600 dark:text-slate-300 text-sm font-mono tabular-nums">
+              <span class="block sm:inline">
+                <%= number_with_delimiter(v_uf, delimiter: ".", separator: ",") %> UF
+              </span>
+              <span class="block sm:inline">
+                (<%= number_with_delimiter(v_clp.round, delimiter: ".", separator: ",") %> CLP)
+              </span>
+              <span class="block sm:inline whitespace-nowrap">– <%= c %> servicios</span>
+            </span>
+                    </div>
                   </li>
                 <% end %>
               </ul>
             </details>
           </td>
+
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
             <%= number_with_delimiter((@movil_split_total_uf_year || uf_tot_m), delimiter: ".", separator: ",") %> UF
             (<%= number_with_delimiter(clp_tot_m.round, delimiter: ".", separator: ",") %> CLP)
@@ -590,26 +603,36 @@
         <% count_tot = mods_full_count[mod].first %>
         <% if mod == "Movilidad" %>
           <tr>
-            <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
-              <details>
+            <td class="py-2 border border-gray-300 dark:border-slate-600 text-left sm:text-center">
+              <details class="w-full">
                 <summary class="cursor-pointer select-none flex items-center justify-center gap-1">
+
                   <span class="text-xs transition-transform duration-200 details-open:rotate-90">▸</span>
                   Movilidad
                 </summary>
 
-                <ul class="mt-2 mx-5 list-disc">
-                  <% @movil_split_month_by_empresa.each do |k,v| %>
+                <ul class="mt-3 sm:mx-5 list-none divide-y divide-gray-200/70 dark:divide-slate-700">
+                  <% @movil_split_month_by_empresa.each do |k, v| %>
                     <% next if v.zero? %>
                     <% c = @movil_split_month_by_empresa_count[k].to_i %>
-                    <li class="flex justify-between">
-                      <span><%= k %></span>
-                      <span><%= uf_clp[v] %> - <%= (c) %> servicios</span>
+
+                    <li class="py-2">
+                      <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-4">
+                        <!-- Nombre de la empresa -->
+                        <span class="sm:truncate leading-5"><%= k %></span>
+
+                        <!-- Monto y cantidad -->
+                        <span class="sm:text-right text-slate-600 dark:text-slate-300 text-sm">
+              <span class="block sm:inline"><%= uf_clp[v] %></span>
+              <span class="block sm:inline whitespace-nowrap">– <%= c %> servicios</span>
+            </span>
+                      </div>
                     </li>
                   <% end %>
                 </ul>
-
               </details>
             </td>
+
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
               <%= uf_clp[@movil_split_total_uf] %>
             </td>

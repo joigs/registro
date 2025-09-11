@@ -18,6 +18,10 @@ class RecordsController < ApplicationController
   ).freeze
   EVAL_KEY = ENV.fetch("EVALUACION_API_KEY", "")
 
+  MANDANTE_NAME_OVERRIDES = {
+    "85805200" => "Forestal Arauco SA"
+  }.freeze
+
   def index
     query = build_query
     @year  = (params[:year]  || Date.current.year ).to_i
@@ -306,6 +310,9 @@ SQL
 
       @empresas_por_mandante = empresas_por_mandante_all
       @emp_to_mandante       = emp_to_mandante_all
+
+      @mandante_names.merge!(MANDANTE_NAME_OVERRIDES)
+
 
       require "i18n" unless defined?(I18n)
       norm = ->s { I18n.transliterate(s.to_s).gsub(/[\s\.]/,'').downcase }
@@ -862,6 +869,8 @@ SQL
       per_day.each { |d,val| mandante_day[mand_rut][d] += val }
       mandante_month[mand_rut]  += @empresa_month[empresa]
     end
+
+    @mandante_names.merge!(MANDANTE_NAME_OVERRIDES)
 
     mandante_day_count   = Hash.new { |h, k| h[k] = Hash.new(0) }
     mandante_month_count = Hash.new(0)
