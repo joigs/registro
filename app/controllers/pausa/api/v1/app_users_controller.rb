@@ -59,16 +59,18 @@ module Pausa
           render json: @current_user
         end
 
-        def push_token
-          token = params[:expo_push_token].to_s
-          return render(json: { error: "Falta expo_push_token" }, status: :unprocessable_entity) if token.blank?
 
-          if @user.update(expo_push_token: token)
+        def push_token
+          token_param = params[:fcm_token].presence || params[:expo_push_token].presence
+          return render(json: { error: "Falta fcm_token" }, status: :unprocessable_entity) if token_param.blank?
+
+          if @user.update(expo_push_token: token_param)
             head :no_content
           else
             render json: { errors: @user.errors.full_messages }, status: :unprocessable_entity
           end
         end
+
 
         def set_active
           @user = AppUser.find(params[:id])
