@@ -21,6 +21,10 @@ class RecordsController < ApplicationController
   MANDANTE_NAME_OVERRIDES = {
     "85805200" => "Forestal Arauco SA"
   }.freeze
+  SMALL_MANDANTE_PARENT = {
+    "90222000" => "91440000"
+  }.freeze
+
 
   def index
     query = build_query
@@ -270,10 +274,16 @@ SQL
           monto_uf = (monto_pesos / uf_m).truncate(4)
           @empresa_month[empresa] += monto_uf
 
+
+
           ref          = filas_dia.first
-          mand_rut     = ref.CerManRutN.to_s
+          mand_rut_raw = ref.CerManRutN.to_s
+          mand_rut     = map_mandante_rut(mand_rut_raw)
           mand_nom     = ref.CerManRazonSocial.to_s.strip.presence || mand_rut
           @emp_to_mandante[empresa] = [mand_rut, mand_nom]
+
+
+
         end
 
         @empresas_por_mandante = Hash.new { |h,k| h[k] = [] }
@@ -855,9 +865,12 @@ SQL
 
 
       ref          = filas_dia.first
-      mand_rut     = ref.CerManRutN.to_s
+      mand_rut_raw = ref.CerManRutN.to_s
+      mand_rut     = map_mandante_rut(mand_rut_raw)
       mand_nom     = ref.CerManRazonSocial.to_s.strip.presence || mand_rut
       @emp_to_mandante[empresa] = [mand_rut, mand_nom]
+
+
     end
     @empresas_por_mandante = Hash.new { |h,k| h[k] = [] }
     @emp_to_mandante.each do |empresa, (mand_rut, _mand_nom)|
@@ -2529,5 +2542,10 @@ end
   def display_name_for(key)
     (@mandante_names || {})[key] || key
   end
+
+  def map_mandante_rut(rut)
+    SMALL_MANDANTE_PARENT[rut.to_s] || rut.to_s
+  end
+
 
 end
