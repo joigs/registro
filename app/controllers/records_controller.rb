@@ -22,7 +22,7 @@ class RecordsController < ApplicationController
     "85805200" => "Forestal Arauco SA"
   }.freeze
   SMALL_MANDANTE_PARENT = {
-    "90222000" => "91440000"
+    "90222000" => "91440000" #poner mandante cmpc de movilidad como si fuera una empresa de mininco
   }.freeze
 
 
