@@ -765,6 +765,7 @@ SQL
         pat = f.respond_to?(:patente_considerada) ? f.patente_considerada : f.CertActivoNro
         uf  = (f.monto_checklist.to_d / @uf).truncate(4)
 
+=begin
         puts "   • chk=#{f.CertChkLstId.to_s.ljust(6)}  "\
                "pat=#{pat.ljust(10)}  "\
                "orig=#{f.CertChkLstFch}  fac=#{f.CertChkLstFchFac}  "\
@@ -775,6 +776,10 @@ SQL
                "AT=#{f.CertActivoATrabId.to_s.ljust(4)}  "\
                "$=#{sprintf('%.2f', f.monto_checklist)}  "\
                "(#{uf.to_f} UF)"
+=end
+
+
+
       end
 
 
@@ -797,6 +802,7 @@ SQL
           uf:    (g.sum { |r| r.monto_checklist.to_d } / @uf).truncate(4)
         }
       end
+=begin
       puts "   -- DESGLOSE EMPRESA #{empresa_peq} --"
       des.each do |d|
         puts "      AT=#{d[:atrab]}  Pla=#{d[:pla]}  Tipo=#{d[:tipo]}  "\
@@ -804,8 +810,9 @@ SQL
                "Patentes: #{d[:pats].join(', ')}"
       end
       puts
+=end
     end
-    puts "========================================================================"
+    #    puts "========================================================================"
 
 
 
@@ -1317,7 +1324,7 @@ end
 
 
 
-    puts("day_company_count=#{@day_company_count.inspect} ")
+    # puts("day_company_count=#{@day_company_count.inspect} ")
 
     @module_months = {
       "Transporte Vertical"        => @vertical_month_by_empresa,
@@ -1360,7 +1367,7 @@ end
     end
 
 
-    puts("@module_months_count=#{@module_months_count.inspect} ")
+    #  puts("@module_months_count=#{@module_months_count.inspect} ")
 
 
     @month_by_empresa_count = merge_counts_hashes(
@@ -1400,7 +1407,7 @@ end
     end
 
 
-    puts("month_by_empresa_count=#{@month_by_empresa_count.inspect} ")
+    #  puts("month_by_empresa_count=#{@month_by_empresa_count.inspect} ")
     end
   end
 
