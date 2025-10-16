@@ -96,6 +96,7 @@ class SecondaryModels
   class CertChkListExternal < SecondaryBase
     self.table_name = "CertChkList"
     self.primary_key = "CertChkListId"
+    attr_accessor :patente_considerada
   end
 
   class CertChkLstExternal < SecondaryBase

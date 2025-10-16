@@ -1,4 +1,3 @@
-require Rails.root.join("app/models/secondary_models.rb")
 
 
 
@@ -24,7 +23,8 @@ class RecordsController < ApplicationController
   SMALL_MANDANTE_PARENT = {
     "90222000" => "91440000" #poner mandante cmpc de movilidad como si fuera una empresa de mininco
   }.freeze
-
+  UF_SCALE_INTERNAL  = 12
+  UF_SCALE_DISPLAY   = 4
 
   def index
     query = build_query
@@ -271,7 +271,7 @@ SQL
                                             g.first.monto_checklist.to_d * g.size :
                                             g.sum { |x| x.monto_checklist.to_d } }
                         end
-          monto_uf = (monto_pesos / uf_m).truncate(4)
+          monto_uf = uf_from_pesos(monto_pesos, uf_m)
           @empresa_month[empresa] += monto_uf
 
 
@@ -773,7 +773,7 @@ SQL
 
       filas.each do |f|
         pat = f.respond_to?(:patente_considerada) ? f.patente_considerada : f.CertActivoNro
-        uf  = (f.monto_checklist.to_d / @uf).truncate(4)
+        uf  = uf_from_pesos(f.monto_checklist.to_d, @uf)
 
 =begin
         puts "   • chk=#{f.CertChkLstId.to_s.ljust(6)}  "\
@@ -809,7 +809,8 @@ SQL
             r.respond_to?(:patente_considerada) ?
               r.patente_considerada : r.CertActivoNro
           }.uniq,
-          uf:    (g.sum { |r| r.monto_checklist.to_d } / @uf).truncate(4)
+          uf: uf_from_pesos(g.sum { |r| r.monto_checklist.to_d }, @uf)
+
         }
       end
 =begin
@@ -858,7 +859,7 @@ SQL
                                         g.sum { |x| x.monto_checklist.to_d } }
                     end
 
-      monto_uf = (monto_pesos / @uf).truncate(4)
+      monto_uf = uf_from_pesos(monto_pesos, @uf)
       @empresa_day[empresa][fecha.day] += monto_uf
       @empresa_month[empresa]          += monto_uf
 
@@ -1426,6 +1427,17 @@ end
 
 
   private
+
+
+
+  def uf_from_pesos(pesos, uf_clp)
+    (BigDecimal(pesos.to_s) / uf_clp.to_d)
+      .round(UF_SCALE_INTERNAL, BigDecimal::ROUND_HALF_UP)
+  end
+
+  def clp_from_uf(uf_amount, uf_clp)
+    (uf_amount.to_d * uf_clp.to_d).round(0, BigDecimal::ROUND_HALF_UP).to_i
+  end
 
   def build_query
     {}.tap do |q|

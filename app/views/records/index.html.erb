@@ -3,6 +3,9 @@
 <% fmt_clp_2   = ->v { number_with_delimiter(v, delimiter: ".", separator: ",") } %>
 <% show_name = ->key { @mandante_names&.[](key) || key } %>
 <% meses_es  = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
+<% fmt_uf     = ->v { number_with_precision(v.to_d, precision: 4, delimiter: ".", separator: ",", strip_insignificant_zeros: true) } %>
+<% fmt_clp_i  = ->v { number_with_delimiter(v.to_d.round(0), delimiter: ".", separator: ",") } %>
+<% uf_clp     = ->uf { "#{fmt_uf[uf]} UF (#{fmt_clp_i[uf.to_d * @uf]} CLP)" } %>
 
 <%= form_with url: records_path, method: :get, local: true, class: "mb-6 max-w-5xl mx-auto" do |f| %>
   <div class="flex flex-wrap gap-4 items-end">
@@ -25,7 +28,10 @@
 <% if @full_year %>
   <% max_month = @max_month || (@year.to_i == Date.current.year ? Date.current.month : 12) %>
   <% ufs_map = (@uf_map || {}).presence || (Iva.where(year: @year, month: 1..max_month).each_with_object({}) { |r,h| h[r.month] = (r.valor || r.value || r.uf || r.monto).to_d }) %>
-  <% uf_clp_m = ->(uf, m) { v = (ufs_map[m] || 0).to_d; "#{number_with_delimiter(uf, delimiter: '.', separator: ',')} UF (#{number_with_delimiter((uf.to_d * v).round, delimiter: '.', separator: ',')} CLP)" } %>
+  <% uf_clp_m = ->(uf, m) do
+    v = (ufs_map[m] || 0).to_d
+    "#{fmt_uf[uf]} UF (#{fmt_clp_i[uf.to_d * v]} CLP)"
+  end %>
   <% meses_es  = %w[Enero Febrero Marzo Abril Mayo Junio Julio Agosto Septiembre Octubre Noviembre Diciembre] %>
   <% show_name = ->key { @mandante_names&.[](key) || key } %>
 
@@ -73,7 +79,7 @@
   <main class="max-w-7xl mx-auto space-y-10 text-gray-900 dark:text-gray-100">
     <section class="bg-white dark:bg-slate-900 rounded-lg shadow border border-gray-200 dark:border-slate-700 p-6">
       <h1 class="text-3xl sm:text-4xl font-semibold mb-4">
-        Total Año <%= @year %>: <%= "#{number_with_delimiter(annual_total_uf, delimiter: '.', separator: ',')} UF (#{number_with_delimiter(annual_total_clp.round, delimiter: '.', separator: ',')} CLP)" %>
+        Total Año <%= @year %>: <%= "#{fmt_uf[annual_total_uf]} UF (#{number_with_delimiter(annual_total_clp.round, delimiter: '.', separator: ',')} CLP)" %>
         <br>
         N° Servicios: <%= (annual_total_ct) %>
       </h1>
@@ -105,7 +111,7 @@
         <tr>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">Transporte Vertical</td>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
-            <%= number_with_delimiter(uf_tot_v, delimiter: ".", separator: ",") %> UF
+            <%= fmt_uf[uf_tot_v] %> UF
             (<%= number_with_delimiter(clp_tot_v.round, delimiter: ".", separator: ",") %> CLP)
           </td>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= number_with_delimiter(ct_tot_v) %></td>
@@ -113,7 +119,7 @@
         <tr>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">Evaluación de Competencias</td>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
-            <%= number_with_delimiter(uf_tot_e, delimiter: ".", separator: ",") %> UF
+            <%= fmt_uf[uf_tot_e] %> UF
             (<%= number_with_delimiter(clp_tot_e.round, delimiter: ".", separator: ",") %> CLP)
           </td>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= number_with_delimiter(ct_tot_e) %></td>
@@ -140,7 +146,7 @@
 
                       <span class="sm:text-right text-slate-600 dark:text-slate-300 text-sm font-mono tabular-nums">
               <span class="block sm:inline">
-                <%= number_with_delimiter(v_uf, delimiter: ".", separator: ",") %> UF
+                <%= fmt_uf[v_uf] %> UF
               </span>
               <span class="block sm:inline">
                 (<%= number_with_delimiter(v_clp.round, delimiter: ".", separator: ",") %> CLP)
@@ -155,7 +161,7 @@
           </td>
 
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center">
-            <%= number_with_delimiter((@movil_split_total_uf_year || uf_tot_m), delimiter: ".", separator: ",") %> UF
+            <%= fmt_uf[@movil_split_total_uf_year || uf_tot_m] %> UF
             (<%= number_with_delimiter(clp_tot_m.round, delimiter: ".", separator: ",") %> CLP)
           </td>
           <td class="py-2 border border-gray-300 dark:border-slate-600 text-center"><%= (ct_tot_m) %></td>
@@ -305,7 +311,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center gap-x-2">
               <span class="break-words"><%= mod %></span>
               <span class="sm:text-right">
-            <%= number_with_delimiter(tot, delimiter: ".", separator: ",") %> UF - <%= (mod_total_count) %> servicios
+            <%= fmt_uf[tot] %> UF - <%= (mod_total_count) %> servicios
           </span>
             </div>
 
@@ -481,7 +487,7 @@
                       <% m_emp_clp = to_clp_total.(per_m).to_i %>
                       <li>
                         <%= emp %>:
-                        <%= number_with_delimiter(m_emp_uf, delimiter: ".", separator: ",") %> UF
+                        <%= fmt_uf[m_emp_uf] %> UF
                         (<%= number_with_delimiter(m_emp_clp.round, delimiter: ".", separator: ",") %> CLP)
                         - <%= (c_emp) %> servicios
                       </li>
@@ -522,7 +528,7 @@
 
                         <li>
                           <%= mod %>:
-                          <%= number_with_delimiter(val_uf, delimiter: ".", separator: ",") %> UF
+                          <%= fmt_uf[val_uf] %> UF
                           (<%= number_with_delimiter(val_clp.round, delimiter: ".", separator: ",") %> CLP)
                           - <%= (cnt) %> servicios
                         </li>
@@ -548,7 +554,7 @@
 
                       <li>
                         <%= mod_name %>:
-                        <%= number_with_delimiter(v_mod, delimiter: ".", separator: ",") %> UF
+                        <%= fmt_uf[v_mod] %> UF
                         (<%= number_with_delimiter(v_mod_clp.round, delimiter: ".", separator: ",") %> CLP)
                         - <%= (cnt_mod) %> servicios
                       </li>
@@ -559,7 +565,7 @@
             </td>
 
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
-              <%= number_with_delimiter(cli_val.to_d, delimiter: ".", separator: ",") %> UF
+              <%= fmt_uf[cli_val] %> UF
               (<%= number_with_delimiter(cli_clp_total.round, delimiter: ".", separator: ",") %> CLP)
             </td>
             <td class="py-2 border border-gray-300 dark:border-slate-600 text-center font-medium">
@@ -576,7 +582,7 @@
 <% else %>
 
 
-  <% uf_clp    = ->uf { "#{fmt[uf]} UF (#{fmt_clp[uf.to_d * @uf]} CLP)" } %>
+  <% uf_clp     = ->uf { "#{fmt_uf[uf]} UF (#{fmt_clp_i[uf.to_d * @uf]} CLP)" } %>
   <% mods_full = {
     "Transporte Vertical"        => [@vertical_total_uf, @vertical_daily_uf, @vertical_day_company],
     "Evaluación de Competencias" => [@evaluacion_total_uf, @evaluacion_daily_uf, @evaluation_day_company],
