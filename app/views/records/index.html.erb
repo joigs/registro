@@ -307,7 +307,6 @@
                  <%= idx.even? ? 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700'
                                             : 'bg-gray-50  hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' %>">
 
-            <!-- encabezado módulo: apilado en móvil, dos columnas desde sm -->
             <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center gap-x-2">
               <span class="break-words"><%= mod %></span>
               <span class="sm:text-right">
@@ -324,7 +323,6 @@
                        <%= m.odd? ? 'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600'
                                                         : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700' %>">
 
-                  <!-- fila de mes: apilado en móvil, dos columnas desde sm -->
                   <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center gap-x-2">
                     <span>Mes <%= meses_es[m-1] %></span>
                     <span class="sm:text-right">
@@ -363,7 +361,6 @@
                                          <%= j.even? ? 'bg-gray-50 dark:bg-slate-700'
                                                                                             : 'bg-gray-100 dark:bg-slate-800' %>">
 
-                                    <!-- empresa: apilado en móvil, dos columnas desde sm -->
                                     <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center gap-x-2">
                                       <span class="break-words"><%= emp %></span>
                                       <span class="sm:text-right">
@@ -387,7 +384,6 @@
                                  <%= i.even? ? 'bg-gray-50 dark:bg-slate-700'
                                                                             : 'bg-gray-100 dark:bg-slate-800' %>">
 
-                            <!-- entidad: apilado en móvil, dos columnas desde sm -->
                             <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center gap-x-2">
                               <span class="break-words"><%= show_name[emp] %></span>
                               <span class="sm:text-right">
@@ -793,7 +789,6 @@
         <li data-action="click->cube#toggle"
             class="cursor-pointer px-4 py-2 rounded-md transition-colors border
                  <%= idx.even? ? 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover=g-slate-700' : 'bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600' %>">
-          <!-- Layout: apilado en móvil, dos columnas desde sm -->
           <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center gap-x-2">
             <span><%= mod %></span>
             <span class="sm:text-right"><%= uf_clp[tot] %> - <%= (mod_total_count) %> servicios</span>
