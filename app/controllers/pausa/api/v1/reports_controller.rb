@@ -34,6 +34,8 @@ module Pausa
                       type: "text/csv"
           when "pdf"
             windows = AppPauseWindow.all.index_by(&:moment)
+            holidays = Pausa::AppHoliday.where(fecha: start_date..end_date).pluck(:fecha).to_set
+
             pdf = Pausa::Reports::PdfBuilder.build(
               start_date: start_date,
               end_date: end_date,
@@ -42,11 +44,13 @@ module Pausa
               windows: {
                 morning: { h: windows["morning"]&.hour || 11, m: windows["morning"]&.minute || 0 },
                 evening: { h: windows["evening"]&.hour || 16, m: windows["evening"]&.minute || 0 }
-              }
+              },
+              holidays: holidays
             )
             send_data pdf,
                       filename: "reporte_pausas_#{start_date}_#{end_date}.pdf",
                       type: "application/pdf"
+
           else
             render json: logs.map { |l| serialize_log(l) }
           end

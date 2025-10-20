@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_01_203744) do
+ActiveRecord::Schema[7.1].define(version: 2025_10_20_032254) do
   create_table "app_daily_logs", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.date "fecha", null: false
@@ -71,6 +71,13 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_01_203744) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["year", "month"], name: "index_ivas_on_year_and_month", unique: true
+  end
+
+  create_table "pausa_app_holidays", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.date "fecha", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["fecha"], name: "index_pausa_app_holidays_on_fecha", unique: true
   end
 
   create_table "users", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|

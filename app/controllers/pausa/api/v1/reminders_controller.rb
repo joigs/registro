@@ -10,6 +10,11 @@ module Pausa
 
         # POST /reminders/trigger?moment=morning|evening
         def trigger
+          today = Time.zone.today
+          if weekend_or_holiday?(today)
+            return render json: { skipped: true, reason: "no se envía en fines de semana ni feriados" }
+          end
+
           moment = params[:moment].to_s
           result = Reminders::Dispatcher.call(moment)
           render json: result
@@ -27,6 +32,12 @@ module Pausa
         end
 
         private
+
+        def weekend_or_holiday?(date)
+          return true if date.saturday? || date.sunday?
+          return true if Pausa::AppHoliday.on(date).exists?
+          false
+        end
 
         # --- Auth helpers ---
         def jwt_secret

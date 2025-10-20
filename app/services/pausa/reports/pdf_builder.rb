@@ -2,13 +2,22 @@
 # frozen_string_literal: true
 require "prawn"
 require "prawn/table"
+require "set"
 
 module Pausa
   module Reports
     class PdfBuilder
       Cell = Struct.new(:morning_done, :evening_done, :estado_false)
 
-      def self.build(start_date:, end_date:, logs:, users:, windows:)
+      # holidays: Set<Date> o Array<Date> opcional
+      def self.build(start_date:, end_date:, logs:, users:, windows:, holidays: nil)
+        holidays_set =
+          case holidays
+          when Set then holidays
+          when Array then holidays.to_set
+          else Set.new
+          end
+
         # Fechas del rango solo lunes a viernes
         all_days = (start_date..end_date).select { |d| (1..5).include?(d.wday) }
         # Agrupar por lunes de la semana (semana ISO L–D; usamos L–V para columnas)
@@ -26,7 +35,7 @@ module Pausa
           pdf.text "Horario: Mañana #{fmt_hhmm(windows[:morning])} / Tarde #{fmt_hhmm(windows[:evening])}", align: :center
           pdf.move_down 10
 
-          weeks.each_with_index do |(monday, days_in_week), idx|
+          weeks.each_with_index do |(monday, _days_in_week), idx|
             # Aseguramos que solo estén L–V y dentro del rango
             days = (0..4).map { |i| monday + i }.select { |d| d >= start_date && d <= end_date }
 
@@ -36,8 +45,11 @@ module Pausa
                      size: 12, style: :bold, align: :left
             pdf.move_down 6
 
-            # Cabecera de tabla
-            header = %w[Nombre RUT Horario] + days.map { |d| fmt_dm(d) }
+            # Cabecera de tabla (tachado si es feriado)
+            header = %w[Nombre RUT Horario] + days.map { |d|
+              txt = fmt_dm(d)
+              holidays_set.include?(d) ? "<strike>#{txt}</strike>" : txt
+            }
 
             # Preconstruir grilla por usuario/día
             grid = Hash.new { |h, k| h[k] = {} }
@@ -55,13 +67,18 @@ module Pausa
               row_e = ["", "", "Tarde"]
 
               days.each do |d|
-                cell = grid[u.id][d]
-                if cell&.estado_false
+                if holidays_set.include?(d)
                   row_m << "—"
                   row_e << "—"
                 else
-                  row_m << (cell&.morning_done ? "Sí" : "No")
-                  row_e << (cell&.evening_done ? "Sí" : "No")
+                  cell = grid[u.id][d]
+                  if cell&.estado_false
+                    row_m << "—"
+                    row_e << "—"
+                  else
+                    row_m << (cell&.morning_done ? "Sí" : "No")
+                    row_e << (cell&.evening_done ? "Sí" : "No")
+                  end
                 end
               end
 
@@ -70,7 +87,7 @@ module Pausa
             end
 
             # Render de tabla
-            pdf.table([header] + rows, header: true, cell_style: { size: 9 }) do |t|
+            pdf.table([header] + rows, header: true, cell_style: { size: 9, inline_format: true }) do |t|
               t.row(0).font_style       = :bold
               t.row(0).background_color = "F0F0F0"
               t.cells.border_width      = 0.5
