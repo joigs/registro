@@ -5,12 +5,14 @@ module Pausa
   module Api
     module V1
       class ReportsController < ApplicationController
-        before_action :authenticate!
+        # Acepta token por Header (Bearer) O por query ?auth=
+        before_action :authenticate_header_or_query!
         before_action :authorize_admin!
         skip_before_action :verify_authenticity_token
         skip_before_action :protect_pages
 
-        # GET /reports/pausas?start=YYYY-MM-DD&end=YYYY-MM-DD&format=(json|csv)
+        # GET /reports/pausas[.json|.csv|.pdf]?start=YYYY-MM-DD&end=YYYY-MM-DD
+        # También soporta ?format=pdf|csv (por query) y ?auth=JWT
         def pausas
           start_date = params[:start].presence && Date.parse(params[:start])
           end_date   = params[:end].presence   && Date.parse(params[:end])
@@ -22,10 +24,29 @@ module Pausa
                    .order(:fecha, "app_users.rut")
                    .references(:app_user)
 
-          if params[:format] == "csv"
+          # Resolver formato: extensión, Accept o query ?format=
+          fmt = (params[:format].presence || request.format.symbol.to_s).to_s
+
+          case fmt
+          when "csv"
             send_data build_csv(logs),
                       filename: "reporte_pausas_#{start_date}_#{end_date}.csv",
                       type: "text/csv"
+          when "pdf"
+            windows = AppPauseWindow.all.index_by(&:moment)
+            pdf = Pausa::Reports::PdfBuilder.build(
+              start_date: start_date,
+              end_date: end_date,
+              logs: logs,
+              users: AppUser.where(creado: true).order(:rut),
+              windows: {
+                morning: { h: windows["morning"]&.hour || 11, m: windows["morning"]&.minute || 0 },
+                evening: { h: windows["evening"]&.hour || 16, m: windows["evening"]&.minute || 0 }
+              }
+            )
+            send_data pdf,
+                      filename: "reporte_pausas_#{start_date}_#{end_date}.pdf",
+                      type: "application/pdf"
           else
             render json: logs.map { |l| serialize_log(l) }
           end
@@ -52,17 +73,24 @@ module Pausa
           end
         end
 
-        # --- Auth helpers ---
+        # --- Auth (Header o ?auth=) ---
         def jwt_secret
           Rails.application.credentials.jwt_secret || ENV["JWT_SECRET"] || Rails.application.secret_key_base
         end
 
-        def authenticate!
+        def authenticate_header_or_query!
           header = request.headers["Authorization"]
-          unless header&.start_with?("Bearer ")
+          token =
+            if header&.start_with?("Bearer ")
+              header.split(" ").last
+            elsif params[:auth].present?
+              params[:auth].to_s
+            end
+
+          unless token
             render json: { error: "Falta token" }, status: :unauthorized and return
           end
-          token = header.split(" ").last
+
           payload = JWT.decode(token, jwt_secret, true, algorithm: "HS256").first
           @current_user = AppUser.find(payload["id"])
         rescue JWT::ExpiredSignature

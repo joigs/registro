@@ -20,7 +20,7 @@ module Notifier
               notification: {
                 title: title,
                 body: body,
-                channel_id: "pausas" 
+                channel_id: "pausas"
               },
               data: stringify_keys(data)
             }
