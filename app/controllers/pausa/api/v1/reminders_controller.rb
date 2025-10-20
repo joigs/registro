@@ -10,46 +10,14 @@ module Pausa
 
         # POST /reminders/trigger?moment=morning|evening
         def trigger
-          moment = params[:moment].to_s
-          unless %w[morning evening].include?(moment)
-            return render json: { error: "moment inválido" }, status: :unprocessable_entity
-          end
-
           today = Time.zone.today
-          now   = Time.zone.now
-
-          users = AppUser.where(activo: true, creado: true).where.not(admin: true)
-
-          recipients = []
-          users.find_each do |u|
-            log = AppDailyLog.find_or_create_by!(app_user_id: u.id, fecha: today)
-            needs = (moment == "morning") ? !log.morning_done : !log.evening_done
-            next unless needs
-
-            recipients << u
+          if weekend_or_holiday?(today)
+            return render json: { skipped: true, reason: "no se envía en fines de semana ni feriados" }
           end
 
-          AppUser.where(id: recipients.map(&:id)).update_all(estado: false)
-
-          reminders = []
-          recipients.each do |u|
-            reminders << AppReminder.find_or_create_by!(app_user_id: u.id, fecha: today, moment: moment).tap do |r|
-              r.update(sent_at: now)
-              Notifier::Push.send_to(
-                u,
-                title: "Pausa activa",
-                body: (moment == "morning" ? "¡Hora de la pausa de la mañana!" : "¡Hora de la pausa de la tarde!"),
-                data: { screen: "PausaActiva", moment: moment }
-              )
-            end
-          end
-
-          render json: {
-            moment: moment,
-            date: today,
-            sent_to: recipients.map { |u| { id: u.id, nombre: u.nombre, rut: u.rut } },
-            count: recipients.size
-          }
+          moment = params[:moment].to_s
+          result = Reminders::Dispatcher.call(moment)
+          render json: result
         end
 
         # body: { moment: "morning"|"evening" }
@@ -64,6 +32,12 @@ module Pausa
         end
 
         private
+
+        def weekend_or_holiday?(date)
+          return true if date.saturday? || date.sunday?
+          return true if Pausa::AppHoliday.on(date).exists?
+          false
+        end
 
         # --- Auth helpers ---
         def jwt_secret

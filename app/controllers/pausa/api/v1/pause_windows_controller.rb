@@ -4,7 +4,7 @@ module Pausa
     module V1
       class PauseWindowsController < ApplicationController
         before_action :authenticate!
-        before_action :authorize_admin!
+        before_action :authorize_admin!, only: [:update]
         skip_before_action :verify_authenticity_token
         skip_before_action :protect_pages
 

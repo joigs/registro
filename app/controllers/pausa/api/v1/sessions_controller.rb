@@ -25,13 +25,13 @@ module Pausa
 
         private
 
-        # ─── JWT ────────────────────────────────────────────────────────────────
         def jwt_secret
           Rails.application.credentials.jwt_secret || ENV["JWT_SECRET"] || Rails.application.secret_key_base
         end
 
         def jwt_encode(payload)
-          JWT.encode(payload.merge(exp: 24.hours.from_now.to_i), jwt_secret, "HS256")
+          # 90 días
+          JWT.encode(payload.merge(exp: 90.days.from_now.to_i), jwt_secret, "HS256")
         end
       end
     end

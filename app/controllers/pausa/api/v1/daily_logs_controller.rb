@@ -8,9 +8,13 @@ module Pausa
         skip_before_action :protect_pages
 
         # GET /daily_logs/today
+        # Agregamos flags para que el cliente oculte botón en fds/feriado
         def today
-          log = ensure_today_log(@current_user)
-          render json: serialize_log(log)
+          today = Time.zone.today
+          locked, reason = weekend_or_holiday?(today)
+
+          log = ensure_today_log(@current_user) # mantener para consistencia histórica
+          render json: serialize_log(log).merge(locked: locked, reason: reason)
         end
 
         # PATCH /daily_logs/mark  (params: moment=morning|evening)
@@ -18,6 +22,14 @@ module Pausa
           moment = params[:moment].to_s
           unless %w[morning evening].include?(moment)
             return render json: { error: "moment inválido" }, status: :unprocessable_entity
+          end
+
+          today = Time.zone.today
+          locked, reason = weekend_or_holiday?(today)
+          if locked
+            # respuesta amigable; el cliente mostrará el texto, NO códigos crudos
+            return render json: { error: (reason == "feriado" ? "Hoy es feriado. No se registran pausas." : "Fin de semana. No se registran pausas.") },
+                          status: :unprocessable_entity
           end
 
           log = ensure_today_log(@current_user)
@@ -29,13 +41,18 @@ module Pausa
             log.update(evening_done: true, evening_at: (log.evening_at || now))
           end
 
-          # Marcamos estado “global” del usuario para el momento actual (útil para filtros)
           @current_user.update(estado: true) rescue nil
 
           render json: serialize_log(log)
         end
 
         private
+
+        def weekend_or_holiday?(date)
+          return [true, "fin_de_semana"] if date.saturday? || date.sunday?
+          return [true, "feriado"]       if Pausa::AppHoliday.on(date).exists?
+          [false, nil]
+        end
 
         def ensure_today_log(user)
           today = Time.zone.today
