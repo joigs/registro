@@ -497,6 +497,11 @@
               <RakeTaskImpl description="Truncate all/specified *.log files in log/ to zero bytes (specify which logs with LOGS=test,development)" fullCommand="log:clear" id="clear" />
             </subtasks>
           </RakeTaskImpl>
+          <RakeTaskImpl id="reminders">
+            <subtasks>
+              <RakeTaskImpl description="Encola/envía recordatorios según el horario definido" fullCommand="reminders:tick" id="tick" />
+            </subtasks>
+          </RakeTaskImpl>
           <RakeTaskImpl id="requestjs">
             <subtasks>
               <RakeTaskImpl description="Install Request.JS into the app" fullCommand="requestjs:install" id="install" />
