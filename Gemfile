@@ -101,7 +101,8 @@ gem 'whenever', require: false
 
 #para busquedas
 gem 'ransack'
-
+gem 'sidekiq'
+gem 'sidekiq-cron'
 
 
 gem 'write_xlsx'
