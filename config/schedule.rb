@@ -19,3 +19,10 @@
 
 # Learn more: http://github.com/javan/whenever
 
+  every "* 11 * * 1-5" do
+    runner "Pausa::Reminders::Cron.tick"
+  end
+
+  every "* 16 * * 1-5" do
+    runner "Pausa::Reminders::Cron.tick"
+  end
