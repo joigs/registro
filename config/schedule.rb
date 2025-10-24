@@ -19,3 +19,14 @@
 
 # Learn more: http://github.com/javan/whenever
 
+  set :environment, :production
+  set :path, "/home/vertical/registro"        
+  set :output, "/home/vertical/registro/log/cron.log"
+
+  every '*/1 11 * * 1-5' do
+    runner "Pausa::Reminders::Cron.tick"
+  end
+
+  every '*/1 16 * * 1-5' do
+    runner "Pausa::Reminders::Cron.tick"
+  end
