@@ -1,4 +1,4 @@
-  # Use this file to easily define all of your cron jobs.
+# Use this file to easily define all of your cron jobs.
 #
 # It's helpful, but not entirely necessary to understand cron before proceeding.
 # http://en.wikipedia.org/wiki/Cron
@@ -19,14 +19,19 @@
 
 # Learn more: http://github.com/javan/whenever
 
-  set :environment, :production
-  set :path, "/home/vertical/registro"        
-  set :output, "/home/vertical/registro/log/cron.log"
+set :environment, :production
+set :path, "/home/vertical/registro"
+set :output, "/home/vertical/registro/log/cron.log"
 
-  every '*/1 11 * * 1-5' do
-    runner "Pausa::Reminders::Cron.tick"
-  end
+env :PATH, "/home/vertical/.rbenv/shims:/home/vertical/.rbenv/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-  every '*/1 16 * * 1-5' do
-    runner "Pausa::Reminders::Cron.tick"
-  end
+env "GOOGLE_APPLICATION_CREDENTIALS", "/home/vertical/registro/config/firebase-sa.json"
+env "FCM_PROJECT_ID", "pausaactiva-31704"
+
+every "0 11 * * 1-5" do
+  runner "Pausa::Reminders::Cron.tick"
+end
+
+every "0 16 * * 1-5" do
+  runner "Pausa::Reminders::Cron.tick"
+end

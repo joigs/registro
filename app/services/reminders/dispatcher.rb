@@ -1,3 +1,4 @@
+
 # app/services/reminders/dispatcher.rb
 class Reminders::Dispatcher
   def self.call(moment, now: Time.zone.now, today: Time.zone.today)
