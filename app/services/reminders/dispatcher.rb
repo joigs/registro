@@ -3,7 +3,10 @@ class Reminders::Dispatcher
   def self.call(moment, now: Time.zone.now, today: Time.zone.today)
     raise ArgumentError, "moment inválido" unless %w[morning evening].include?(moment)
 
-    users = AppUser.where(activo: true, creado: true).where.not(admin: true)
+    #TODO: cambiar dependiendo de si los admin deben resibir una notificacion
+    #users = AppUser.where(activo: true, creado: true).where.not(admin: true)
+
+    users = AppUser.where(activo: true, creado: true)
     recipients = []
 
     users.find_each do |u|
