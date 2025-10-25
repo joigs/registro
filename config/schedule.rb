@@ -24,14 +24,13 @@ set :path, "/home/vertical/registro"
 set :output, "/home/vertical/registro/log/cron.log"
 
 env :PATH, "/home/vertical/.rbenv/shims:/home/vertical/.rbenv/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-
 env "GOOGLE_APPLICATION_CREDENTIALS", "/home/vertical/registro/config/firebase-sa.json"
 env "FCM_PROJECT_ID", "pausaactiva-31704"
 
-every "0 11 * * 1-5" do
-  runner "Pausa::Reminders::Cron.tick"
+every "0 11 * * *" do
+  runner 'Pausa::Reminders::Dispatcher.call("morning")'
 end
 
-every "0 16 * * 1-5" do
-  runner "Pausa::Reminders::Cron.tick"
+every "0 16 * * *" do
+  runner 'Pausa::Reminders::Dispatcher.call("evening")'
 end
