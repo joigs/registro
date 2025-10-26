@@ -19,7 +19,7 @@ Rails.application.routes.draw do
       namespace :api, defaults: { format: :json } do
         namespace :v1 do
           post "login", to: "sessions#create"
-          get :test_push, to: "test_push#send_now"
+          get :notify, to: "utils#notify"
           resources :app_users do
             collection do
               get :pending
