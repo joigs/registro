@@ -3,28 +3,53 @@ module Pausa
   module Api
     module V1
       class UtilsController < ApplicationController
+        # Ruta de prueba SIN AUTH (protegida por ?secret= en producción)
         skip_before_action :verify_authenticity_token
         skip_before_action :protect_pages
-        skip_before_action :authenticate! rescue nil
+        skip_before_action :authenticate!, raise: false
 
-        def notify
-          rut = params[:rut].to_s.strip
-          msg = params[:msg].presence || "Notificación de prueba"
+        # GET /pausa/api/v1/test_push?rut=20848288-2&title=Hola&body=Mensaje&moment=morning&secret=XXXX
+        def send_now
+          unless allowed_by_secret?
+            return render json: { error: "No autorizado" }, status: :forbidden
+          end
 
-          user = AppUser.find_by(rut: rut)
-          return render json: { ok: false, error: "Usuario no encontrado" }, status: 404 unless user
-          return render json: { ok: false, error: "Sin expo_push_token" }, status: 422 unless user.expo_push_token.present?
+          rut    = params[:rut].to_s.strip
+          title  = params[:title].presence || "Pausa activa"
+          body   = params[:body].presence  || "Mensaje de prueba"
 
-          Notifier::Fcm.send_to(
+          user = Pausa::AppUser.find_by(rut: rut)
+          return render json: { error: "Usuario no encontrado" }, status: :unprocessable_entity unless user
+
+          token = user.expo_push_token
+          return render json: { error: "Usuario sin token push" }, status: :unprocessable_entity if token.blank?
+
+
+
+          resp = Notifier::Fcm.send_to(
             user,
-            title: "Pausa activa",
-            body:  msg,
-            data:  { screen: "PausaActiva", moment: "morning" }
+            title: title,
+            body:  body,
+            data:  { screen: "PausaActiva", moment: (moment || "") }
           )
 
-          render json: { ok: true, user_id: user.id, rut: user.rut }
+          Rails.logger.info("[test_push] ok rut=#{rut} user_id=#{user.id} resp=#{resp.inspect}")
+
+          render json: { ok: true, user_id: user.id, rut: rut, moment: moment }
         rescue => e
-          render json: { ok: false, error: e.message }, status: 500
+          Rails.logger.error("[test_push] error: #{e.class}: #{e.message}")
+          render json: { error: "Fallo al enviar notificación" }, status: :internal_server_error
+        end
+
+        private
+
+        def allowed_by_secret?
+          # En producción exige ?secret=TEST_PUSH_SECRET; en otros entornos, libre.
+          return true unless Rails.env.production?
+          provided = params[:secret].to_s
+          expected = ENV["TEST_PUSH_SECRET"].to_s
+          provided.present? && expected.present? &&
+            ActiveSupport::SecurityUtils.secure_compare(provided, expected)
         end
       end
     end
