@@ -1,4 +1,5 @@
 # app/services/pausa/reminders/dispatcher.rb
+# frozen_string_literal: true
 module Pausa
   module Reminders
     class Dispatcher
@@ -6,8 +7,8 @@ module Pausa
         raise ArgumentError, "moment inválido" unless %w[morning evening].include?(moment)
 
         users = Pausa::AppUser.where(activo: true, creado: true)
-        recipients = []
 
+        recipients = []
         users.find_each do |u|
           log = Pausa::AppDailyLog.find_or_create_by!(app_user_id: u.id, fecha: today)
           needs = (moment == "morning") ? !log.morning_done : !log.evening_done
@@ -17,10 +18,8 @@ module Pausa
         Pausa::AppUser.where(id: recipients.map(&:id)).update_all(estado: false)
 
         recipients.each do |u|
-          rem = Pausa::AppReminder.find_or_create_by!(app_user_id: u.id, fecha: today, moment: moment)
-          next if rem.sent_at.present? # ← ya enviado hoy a este usuario/momento
-
-          rem.update!(sent_at: now)
+          Pausa::AppReminder.find_or_create_by!(app_user_id: u.id, fecha: today, moment: moment)
+                            .update!(sent_at: now)
 
           Notifier::Fcm.send_to(
             u,
