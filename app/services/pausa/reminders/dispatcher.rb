@@ -6,7 +6,10 @@ module Pausa
       def self.call(moment, now: Time.zone.now, today: Time.zone.today)
         raise ArgumentError, "moment inválido" unless %w[morning evening].include?(moment)
 
-        users = Pausa::AppUser.where(activo: true, creado: true).where.not(admin: true)
+
+        #TODO: cambiar dependiendo de si los admin deben resibir una notificacion
+        #users = Pausa::AppUser.where(activo: true, creado: true).where.not(admin: true)
+        users = Pausa::AppUser.where(activo: true, creado: true)
         recipients = []
 
         users.find_each do |u|
