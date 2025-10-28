@@ -76,8 +76,8 @@ module Pausa
                     row_m << "—"
                     row_e << "—"
                   else
-                    row_m << (future ? "Por realizar" : (c&.morning_done ? "Sí" : "No"))
-                    row_e << (future ? "Por realizar" : (c&.evening_done ? "Sí" : "No"))
+                    row_m << (future ? "    " : (c&.morning_done ? "Sí" : "No"))
+                    row_e << (future ? "    " : (c&.evening_done ? "Sí" : "No"))
                   end
                 end
               end
