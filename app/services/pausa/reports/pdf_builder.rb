@@ -92,8 +92,8 @@ module Pausa
               t.row(0).background_color = "F0F0F0"
               t.cells.border_width      = 0.5
               t.columns(0).width = 150  # Nombre
-              t.columns(1).width = 90   # RUT
-              t.columns(2).width = 60   # Horario
+              t.columns(1).width = 70   # RUT
+              t.columns(2).width = 50   # Horario
             end
           end
           pdf.number_pages "<page>/<total>", at: [pdf.bounds.right - 40, 0], size: 9
