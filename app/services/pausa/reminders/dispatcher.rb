@@ -1,14 +1,10 @@
 # app/services/pausa/reminders/dispatcher.rb
-# frozen_string_literal: true
 module Pausa
   module Reminders
     class Dispatcher
       def self.call(moment, now: Time.zone.now, today: Time.zone.today)
         raise ArgumentError, "moment inválido" unless %w[morning evening].include?(moment)
 
-
-        #TODO: cambiar dependiendo de si los admin deben resibir una notificacion
-        #users = Pausa::AppUser.where(activo: true, creado: true).where.not(admin: true)
         users = Pausa::AppUser.where(activo: true, creado: true)
         recipients = []
 
@@ -21,12 +17,11 @@ module Pausa
         Pausa::AppUser.where(id: recipients.map(&:id)).update_all(estado: false)
 
         recipients.each do |u|
-          Pausa::AppReminder.find_or_create_by!(app_user_id: u.id, fecha: today, moment: moment).tap do |r|
-            r.update(sent_at: now)
-          end
+          rem = Pausa::AppReminder.find_or_create_by!(app_user_id: u.id, fecha: today, moment: moment)
+          next if rem.sent_at.present? # ← ya enviado hoy a este usuario/momento
 
-          # Si tu cliente FCM está en Notifier::Fcm a secas, déjalo igual.
-          # Si lo namespaceste, usa Pausa::Notifier::Fcm.send_to(...)
+          rem.update!(sent_at: now)
+
           Notifier::Fcm.send_to(
             u,
             title: "Pausa activa",

@@ -28,10 +28,10 @@ env :PATH, "/home/vertical/.rbenv/shims:/home/vertical/.rbenv/bin:/usr/local/bin
 env "GOOGLE_APPLICATION_CREDENTIALS", "/home/vertical/registro/config/firebase-sa.json"
 env "FCM_PROJECT_ID", "pausaactiva-31704"
 
-every "0 11 * * 1-5" do
+every '0-55/5 11 * * 1-5' do
   runner "Pausa::Reminders::Cron.tick"
 end
-
-every "0 16 * * 1-5" do
+# 16:00–16:55 cada 5 min (L–V)
+every '0-55/5 16 * * 1-5' do
   runner "Pausa::Reminders::Cron.tick"
 end
