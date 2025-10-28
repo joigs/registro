@@ -55,13 +55,14 @@ module Pausa
               end
             end
 
+            # ...
             rows = []
             users.each do |u|
               name_cell = pdf.make_cell(content: u.nombre, rowspan: 2)
               rut_cell  = pdf.make_cell(content: u.rut,    rowspan: 2)
 
               row_m = [name_cell, rut_cell, "Mañana"]
-              row_e = [nil, nil, "Tarde"] # ocupa rowspan
+              row_e = ["Tarde"]  # ← sin nil; Prawn ocupa las columnas por el rowspan
 
               days.each do |d|
                 if holidays_set.include?(d)
@@ -85,6 +86,7 @@ module Pausa
               rows << row_e
             end
 
+
             pdf.table([header] + rows, header: true, cell_style: { size: 9, inline_format: true }) do |t|
               t.row(0).font_style       = :bold
               t.row(0).background_color = "F0F0F0"
@@ -94,7 +96,6 @@ module Pausa
               t.columns(2).width = 60   # Horario
             end
           end
-
           pdf.number_pages "<page>/<total>", at: [pdf.bounds.right - 40, 0], size: 9
         end.render
       end
