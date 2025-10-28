@@ -9,7 +9,6 @@ module Pausa
     class PdfBuilder
       Cell = Struct.new(:morning_done, :evening_done, :estado_false)
 
-      # holidays: Set<Date> o Array<Date> opcional
       def self.build(start_date:, end_date:, logs:, users:, windows:, holidays: nil)
         holidays_set =
           case holidays
@@ -20,7 +19,7 @@ module Pausa
 
         today = Time.zone ? Time.zone.today : Date.today
 
-        # Fechas L–V del rango
+        # L–V del rango
         all_days = (start_date..end_date).select { |d| (1..5).include?(d.wday) }
         weeks = all_days.group_by { |d| monday_of(d) }.sort_by { |monday, _| monday }
 
@@ -35,7 +34,7 @@ module Pausa
           pdf.text "Horario: Mañana #{fmt_hhmm(windows[:morning])} / Tarde #{fmt_hhmm(windows[:evening])}", align: :center
           pdf.move_down 10
 
-          weeks.each_with_index do |(monday, _days_in_week), idx|
+          weeks.each_with_index do |(monday, _), idx|
             days = (0..4).map { |i| monday + i }.select { |d| d >= start_date && d <= end_date }
 
             pdf.start_new_page if idx.positive?
@@ -47,6 +46,7 @@ module Pausa
               holidays_set.include?(d) ? "<strike>#{txt}</strike>" : txt
             }
 
+            # grilla
             grid = Hash.new { |h, k| h[k] = {} }
             users.each do |u|
               days.each do |d|
@@ -57,12 +57,11 @@ module Pausa
 
             rows = []
             users.each do |u|
-              # celdas combinadas (rowspan 2) para Nombre y RUT
-              name_cell = make_cell(content: u.nombre, rowspan: 2)
-              rut_cell  = make_cell(content: u.rut,    rowspan: 2)
+              name_cell = pdf.make_cell(content: u.nombre, rowspan: 2)
+              rut_cell  = pdf.make_cell(content: u.rut,    rowspan: 2)
 
               row_m = [name_cell, rut_cell, "Mañana"]
-              row_e = [nil, nil, "Tarde"]  # nil ocupa las posiciones del rowspan
+              row_e = [nil, nil, "Tarde"] # ocupa rowspan
 
               days.each do |d|
                 if holidays_set.include?(d)
@@ -100,7 +99,6 @@ module Pausa
         end.render
       end
 
-      # Helpers
       def self.monday_of(date) = date - (date.cwday - 1)
       def self.fmt_dmy(d) = d.strftime("%d-%m-%Y")
       def self.fmt_dm(d)  = d.strftime("%d-%m")
