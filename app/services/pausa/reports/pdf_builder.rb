@@ -13,17 +13,17 @@ module Pausa
       def self.build(start_date:, end_date:, logs:, users:, windows:, holidays: nil)
         holidays_set =
           case holidays
-          when Set then holidays
+          when Set   then holidays
           when Array then holidays.to_set
           else Set.new
           end
 
-        # Fechas del rango solo lunes a viernes
+        today = Time.zone ? Time.zone.today : Date.today
+
+        # Fechas L–V del rango
         all_days = (start_date..end_date).select { |d| (1..5).include?(d.wday) }
-        # Agrupar por lunes de la semana (semana ISO L–D; usamos L–V para columnas)
         weeks = all_days.group_by { |d| monday_of(d) }.sort_by { |monday, _| monday }
 
-        # Indexar logs por (user_id, fecha) para lookup rápido
         by_key = logs.group_by { |l| [l.app_user_id, l.fecha] }
 
         Prawn::Document.new(page_size: "A4", margin: 24) do |pdf|
@@ -36,22 +36,17 @@ module Pausa
           pdf.move_down 10
 
           weeks.each_with_index do |(monday, _days_in_week), idx|
-            # Aseguramos que solo estén L–V y dentro del rango
             days = (0..4).map { |i| monday + i }.select { |d| d >= start_date && d <= end_date }
 
-            # Subtítulo de semana
             pdf.start_new_page if idx.positive?
-            pdf.text "Semana del #{fmt_dmy(days.first)} al #{fmt_dmy(days.last)}",
-                     size: 12, style: :bold, align: :left
+            pdf.text "Semana del #{fmt_dmy(days.first)} al #{fmt_dmy(days.last)}", size: 12, style: :bold, align: :left
             pdf.move_down 6
 
-            # Cabecera de tabla (tachado si es feriado)
             header = %w[Nombre RUT Horario] + days.map { |d|
               txt = fmt_dm(d)
               holidays_set.include?(d) ? "<strike>#{txt}</strike>" : txt
             }
 
-            # Preconstruir grilla por usuario/día
             grid = Hash.new { |h, k| h[k] = {} }
             users.each do |u|
               days.each do |d|
@@ -60,24 +55,29 @@ module Pausa
               end
             end
 
-            # Filas: dos por usuario (Mañana / Tarde)
             rows = []
             users.each do |u|
-              row_m = [u.nombre, u.rut, "Mañana"]
-              row_e = ["", "", "Tarde"]
+              # celdas combinadas (rowspan 2) para Nombre y RUT
+              name_cell = make_cell(content: u.nombre, rowspan: 2)
+              rut_cell  = make_cell(content: u.rut,    rowspan: 2)
+
+              row_m = [name_cell, rut_cell, "Mañana"]
+              row_e = [nil, nil, "Tarde"]  # nil ocupa las posiciones del rowspan
 
               days.each do |d|
                 if holidays_set.include?(d)
                   row_m << "—"
                   row_e << "—"
                 else
-                  cell = grid[u.id][d]
-                  if cell&.estado_false
+                  future = d > today
+                  c = grid[u.id][d]
+
+                  if c&.estado_false
                     row_m << "—"
                     row_e << "—"
                   else
-                    row_m << (cell&.morning_done ? "Sí" : "No")
-                    row_e << (cell&.evening_done ? "Sí" : "No")
+                    row_m << (future ? "Por realizar" : (c&.morning_done ? "Sí" : "No"))
+                    row_e << (future ? "Por realizar" : (c&.evening_done ? "Sí" : "No"))
                   end
                 end
               end
@@ -86,12 +86,10 @@ module Pausa
               rows << row_e
             end
 
-            # Render de tabla
             pdf.table([header] + rows, header: true, cell_style: { size: 9, inline_format: true }) do |t|
               t.row(0).font_style       = :bold
               t.row(0).background_color = "F0F0F0"
               t.cells.border_width      = 0.5
-              # Columnas fijas para identificación; días se auto-ajustan
               t.columns(0).width = 150  # Nombre
               t.columns(1).width = 90   # RUT
               t.columns(2).width = 60   # Horario
@@ -103,15 +101,10 @@ module Pausa
       end
 
       # Helpers
-      def self.monday_of(date)
-        date - ((date.cwday - 1)) # cwday: 1=lunes..7=domingo
-      end
-
+      def self.monday_of(date) = date - (date.cwday - 1)
       def self.fmt_dmy(d) = d.strftime("%d-%m-%Y")
       def self.fmt_dm(d)  = d.strftime("%d-%m")
-      def self.fmt_hhmm(hm)
-        "%02d:%02d" % [hm[:h], hm[:m]]
-      end
+      def self.fmt_hhmm(hm) = "%02d:%02d" % [hm[:h], hm[:m]]
     end
   end
 end
