@@ -878,6 +878,33 @@ SQL
       @empresas_por_mandante[mand_rut] << empresa
     end
 
+    # ===== Ajustes empresas pequeñas en Movilidad: 1/oct =====
+    if @month.to_i == 10
+      d = 1
+
+      # Arauco: 67 servicios, 107.3 UF
+      emp = "Arauco"
+      uf  = BigDecimal("107.3"); cnt = 67
+      mand_rut  = "85805200"
+      mand_name = "Forestal Arauco SA"
+      (@empresa_day[emp] ||= Hash.new(BigDecimal("0")))[d] = @empresa_day[emp][d].to_d + uf
+      @empresa_month[emp]          = @empresa_month[emp].to_d + uf
+      (@empresa_day_count[emp] ||= Hash.new(0))[d] = @empresa_day_count[emp][d].to_i + cnt
+      @empresa_month_count[emp]    = @empresa_month_count[emp].to_i + cnt
+      @emp_to_mandante[emp]        = [mand_rut, mand_name]
+
+      # Transporte de personal CMPC: 26 servicios, 34.2 UF
+      emp = "Transporte de personal CMPC"
+      uf  = BigDecimal("34.2"); cnt = 26
+      mand_rut  = (@mandante_names&.key("EMPRESAS CMPC S.A") || "EMPRESAS CMPC S.A")
+      mand_name = "EMPRESAS CMPC S.A"
+      (@empresa_day[emp] ||= Hash.new(BigDecimal("0")))[d] = @empresa_day[emp][d].to_d + uf
+      @empresa_month[emp]          = @empresa_month[emp].to_d + uf
+      (@empresa_day_count[emp] ||= Hash.new(0))[d] = @empresa_day_count[emp][d].to_i + cnt
+      @empresa_month_count[emp]    = @empresa_month_count[emp].to_i + cnt
+      @emp_to_mandante[emp]        = [mand_rut, mand_name]
+    end
+    # ===== Fin ajustes =====
 
     @mandante_names  = {}
     mandante_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
