@@ -10,8 +10,8 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_10_29_070459) do
-  create_table "app_daily_logs", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+ActiveRecord::Schema[7.1].define(version: 2025_10_29_145200) do
+  create_table "app_daily_logs", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.date "fecha", null: false
     t.datetime "morning_at"
@@ -24,7 +24,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_10_29_070459) do
     t.index ["app_user_id"], name: "index_app_daily_logs_on_app_user_id"
   end
 
-  create_table "app_pause_windows", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "app_pause_windows", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "moment", null: false
     t.integer "hour", default: 11, null: false
     t.integer "minute", default: 0, null: false
@@ -34,7 +34,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_10_29_070459) do
     t.index ["moment"], name: "index_app_pause_windows_on_moment", unique: true
   end
 
-  create_table "app_reminders", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "app_reminders", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.date "fecha"
     t.string "moment"
@@ -46,7 +46,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_10_29_070459) do
     t.index ["app_user_id"], name: "index_app_reminders_on_app_user_id"
   end
 
-  create_table "app_users", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "app_users", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "nombre", null: false
     t.string "rut", null: false
     t.string "correo", null: false
@@ -66,7 +66,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_10_29_070459) do
     t.index ["rut"], name: "index_app_users_on_rut", unique: true
   end
 
-  create_table "ivas", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "ivas", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.integer "year"
     t.integer "month"
     t.decimal "valor", precision: 10, scale: 2
@@ -75,7 +75,19 @@ ActiveRecord::Schema[7.1].define(version: 2025_10_29_070459) do
     t.index ["year", "month"], name: "index_ivas_on_year_and_month", unique: true
   end
 
-  create_table "pausa_app_holidays", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "mobility_adjustments", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.string "empresa"
+    t.string "mandante_rut"
+    t.string "mandante_nombre"
+    t.decimal "uf", precision: 10, scale: 4
+    t.integer "servicios"
+    t.date "fecha"
+    t.string "notas"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "pausa_app_holidays", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.date "fecha", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

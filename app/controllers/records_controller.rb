@@ -18,7 +18,7 @@ class RecordsController < ApplicationController
   EVAL_KEY = ENV.fetch("EVALUACION_API_KEY", "")
 
   MANDANTE_NAME_OVERRIDES = {
-    "85805200" => "Forestal Arauco SA"
+    "85805200" => "Forestal Arauco SA",
   }.freeze
   SMALL_MANDANTE_PARENT = {
     "90222000" => "91440000" #poner mandante cmpc de movilidad como si fuera una empresa de mininco
@@ -289,6 +289,12 @@ SQL
         @empresas_por_mandante = Hash.new { |h,k| h[k] = [] }
         @emp_to_mandante.each { |empresa, (mand_rut, _)| @empresas_por_mandante[mand_rut] << empresa }
 
+        # AJUSTES ANUAL
+
+        apply_mobility_db_adjustments_for_year_month!(mm)
+
+        #FIN AJUSTES ANUAL
+
         mandante_month        = Hash.new(BigDecimal("0"))
         mandante_month_count  = Hash.new(0)
         @empresa_month.each do |empresa, uf_total|
@@ -323,6 +329,10 @@ SQL
 
       @mandante_names.merge!(MANDANTE_NAME_OVERRIDES)
 
+      drop_lonely_mandantes_from!([
+                                    @movilidad_month_mandante,
+                                    @movilidad_month_mandante_count
+                                  ])
 
       require "i18n" unless defined?(I18n)
       norm = ->s { I18n.transliterate(s.to_s).gsub(/[\s\.]/,'').downcase }
@@ -486,12 +496,14 @@ SQL
 
       @year_by_empresa       = @year_by_empresa.dup
       @year_by_empresa_count = @year_by_empresa_count.dup
+      prune_company_duplicates!(@year_by_empresa)
+      prune_company_duplicates!(@year_by_empresa_count)
 
       moved_keys = Set.new
 
       (@mandante_names || {}).each do |mand_rut, mand_name|
         next if mand_name.blank?
-
+        next if (@empresas_por_mandante || {})[mand_rut].blank?
         _matches = @year_by_empresa.keys.select do |comp_name|
           next false if comp_name.to_s == mand_rut.to_s
           next false unless _module_company_keys.include?(comp_name)
@@ -878,33 +890,16 @@ SQL
       @empresas_por_mandante[mand_rut] << empresa
     end
 
-    # ===== Ajustes empresas pequeñas en Movilidad: 1/oct =====
-    if @month.to_i == 10
-      d = 1
+    #AJUSTES
 
-      # Arauco: 67 servicios, 107.3 UF
-      emp = "Arauco"
-      uf  = BigDecimal("107.3"); cnt = 67
-      mand_rut  = "85805200"
-      mand_name = "Forestal Arauco SA"
-      (@empresa_day[emp] ||= Hash.new(BigDecimal("0")))[d] = @empresa_day[emp][d].to_d + uf
-      @empresa_month[emp]          = @empresa_month[emp].to_d + uf
-      (@empresa_day_count[emp] ||= Hash.new(0))[d] = @empresa_day_count[emp][d].to_i + cnt
-      @empresa_month_count[emp]    = @empresa_month_count[emp].to_i + cnt
-      @emp_to_mandante[emp]        = [mand_rut, mand_name]
-
-      # Transporte de personal CMPC: 26 servicios, 34.2 UF
-      emp = "Transporte de personal CMPC"
-      uf  = BigDecimal("34.2"); cnt = 26
-      mand_rut  = (@mandante_names&.key("EMPRESAS CMPC S.A") || "EMPRESAS CMPC S.A")
-      mand_name = "EMPRESAS CMPC S.A"
-      (@empresa_day[emp] ||= Hash.new(BigDecimal("0")))[d] = @empresa_day[emp][d].to_d + uf
-      @empresa_month[emp]          = @empresa_month[emp].to_d + uf
-      (@empresa_day_count[emp] ||= Hash.new(0))[d] = @empresa_day_count[emp][d].to_i + cnt
-      @empresa_month_count[emp]    = @empresa_month_count[emp].to_i + cnt
-      @emp_to_mandante[emp]        = [mand_rut, mand_name]
-    end
-    # ===== Fin ajustes =====
+    apply_mobility_db_adjustments_for_month!(year: @year, month: @month)
+    drop_lonely_mandantes_from!([
+                                  @movilidad_month_by_empresa,
+                                  @movilidad_month_by_empresa_count,
+                                  @movilidad_day_company,
+                                  @movilidad_day_company_count
+                                ])
+    #FINAL DE AJUSTES xd
 
     @mandante_names  = {}
     mandante_day     = Hash.new { |h,k| h[k] = Hash.new(BigDecimal('0')) }
@@ -1272,6 +1267,8 @@ SQL
 
 
     #puts("month_by_empresa=#{@month_by_empresa.inspect} ")
+    prune_company_duplicates!(@month_by_empresa)
+    prune_company_duplicates!(@month_by_empresa_count)
 
     vertical_facturacions_by_day_company = daily_company(@facturacions, :fecha_venta)
     vertical_convenios_by_day_company    = daily_company_convenios(@convenios)
@@ -1432,6 +1429,8 @@ end
     moved = Set.new
     (@mandante_names || {}).each do |mand_rut, mand_name|
       next if mand_name.blank?
+      next if (@empresas_por_mandante || {})[mand_rut].blank?
+
       matches = @month_by_empresa.keys.select do |k|
         k.to_s != mand_rut.to_s &&
           _module_company_keys.include?(k) &&
@@ -2584,6 +2583,87 @@ end
 
   def map_mandante_rut(rut)
     SMALL_MANDANTE_PARENT[rut.to_s] || rut.to_s
+  end
+
+
+
+  ######### AJUSTES ##################
+  def apply_mobility_db_adjustments_for_month!(year:, month:)
+    MobilityAdjustment.in_month(year, month).find_each do |adj|
+      next if adj.fecha.nil? || adj.empresa.blank?
+
+      emp = adj.empresa.to_s
+      d   = adj.fecha.day
+      uf  = to_decimal(adj.uf)
+      cnt = adj.servicios.to_i
+
+      (@empresa_day[emp] ||= Hash.new(BigDecimal("0")))[d] = @empresa_day[emp][d].to_d + uf
+      @empresa_month[emp]          = @empresa_month[emp].to_d + uf
+      (@empresa_day_count[emp] ||= Hash.new(0))[d] = @empresa_day_count[emp][d].to_i + cnt
+      @empresa_month_count[emp]    = @empresa_month_count[emp].to_i + cnt
+
+      if adj.mandante_rut.present? || adj.mandante_nombre.present?
+        mrut = adj.mandante_rut.presence || adj.mandante_nombre.to_s
+        mnom = adj.mandante_nombre.presence || adj.mandante_rut.to_s
+        @emp_to_mandante[emp] = [mrut, mnom]
+        (@mandante_names ||= {})[mrut] ||= mnom
+      end
+    end
+  end
+
+  def apply_mobility_db_adjustments_for_year_month!(mm)
+    MobilityAdjustment.in_month(@year, mm).find_each do |adj|
+      next if adj.fecha.nil? || adj.empresa.blank?
+
+      emp = adj.empresa.to_s
+      uf  = to_decimal(adj.uf)
+      cnt = adj.servicios.to_i
+
+      @empresa_month[emp]                       = @empresa_month[emp].to_d + uf
+      @empresa_month_count[emp]                 = @empresa_month_count[emp].to_i + cnt
+      (@empresa_month_movilidad[emp] ||= {})[mm]            = (@empresa_month_movilidad[emp][mm] || 0).to_d + uf
+      (@empresa_month_movilidad_count[emp] ||= {})[mm]      = (@empresa_month_movilidad_count[emp][mm] || 0).to_i + cnt
+
+      if adj.mandante_rut.present? || adj.mandante_nombre.present?
+        mrut = adj.mandante_rut.presence || adj.mandante_nombre.to_s
+        mnom = adj.mandante_nombre.presence || adj.mandante_rut.to_s
+        @emp_to_mandante[emp] = [mrut, mnom]
+        (@mandante_names ||= {})[mrut] ||= mnom
+      end
+
+    end
+  end
+
+
+  def _norm_name(s)
+    require "i18n" unless defined?(I18n)
+    I18n.transliterate(s.to_s).gsub(/[\s\.]/, "").downcase
+  end
+
+  def lonely_mandantes_keys
+    (@empresas_por_mandante || {}).select { |_rut, arr| arr.blank? }.keys
+  end
+
+  def drop_lonely_mandantes_from!(hashes)
+    lonely_mandantes_keys.each do |rut|
+      Array(hashes).each { |h| h&.delete(rut) }
+    end
+  end
+
+
+  def prune_company_duplicates!(company_hash)
+    return unless company_hash.is_a?(Hash)
+    mand_names_by_rut = (@mandante_names || {})
+    norm_to_rut = mand_names_by_rut.transform_values { |n| _norm_name(n) }
+    norm_index  = norm_to_rut.invert
+
+    company_hash.keys.each do |comp_key|
+      comp_norm = _norm_name(comp_key)
+      match_rut = norm_index[comp_norm]
+      next unless match_rut
+      next if (@empresas_por_mandante || {})[match_rut].to_a.include?(comp_key)
+      company_hash.delete(comp_key)
+    end
   end
 
 
