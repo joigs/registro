@@ -1,3 +1,4 @@
+# app/controllers/pausa/api/v1/sessions_controller.rb
 # frozen_string_literal: true
 
 require "jwt"
@@ -15,12 +16,32 @@ module Pausa
 
           user = AppUser.find_by(rut: rut)
 
-          if user&.activo && user.creado
-            token = jwt_encode({ id: user.id })
-            render json: { token: token, admin: user.admin, creado: user.creado }, status: :ok
-          else
-            render json: { error: "Rut inválido, usuario inactivo o no aprobado" }, status: :unauthorized
+          unless user&.activo && user&.creado
+            return render json: { error: "Rut inválido, usuario inactivo o no aprobado" }, status: :unauthorized
           end
+
+          if user.admin?
+            pwd = params[:password] || params.dig(:session, :password)
+
+            if pwd.blank?
+              return render json: {
+                error: "Contraseña requerida para administradores",
+                error_code: "password_required",
+                admin: true
+              }, status: :unauthorized
+            end
+
+            unless user.authenticate(pwd)
+              return render json: {
+                error: "Contraseña inválida",
+                error_code: "invalid_password",
+                admin: true
+              }, status: :unauthorized
+            end
+          end
+
+          token = jwt_encode({ id: user.id })
+          render json: { token: token, admin: user.admin, creado: user.creado }, status: :ok
         end
 
         private

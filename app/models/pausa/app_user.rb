@@ -10,5 +10,12 @@ module Pausa
     validates :nombre, :rut, :correo, presence: true
     validates :rut, uniqueness: true
     validates :correo, format: { with: EMAIL_REGEX }
+
+
+    has_secure_password validations: false
+
+
+
+
   end
 end
