@@ -33,6 +33,7 @@ Rails.application.routes.draw do
           end
           post :login, to: "sessions#create"
           resources :pause_windows, param: :id, only: [:index, :update]
+          resources :banners, only: [:index]
 
           resources :daily_logs, only: [] do
             collection do
