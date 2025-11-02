@@ -33,3 +33,24 @@ end
 #   enabled: true,
 #   admin_only: false
 # )
+
+
+
+ Pausa::AppBanner.create!(
+   kind: "inline",
+   message: "hola.",
+   link_url: "https://youtube.com/",
+   link_label: "Ver aviso",
+   enabled: true,
+   admin_only: false
+ )
+
+
+ Pausa::AppBanner.create!(
+   kind: "modal",
+   message: "mensaje urgente.",
+   link_url: "https://youtube.com",
+   link_label: "Actualizar",
+   enabled: true,
+   admin_only: false
+ )

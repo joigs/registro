@@ -4,7 +4,8 @@ module Pausa
     module V1
       class BannersController < ApplicationController
         before_action :authenticate!
-
+        skip_before_action :verify_authenticity_token
+        skip_before_action :protect_pages
         def index
           is_admin = current_user&.admin? || false
           scoped   = Pausa::AppBanner.enabled.for_admin(is_admin)
