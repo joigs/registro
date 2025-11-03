@@ -64,12 +64,21 @@ module Pausa
           token_param = params[:fcm_token].presence || params[:expo_push_token].presence
           return render(json: { error: "Falta fcm_token" }, status: :unprocessable_entity) if token_param.blank?
 
-          if @user.update(expo_push_token: token_param)
-            head :no_content
-          else
-            render json: { errors: @user.errors.full_messages }, status: :unprocessable_entity
+     
+          AppUser.transaction do
+            AppUser.where(expo_push_token: token_param)
+                   .where.not(id: @user.id)
+                   .update_all(expo_push_token: nil)
+
+            @user.update!(expo_push_token: token_param)
           end
+
+          head :no_content
+        rescue ActiveRecord::RecordInvalid => e
+          render json: { errors: Array(e.record&.errors&.full_messages).presence || ["No se pudo actualizar"] },
+                 status: :unprocessable_entity
         end
+
 
 
         def set_active
