@@ -1072,7 +1072,12 @@ SQL
     #puts("oxy_total_count=#{@oxy_total_count} ")
 
 
-    @ald_total_uf = to_decimal(@current_ald&.total_uf)
+    @ald_total_uf =
+      if @current_ald && @current_ald.respond_to?(:total_clp) && @current_ald.total_clp.present?
+        uf_from_pesos(@current_ald.total_clp, @uf)
+      else
+        to_decimal(@current_ald&.total_uf)
+      end
 
     if @current_ald
 
@@ -1609,9 +1614,11 @@ end
       year:       data["year"],
       n1:         data["n1"],
       n2:         data["n2"],
-      total_uf:   to_decimal(data["total"])
+      total_uf:   to_decimal(data["total"]),
+      total_clp:  (data["total_clp"] || data[:total_clp]),
     )
   end
+
 
   def parse_otros(arr)
     Array(arr).map do |o|
@@ -2145,15 +2152,17 @@ end
   def parse_ald_anual(arr)
     ensure_array(arr).select { |e| e.is_a?(Hash) }.map do |data|
       OpenStruct.new(
-        id:       data["id"] || data[:id],
-        month:    data["month"] || data[:month],
-        year:     data["year"] || data[:year],
-        n1:       data["n1"] || data[:n1],
-        n2:       data["n2"] || data[:n2],
-        total_uf: to_decimal(data["total"] || data[:total])
+        id:         data["id"] || data[:id],
+        month:      data["month"] || data[:month],
+        year:       data["year"]  || data[:year],
+        n1:         data["n1"]    || data[:n1],
+        n2:         data["n2"]    || data[:n2],
+        total_uf:   to_decimal(data["total"] || data[:total]),
+        total_clp:  (data["total_clp"] || data[:total_clp])
       )
     end
   end
+
 
   def parse_otros_anual(arr)
     ensure_array(arr).select { |e| e.is_a?(Hash) }.map do |o|
@@ -2486,15 +2495,21 @@ end
   end
 
   def ald_monthly_sums_anual(alds, year)
+    ufm = uf_map_for_year(year)
     Hash.new(BigDecimal("0")).tap do |h|
       months_range_for_year(year).each { |m| h[m] = 0.to_d }
       Array(alds).each do |a|
         m = a&.month.to_i
         next unless m > 0
-        h[m] += to_decimal(a.total_uf || a.total)
+        if a.respond_to?(:total_clp) && a.total_clp.present?
+          h[m] += uf_from_pesos(a.total_clp, ufm[m].to_d)
+        else
+          h[m] += to_decimal(a.total_uf || a.total)
+        end
       end
     end
   end
+
 
   def ald_monthly_counts_anual(alds, year)
     Hash.new(0).tap do |h|
