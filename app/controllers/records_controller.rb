@@ -21,7 +21,7 @@ class RecordsController < ApplicationController
     "85805200" => "Forestal Arauco SA",
   }.freeze
   SMALL_MANDANTE_PARENT = {
-    "90222000" => "91440000" #poner mandante cmpc de movilidad como si fuera una empresa de mininco
+    "90222000" => "91440000"
   }.freeze
   UF_SCALE_INTERNAL  = 12
   UF_SCALE_DISPLAY   = 4
@@ -198,7 +198,7 @@ SQL
         parents_by_orig = Set.new
         checklists.each do |row|
           if row.CertActivoId.to_i == row.ActivoPadre.to_i && !row.ActivoPadre.to_i.zero?
-            parents_by_orig << [row.ActivoPadre.to_i, row.CertChkLstFch.to_date]
+            parents_by_orig << [row.ActivoPadre.to_i, row.CertChkLstFch&.to_date]
           end
         end
 
@@ -210,7 +210,7 @@ SQL
 
           next if pid.zero? && !row.CertChkLstIndividual
 
-          orig_day = row.CertChkLstFch.to_date
+          orig_day = row.CertChkLstFch&.to_date
           key      = [pid, orig_day]
 
           if row.CertChkLstIndividual
@@ -259,7 +259,7 @@ SQL
 
         rows_ok
           .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
-          .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac.to_date] }
+          .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac&.to_date] }
           .each do |(_rut, empresa, fecha), filas_dia|
           @empresa_month_count[empresa] += filas_dia.size
           monto_pesos = if _rut == 91_440_000
@@ -665,7 +665,7 @@ SQL
     parents_by_orig = Set.new
     checklists.each do |row|
       if row.CertActivoId.to_i == row.ActivoPadre.to_i && !row.ActivoPadre.to_i.zero?
-        parents_by_orig << [row.ActivoPadre.to_i, row.CertChkLstFch.to_date]
+        parents_by_orig << [row.ActivoPadre.to_i, row.CertChkLstFch&.to_date]
       end
     end
 
@@ -679,7 +679,7 @@ SQL
 
       next if pid.zero? && !row.CertChkLstIndividual
 
-      orig_day = row.CertChkLstFch.to_date
+      orig_day = row.CertChkLstFch&.to_date
       key      = [pid, orig_day]
 
       if row.CertChkLstIndividual
@@ -846,7 +846,7 @@ SQL
     @empresa_month_count = Hash.new(0)
     rows_ok
       .reject { |r| flag_on[r.CertChkLstCosto0] || flag_on[r.CertChkLstSinCosto] }
-      .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac.to_date] }
+      .group_by { |r| [r.CerManRut, r.CerManNombre, r.CertChkLstFchFac&.to_date] }
       .each do |(_rut, empresa, fecha), filas_dia|
       @empresa_day_count[empresa][fecha.day] += filas_dia.size
       @empresa_month_count[empresa]          += filas_dia.size
