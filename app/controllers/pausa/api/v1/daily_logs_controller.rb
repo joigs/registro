@@ -3,17 +3,18 @@ module Pausa
   module Api
     module V1
       class DailyLogsController < ApplicationController
+        VERSION_SERVIDOR = 1
+
         before_action :authenticate!
         skip_before_action :verify_authenticity_token
         skip_before_action :protect_pages
 
         # GET /daily_logs/today
-        # Agregamos flags para que el cliente oculte botón en fds/feriado
         def today
           today = Time.zone.today
           locked, reason = weekend_or_holiday?(today)
 
-          log = ensure_today_log(@current_user) # mantener para consistencia histórica
+          log = ensure_today_log(@current_user)
           render json: serialize_log(log).merge(locked: locked, reason: reason)
         end
 
@@ -24,10 +25,16 @@ module Pausa
             return render json: { error: "moment inválido" }, status: :unprocessable_entity
           end
 
+          server_version = VERSION_SERVIDOR
+          client_version = params[:version_cliente].to_i
+          client_version = 1 if client_version <= 0
+          if client_version < server_version
+            return render json: { error: "Versión antigua. Actualice la aplicación." }, status: :unprocessable_entity
+          end
+
           today = Time.zone.today
           locked, reason = weekend_or_holiday?(today)
           if locked
-            # respuesta amigable; el cliente mostrará el texto, NO códigos crudos
             return render json: { error: (reason == "feriado" ? "Hoy es feriado. No se registran pausas." : "Fin de semana. No se registran pausas.") },
                           status: :unprocessable_entity
           end

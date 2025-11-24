@@ -13,7 +13,10 @@ module Pausa
         def index
           is_admin = @current_user&.admin? || false
 
-          scoped = Pausa::AppBanner.enabled.for_admin(is_admin)
+          client_version = params[:version_cliente].to_i
+          client_version = 1 if client_version <= 0
+
+          scoped = Pausa::AppBanner.enabled.for_admin(is_admin).for_version(client_version)
           inline = scoped.for_kind("inline").order(created_at: :desc).limit(1).first
           modal  = scoped.for_kind("modal").order(created_at: :desc).limit(1).first
 
@@ -22,7 +25,6 @@ module Pausa
             modal:  modal  ? serialize(modal)  : nil
           }
         rescue => e
-          # Si algo falla, devolvemos un mensaje claro (y no un 500 silencioso)
           Rails.logger.error("[banners#index] #{e.class}: #{e.message}")
           render json: { error: "failed", message: e.message }, status: :internal_server_error
         end
@@ -38,11 +40,11 @@ module Pausa
             link_label: b.link_label,
             enabled: b.enabled,
             admin_only: b.admin_only,
-            created_at: b.created_at
+            created_at: b.created_at,
+            version: b.version
           }
         end
 
-        # ====== Auth mínima (copiada de AppUsersController) ======
         def jwt_secret
           Rails.application.credentials.jwt_secret ||
             ENV["JWT_SECRET"] ||
