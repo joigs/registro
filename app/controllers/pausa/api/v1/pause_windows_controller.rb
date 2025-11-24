@@ -10,8 +10,10 @@ module Pausa
 
         # GET /pause_windows
         def index
-          response.set_header("X-Server-Time", Time.current.iso8601)
-          render json: AppPauseWindow.order(:moment)
+          now_iso = Time.current.iso8601
+          response.set_header("X-Server-Time", now_iso)
+          windows = AppPauseWindow.order(:moment)
+          render json: windows.map { |w| w.as_json.merge(server_now: now_iso) }
         end
 
         # PATCH /pause_windows/:moment   (morning|evening)
