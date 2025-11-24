@@ -10,6 +10,7 @@ module Pausa
 
         # GET /pause_windows
         def index
+          response.set_header("X-Server-Time", Time.current.iso8601)
           render json: AppPauseWindow.order(:moment)
         end
 
