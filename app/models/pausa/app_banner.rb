@@ -25,7 +25,8 @@ end
 #   link_url: "https://url.cl/aviso",
 #   link_label: "Ver aviso",
 #   enabled: true,
-#   admin_only: false
+#   admin_only: false,
+#   version: 1
 # )
 #
 # Pausa::AppBanner.create!(
@@ -34,7 +35,8 @@ end
 #   link_url: "https:url.com",
 #   link_label: "Actualizar",
 #   enabled: true,
-#   admin_only: false
+#   admin_only: false,
+#   version: 1
 # )
 
 
