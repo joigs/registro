@@ -3,7 +3,7 @@ module Pausa
   module Api
     module V1
       class DailyLogsController < ApplicationController
-        VERSION_SERVIDOR = 1
+        VERSION_SERVIDOR = 2
 
         before_action :authenticate!
         skip_before_action :verify_authenticity_token
