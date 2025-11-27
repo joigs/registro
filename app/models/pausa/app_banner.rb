@@ -18,16 +18,17 @@ module Pausa
   end
 end
 
-
-# Pausa::AppBanner.create!(
-#   kind: "inline",
-#   message: "hola.",
-#   link_url: "https://url.cl/aviso",
-#   link_label: "Ver aviso",
-#   enabled: true,
-#   admin_only: false,
-#   version: 1
-# )
+=begin
+ Pausa::AppBanner.create!(
+   kind: "inline",
+   message: "Nueva versión disponible.",
+   link_url: "https://link.com",
+   link_label: "Descargar",
+   enabled: true,
+   admin_only: false,
+   version: 1
+ )
+=end
 #
 # Pausa::AppBanner.create!(
 #   kind: "modal",
@@ -38,6 +39,5 @@ end
 #   admin_only: false,
 #   version: 1
 # )
-
 
 
