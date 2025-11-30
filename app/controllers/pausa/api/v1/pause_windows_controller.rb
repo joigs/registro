@@ -3,6 +3,8 @@ module Pausa
   module Api
     module V1
       class PauseWindowsController < ApplicationController
+        DURATION_MINUTES = 10
+
         before_action :authenticate!
         before_action :authorize_admin!, only: [:update]
         skip_before_action :verify_authenticity_token
@@ -13,7 +15,7 @@ module Pausa
           now_iso = Time.current.iso8601
           response.set_header("X-Server-Time", now_iso)
           windows = AppPauseWindow.order(:moment)
-          render json: windows.map { |w| w.as_json.merge(server_now: now_iso) }
+          render json: windows.map { |w| w.as_json.merge(server_now: now_iso, duration_minutes: DURATION_MINUTES) }
         end
 
         # PATCH /pause_windows/:moment   (morning|evening)
