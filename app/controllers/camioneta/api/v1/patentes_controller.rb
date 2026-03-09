@@ -10,7 +10,7 @@ module Camioneta
         end
 
         def show
-          patente = CheckPatente.find(params[:id])
+          patente = Camioneta::CheckPatente.find(params[:id])
 
           fecha_inicio = case params[:periodo]
                          when 'semana' then Time.current.beginning_of_week
@@ -25,6 +25,7 @@ module Camioneta
 
           render json: {
             patente: patente,
+            fecha_servidor: Time.current.to_date,
             checkeos: checkeos.as_json(include: :check_usuarios)
           }, status: :ok
         end

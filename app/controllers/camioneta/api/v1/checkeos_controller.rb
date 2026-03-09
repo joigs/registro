@@ -5,15 +5,14 @@ module Camioneta
         before_action :require_login
 
         def index
-          checkeos = CheckCheckeo.includes(:check_usuarios).all
-          render json: checkeos.as_json(include: :check_usuarios), status: :ok
+          checkeos = Camioneta::CheckCheckeo.includes(:check_usuarios, :check_patente).all
+          render json: checkeos.as_json(include: [:check_usuarios, :check_patente]), status: :ok
         end
 
         def show
-          checkeo = CheckCheckeo.find(params[:id])
-          render json: checkeo.as_json(include: :check_usuarios), status: :ok
+          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          render json: checkeo.as_json(include: [:check_usuarios, :check_patente]), status: :ok
         end
-
         def create
           patente_codigo = params.dig(:checkeo, :patente_codigo)
           patente = Camioneta::CheckPatente.find_or_create_by!(codigo: patente_codigo)
