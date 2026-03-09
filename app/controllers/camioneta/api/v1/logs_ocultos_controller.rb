@@ -5,7 +5,7 @@ module Camioneta
         before_action :require_login
 
         def create
-          log = Camioneta::CheckLogOculto.new(log_params.merge(
+          log = CheckLogOculto.new(log_params.merge(
             usuario_id_accion: @current_usuario.id,
             usuario_nombre: @current_usuario.nombre
           ))

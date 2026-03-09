@@ -5,20 +5,20 @@ module Camioneta
         before_action :require_login
 
         def index
-          checkeos = Camioneta::CheckCheckeo.includes(:check_usuarios).all
+          checkeos = CheckCheckeo.includes(:check_usuarios).all
           render json: checkeos.as_json(include: :check_usuarios), status: :ok
         end
 
         def show
-          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          checkeo = CheckCheckeo.find(params[:id])
           render json: checkeo.as_json(include: :check_usuarios), status: :ok
         end
 
         def create
-          checkeo = Camioneta::CheckCheckeo.new(checkeo_params)
+          checkeo = CheckCheckeo.new(checkeo_params)
           if checkeo.save
             params[:usuario_ids].each do |u_id|
-              Camioneta::CheckCheckeoUsuario.create!(
+              CheckCheckeoUsuario.create!(
                 check_usuario_id: u_id,
                 check_checkeo_id: checkeo.id,
                 estado_eliminacion: 0
@@ -35,16 +35,16 @@ module Camioneta
         end
 
         def update
-          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          checkeo = CheckCheckeo.find(params[:id])
           if checkeo.update(checkeo_params)
-            Camioneta::CheckeoChannel.broadcast_to(checkeo, checkeo.as_json)
+            CheckeoChannel.broadcast_to(checkeo, checkeo.as_json)
             render json: checkeo, status: :ok
           else
             render json: { errors: checkeo.errors.full_messages }, status: :unprocessable_entity
           end
         end
         def solicitar_eliminacion
-          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          checkeo = CheckCheckeo.find(params[:id])
           relacion_actual = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
           relacion_actual.update(estado_eliminacion: 1)
 
@@ -56,12 +56,12 @@ module Camioneta
         end
 
         def responder_eliminacion
-          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          checkeo = CheckCheckeo.find(params[:id])
           relacion = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
           relacion.update(estado_eliminacion: params[:aprueba] ? 1 : 2)
 
           if checkeo.listos_para_eliminar?
-            Camioneta::CheckLogOculto.create!(
+            CheckLogOculto.create!(
               usuario_id_accion: @current_usuario.id,
               usuario_nombre: @current_usuario.nombre,
               accion_realizada: "Eliminacion de Chequeo Aprobada",
@@ -75,7 +75,7 @@ module Camioneta
         end
 
         def reportar_error
-          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          checkeo = CheckCheckeo.find(params[:id])
           checkeo.check_usuarios.each do |usuario|
             enviar_notificacion(usuario.id, 0, "Error reportado por #{@current_usuario.nombre}: #{params[:mensaje]}")
           end
@@ -98,7 +98,7 @@ module Camioneta
         end
 
         def enviar_notificacion(usuario_id, tipo, mensaje)
-          Camioneta::CheckNotificacion.create!(
+          CheckNotificacion.create!(
             check_usuario_id: usuario_id,
             tipo_notificacion: tipo,
             mensaje: mensaje

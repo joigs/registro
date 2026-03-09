@@ -5,12 +5,12 @@ module Camioneta
         before_action :require_login
 
         def index
-          patentes = Camioneta::CheckPatente.all
+          patentes = CheckPatente.all
           render json: patentes, status: :ok
         end
 
         def show
-          patente = Camioneta::CheckPatente.find(params[:id])
+          patente = CheckPatente.find(params[:id])
 
           fecha_inicio = case params[:periodo]
                          when 'semana' then Time.current.beginning_of_week
@@ -30,7 +30,7 @@ module Camioneta
         end
 
         def create
-          patente = Camioneta::CheckPatente.new(patente_params)
+          patente = CheckPatente.new(patente_params)
           if patente.save
             render json: patente, status: :created
           else
@@ -39,9 +39,9 @@ module Camioneta
         end
 
         def destroy
-          patente = Camioneta::CheckPatente.find(params[:id])
+          patente = CheckPatente.find(params[:id])
 
-          Camioneta::CheckLogOculto.create!(
+          CheckLogOculto.create!(
             usuario_id_accion: @current_usuario.id,
             usuario_nombre: @current_usuario.nombre,
             accion_realizada: "Eliminacion de Patente",
