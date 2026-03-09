@@ -1,6 +1,6 @@
 module Camioneta
   class CheckUsuario < ApplicationRecord
-    self.table_name = "camioneta_check_usuarios"
+    self.table_name = "check_usuarios"
 
     has_many :check_notificaciones, foreign_key: 'check_usuario_id', dependent: :destroy
     has_many :check_checkeo_usuarios, foreign_key: 'check_usuario_id', dependent: :destroy

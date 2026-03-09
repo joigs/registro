@@ -1,6 +1,6 @@
 module Camioneta
   class CheckCheckeo < ApplicationRecord
-    self.table_name = "camioneta_check_checkeos"
+    self.table_name = "check_checkeos"
 
     belongs_to :check_patente, class_name: 'Camioneta::CheckPatente'
 

@@ -1,6 +1,6 @@
 module Camioneta
   class CheckNotificacion < ApplicationRecord
-    self.table_name = "camioneta_check_notificaciones"
+    self.table_name = "check_notificaciones"
 
     belongs_to :check_usuario, class_name: 'Camioneta::CheckUsuario'
 
