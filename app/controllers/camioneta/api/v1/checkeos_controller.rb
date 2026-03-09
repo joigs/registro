@@ -15,17 +15,22 @@ module Camioneta
         end
 
         def create
-          checkeo = CheckCheckeo.new(checkeo_params)
+          patente_codigo = params.dig(:checkeo, :patente_codigo)
+          patente = Camioneta::CheckPatente.find_or_create_by!(codigo: patente_codigo)
+
+          checkeo = Camioneta::CheckCheckeo.new(checkeo_params)
+          checkeo.check_patente_id = patente.id
+
           if checkeo.save
             params[:usuario_ids].each do |u_id|
-              CheckCheckeoUsuario.create!(
+              Camioneta::CheckCheckeoUsuario.create!(
                 check_usuario_id: u_id,
                 check_checkeo_id: checkeo.id,
                 estado_eliminacion: 0
               )
 
               if u_id.to_i != @current_usuario.id
-                enviar_notificacion(u_id, 1, "Has sido invitado a un chequeo de la patente #{checkeo.check_patente.codigo}")
+                enviar_notificacion(u_id, 1, "Has sido invitado a un chequeo de la patente #{patente.codigo}")
               end
             end
             render json: checkeo, status: :created
@@ -33,7 +38,6 @@ module Camioneta
             render json: { errors: checkeo.errors.full_messages }, status: :unprocessable_entity
           end
         end
-
         def update
           checkeo = CheckCheckeo.find(params[:id])
           if checkeo.update(checkeo_params)
