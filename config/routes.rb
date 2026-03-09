@@ -66,7 +66,33 @@ Rails.application.routes.draw do
 
     end
 
+    scope :camioneta, module: :camioneta, as: :camioneta do
+      namespace :api, defaults: { format: :json } do
+        namespace :v1 do
+          post "login", to: "usuarios#login"
 
+          resources :usuarios, only: [:index, :show]
+
+          resources :patentes, only: [:index, :show, :create, :destroy]
+
+          resources :checkeos, only: [:index, :show, :create, :update, :destroy] do
+            member do
+              post :solicitar_eliminacion
+              post :responder_eliminacion
+              post :reportar_error
+            end
+          end
+
+          resources :notificaciones, only: [:index] do
+            member do
+              patch :marcar_leida
+            end
+          end
+
+          resources :logs_ocultos, only: [:create]
+        end
+      end
+    end
 
 
     # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
@@ -96,5 +122,5 @@ Rails.application.routes.draw do
 
   end
 
-
+  mount ActionCable.server => '/cable'
 end
