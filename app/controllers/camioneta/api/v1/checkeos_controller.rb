@@ -40,14 +40,14 @@ module Camioneta
         def update
           checkeo = CheckCheckeo.find(params[:id])
           if checkeo.update(checkeo_params)
-            CheckeoChannel.broadcast_to(checkeo, checkeo.as_json)
+            Camioneta::CheckeoChannel.broadcast_to(checkeo, checkeo.as_json)
             render json: checkeo, status: :ok
           else
             render json: { errors: checkeo.errors.full_messages }, status: :unprocessable_entity
           end
         end
         def solicitar_eliminacion
-          checkeo = CheckCheckeo.find(params[:id])
+          checkeo = Camioneta::CheckCheckeo.find(params[:id])
           relacion_actual = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
           relacion_actual.update(estado_eliminacion: 1)
 
@@ -59,12 +59,12 @@ module Camioneta
         end
 
         def responder_eliminacion
-          checkeo = CheckCheckeo.find(params[:id])
+          checkeo = Camioneta::CheckCheckeo.find(params[:id])
           relacion = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
           relacion.update(estado_eliminacion: params[:aprueba] ? 1 : 2)
 
           if checkeo.listos_para_eliminar?
-            CheckLogOculto.create!(
+            Camioneta::CheckLogOculto.create!(
               usuario_id_accion: @current_usuario.id,
               usuario_nombre: @current_usuario.nombre,
               accion_realizada: "Eliminacion de Chequeo Aprobada",
@@ -78,7 +78,7 @@ module Camioneta
         end
 
         def reportar_error
-          checkeo = CheckCheckeo.find(params[:id])
+          checkeo = Camioneta::CheckCheckeo.find(params[:id])
           checkeo.check_usuarios.each do |usuario|
             enviar_notificacion(usuario.id, 0, "Error reportado por #{@current_usuario.nombre}: #{params[:mensaje]}")
           end
@@ -101,7 +101,7 @@ module Camioneta
         end
 
         def enviar_notificacion(usuario_id, tipo, mensaje)
-          CheckNotificacion.create!(
+          Camioneta::CheckNotificacion.create!(
             check_usuario_id: usuario_id,
             tipo_notificacion: tipo,
             mensaje: mensaje
