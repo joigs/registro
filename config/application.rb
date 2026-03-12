@@ -26,5 +26,9 @@ module Evaluacion
     #
     config.time_zone = 'America/Santiago'
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # Use AnyCable secret to sign Turbo Streams
+    # https://docs.anycable.io/guides/hotwire?id=rails-applications
+    config.turbo.signed_stream_verifier_key = AnyCable.config.secret
   end
 end

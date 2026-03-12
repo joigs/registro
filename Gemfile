@@ -111,3 +111,5 @@ gem "googleauth"
 gem "faraday"
 gem "prawn"
 gem "prawn-table"
+
+gem "anycable-rails-core", "~> 1.5"

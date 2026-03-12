@@ -1,6 +1,4 @@
 module ApplicationCable
-
-  #esto esta siendo usado para camioneta
   class Connection < ActionCable::Connection::Base
     identified_by :current_usuario
 
@@ -11,8 +9,8 @@ module ApplicationCable
     private
 
     def find_verified_user
-      usuario_id = request.params[:usuario_id]
-      usuario = Camioneta::CheckUsuario.find_by(id: usuario_id)
+      token = request.params[:usuario_id]
+      usuario = Camioneta::CheckUsuario.find_by(id: token)
       if usuario
         usuario
       else
