@@ -80,6 +80,7 @@ Rails.application.routes.draw do
               post :solicitar_eliminacion
               post :responder_eliminacion
               post :reportar_error
+              post :cancelar_eliminacion
             end
           end
 

@@ -11,7 +11,22 @@ module Camioneta
 
         def show
           checkeo = Camioneta::CheckCheckeo.find(params[:id])
-          render json: checkeo.as_json(include: [:check_usuarios, :check_patente]), status: :ok
+          relacion = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
+          estado_elim = relacion ? relacion.estado_eliminacion : 0
+
+          render json: checkeo.as_json(include: [:check_usuarios, :check_patente]).merge(estado_eliminacion_propio: estado_elim), status: :ok
+        end
+
+        def cancelar_eliminacion
+          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          relacion_actual = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
+          relacion_actual.update(estado_eliminacion: 0)
+
+          checkeo.check_checkeo_usuarios.where.not(check_usuario_id: @current_usuario.id).each do |relacion|
+            enviar_notificacion(relacion.check_usuario_id, 2, "#{@current_usuario.nombre} ha cancelado la solicitud para eliminar el chequeo de la patente #{checkeo.check_patente.codigo}")
+          end
+
+          render json: { success: true }, status: :ok
         end
         def create
           patente_codigo = params.dig(:checkeo, :patente_codigo)
