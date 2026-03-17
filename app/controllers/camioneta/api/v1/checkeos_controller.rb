@@ -17,17 +17,7 @@ module Camioneta
           render json: checkeo.as_json(include: [:check_usuarios, :check_patente]).merge(estado_eliminacion_propio: estado_elim), status: :ok
         end
 
-        def cancelar_eliminacion
-          checkeo = Camioneta::CheckCheckeo.find(params[:id])
-          relacion_actual = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
-          relacion_actual.update(estado_eliminacion: 0)
 
-          checkeo.check_checkeo_usuarios.where.not(check_usuario_id: @current_usuario.id).each do |relacion|
-            enviar_notificacion(relacion.check_usuario_id, 2, "#{@current_usuario.nombre} ha cancelado la solicitud para eliminar el chequeo de la patente #{checkeo.check_patente.codigo}")
-          end
-
-          render json: { success: true }, status: :ok
-        end
         def create
           patente_codigo = params.dig(:checkeo, :patente_codigo)
           patente = Camioneta::CheckPatente.find_or_create_by!(codigo: patente_codigo)
@@ -44,13 +34,45 @@ module Camioneta
               )
 
               if u_id.to_i != @current_usuario.id
-                enviar_notificacion(u_id, 1, "Has sido invitado a un chequeo de la patente #{patente.codigo}")
+                enviar_notificacion(u_id, 1, "#{@current_usuario.nombre} te ha invitado a inspeccionar la patente #{patente.codigo} (Fecha: #{checkeo.fecha_chequeo}).")
               end
             end
             render json: checkeo, status: :created
           else
             render json: { errors: checkeo.errors.full_messages }, status: :unprocessable_entity
           end
+        end
+
+        def solicitar_eliminacion
+          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          relacion_actual = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
+          relacion_actual.update(estado_eliminacion: 1)
+
+          checkeo.check_checkeo_usuarios.where.not(check_usuario_id: @current_usuario.id).each do |relacion|
+            enviar_notificacion(relacion.check_usuario_id, 2, "#{@current_usuario.nombre} solicita eliminar la inspección de la patente #{checkeo.check_patente.codigo} (Fecha: #{checkeo.fecha_chequeo}).")
+          end
+
+          render json: { success: true }, status: :ok
+        end
+
+        def cancelar_eliminacion
+          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          relacion_actual = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
+          relacion_actual.update(estado_eliminacion: 0)
+
+          checkeo.check_checkeo_usuarios.where.not(check_usuario_id: @current_usuario.id).each do |relacion|
+            enviar_notificacion(relacion.check_usuario_id, 2, "#{@current_usuario.nombre} ha cancelado su solicitud para eliminar la inspección de la patente #{checkeo.check_patente.codigo} (Fecha: #{checkeo.fecha_chequeo}).")
+          end
+
+          render json: { success: true }, status: :ok
+        end
+
+        def reportar_error
+          checkeo = Camioneta::CheckCheckeo.find(params[:id])
+          checkeo.check_usuarios.where.not(id: @current_usuario.id).each do |usuario|
+            enviar_notificacion(usuario.id, 0, "Error reportado por #{@current_usuario.nombre} en patente #{checkeo.check_patente.codigo} (Fecha: #{checkeo.fecha_chequeo}): #{params[:mensaje]}")
+          end
+          render json: { success: true }, status: :ok
         end
         def update
           checkeo = CheckCheckeo.find(params[:id])
@@ -61,17 +83,7 @@ module Camioneta
             render json: { errors: checkeo.errors.full_messages }, status: :unprocessable_entity
           end
         end
-        def solicitar_eliminacion
-          checkeo = Camioneta::CheckCheckeo.find(params[:id])
-          relacion_actual = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
-          relacion_actual.update(estado_eliminacion: 1)
 
-          checkeo.check_checkeo_usuarios.where.not(check_usuario_id: @current_usuario.id).each do |relacion|
-            enviar_notificacion(relacion.check_usuario_id, 2, "#{@current_usuario.nombre} ha solicitado eliminar el chequeo de la patente #{checkeo.check_patente.codigo}")
-          end
-
-          render json: { success: true }, status: :ok
-        end
 
         def responder_eliminacion
           checkeo = Camioneta::CheckCheckeo.find(params[:id])
@@ -92,13 +104,7 @@ module Camioneta
           end
         end
 
-        def reportar_error
-          checkeo = Camioneta::CheckCheckeo.find(params[:id])
-          checkeo.check_usuarios.each do |usuario|
-            enviar_notificacion(usuario.id, 0, "Error reportado por #{@current_usuario.nombre}: #{params[:mensaje]}")
-          end
-          render json: { success: true }, status: :ok
-        end
+
 
         private
 

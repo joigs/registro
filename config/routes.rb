@@ -71,7 +71,11 @@ Rails.application.routes.draw do
         namespace :v1 do
           post "login", to: "usuarios#login"
 
-          resources :usuarios, only: [:index, :show]
+          resources :usuarios, only: [:index, :show] do
+            collection do
+              patch :actualizar_token
+            end
+          end
 
           resources :patentes, only: [:index, :show, :create, :destroy]
 
