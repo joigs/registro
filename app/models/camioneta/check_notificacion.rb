@@ -33,19 +33,13 @@ module Camioneta
       return unless check_usuario&.push_token.present?
 
       begin
-        fcm = FCM.new(ENV['FCM_PROJECT_ID'], ENV['GOOGLE_APPLICATION_CREDENTIALS'])
-        mensaje_push = {
-          message: {
-            token: check_usuario.push_token,
-            notification: {
-              title: "Aviso de Camioneta",
-              body: self.mensaje
-            }
-          }
-        }
-        fcm.send_v1(mensaje_push)
+        Notifier::Fcm.send_notification(
+          check_usuario.push_token,
+          title: "Aviso de Inspección",
+          body: self.mensaje
+        )
       rescue => e
-        Rails.logger.error("Error enviando FCM Push: #{e.message}")
+        Rails.logger.error("Error enviando FCM Push en Camioneta: #{e.message}")
       end
     end
   end

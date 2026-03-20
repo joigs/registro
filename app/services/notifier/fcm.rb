@@ -37,6 +37,29 @@ module Notifier
         post_fcm(payload)
       end
 
+      def send_notification(token, title:, body:, data: {})
+        token = token.to_s.strip
+        return false if token.empty?
+
+        payload_data = stringify_values(data || {})
+
+        payload = {
+          message: {
+            token: token,
+            notification: {
+              title: title.to_s,
+              body: body.to_s
+            },
+            data: payload_data,
+            android: {
+              priority: "HIGH"
+            }
+          }
+        }
+
+        post_fcm(payload)
+      end
+
       private
 
       def post_fcm(payload)
