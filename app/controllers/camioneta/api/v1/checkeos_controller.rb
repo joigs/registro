@@ -6,7 +6,7 @@ module Camioneta
 
         def index
           checkeos = Camioneta::CheckCheckeo.includes(:check_usuarios, :check_patente).order(created_at: :desc)
-          render json: checkeos.as_json(include: [:check_usuarios, :check_patente]), status: :ok
+          render json: checkeos.as_json(include: [:check_usuarios, :check_patente], methods: [:conforme]), status: :ok
         end
 
         def show
@@ -14,7 +14,7 @@ module Camioneta
           relacion = checkeo.check_checkeo_usuarios.find_by(check_usuario_id: @current_usuario.id)
           estado_elim = relacion ? relacion.estado_eliminacion : 0
 
-          render json: checkeo.as_json(include: [:check_usuarios, :check_patente]).merge(estado_eliminacion_propio: estado_elim), status: :ok
+          render json: checkeo.as_json(include: [:check_usuarios, :check_patente], methods: [:conforme]).merge(estado_eliminacion_propio: estado_elim), status: :ok
         end
 
 

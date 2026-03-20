@@ -22,5 +22,22 @@ module Camioneta
     def listos_para_eliminar?
       check_checkeo_usuarios.all?(&:aprueba_eliminar?)
     end
+    def conforme
+      return false unless completado
+
+      extintor_ok = extintor == 'extintor_si' || extintor == 0 || extintor == '0'
+      kit_ok = kit_derrame == 'kit_si' || kit_derrame == 0 || kit_derrame == '0'
+
+      extintor_ok && kit_ok &&
+        botiquin && gata && cadenas && llave_rueda && antena_radio &&
+        permiso_circulacion && revision_tecnica && soap && alcohol &&
+        protector_solar && carpeta && panos_limpieza && conos &&
+        radio_comunicacion && espejo_inspeccion && toldo && pie_de_metro &&
+        tintas && arnes &&
+        falta_diclofenaco_cant.to_i >= 3 && falta_guantes_cant.to_i >= 3 &&
+        falta_parche_curita_cant.to_i >= 5 && falta_gasa_cant.to_i >= 10 &&
+        falta_venda_cant.to_i >= 1 && falta_suero_cant.to_i >= 3 &&
+        falta_tela_adhesiva_cant.to_i >= 1 && falta_palitos_cant.to_i >= 6
+    end
   end
 end
