@@ -73,7 +73,7 @@ Rails.application.routes.draw do
 
           resources :usuarios, only: [:index, :show] do
             collection do
-              patch :actualizar_token
+              put :actualizar_token
             end
           end
 
