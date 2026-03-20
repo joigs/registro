@@ -15,7 +15,7 @@ module Camioneta
 
     def unico_chequeo_activo_por_dia
       if CheckCheckeo.where(check_patente_id: check_patente_id, fecha_chequeo: fecha_chequeo).exists?
-        errors.add(:fecha_chequeo, "Ya existe un chequeo activo para esta patente hoy")
+        errors.add("Ya existe una inspeción activa para esta patente hoy")
       end
     end
 
