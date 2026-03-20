@@ -5,10 +5,9 @@ module Camioneta
         before_action :require_login
 
         def index
-          patentes = CheckPatente.all
+          patentes = Camioneta::CheckPatente.order(created_at: :desc)
           render json: patentes, status: :ok
         end
-
         def show
           patente = Camioneta::CheckPatente.find(params[:id])
 

@@ -5,7 +5,7 @@ module Camioneta
         before_action :require_login
 
         def index
-          checkeos = Camioneta::CheckCheckeo.includes(:check_usuarios, :check_patente).all
+          checkeos = Camioneta::CheckCheckeo.includes(:check_usuarios, :check_patente).order(created_at: :desc)
           render json: checkeos.as_json(include: [:check_usuarios, :check_patente]), status: :ok
         end
 
@@ -27,19 +27,16 @@ module Camioneta
 
           if checkeo.save
             params[:usuario_ids].each do |u_id|
-              Camioneta::CheckCheckeoUsuario.create!(
-                check_usuario_id: u_id,
-                check_checkeo_id: checkeo.id,
-                estado_eliminacion: 0
-              )
-
+              Camioneta::CheckCheckeoUsuario.create!(check_usuario_id: u_id, check_checkeo_id: checkeo.id, estado_eliminacion: 0)
               if u_id.to_i != @current_usuario.id
                 enviar_notificacion(u_id, 1, "#{@current_usuario.nombre} te ha invitado a inspeccionar la patente #{patente.codigo} (Fecha: #{checkeo.fecha_chequeo}).")
               end
             end
             render json: checkeo, status: :created
           else
-            render json: { errors: checkeo.errors.full_messages }, status: :unprocessable_entity
+            mensaje = checkeo.errors.full_messages.join(", ")
+            mensaje = "Ya existe una inspección para esta patente en el día de hoy." if mensaje.downcase.include?("taken") || mensaje.downcase.include?("ya está")
+            render json: { error: mensaje }, status: :unprocessable_entity
           end
         end
 
