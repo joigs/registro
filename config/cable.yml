@@ -1,9 +1,9 @@
 development:
-  adapter: any_cable
-
+  adapter: postgresql
+  channel_prefix: ventas_development
 test:
   adapter: test
 
 production:
-  adapter: any_cable
-  channel_prefix: elevador_production
+  adapter: postgresql
+  channel_prefix: ventas_production

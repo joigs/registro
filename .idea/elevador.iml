@@ -59,7 +59,6 @@
     <orderEntry type="library" scope="PROVIDED" name="cronex (v0.15.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="csv (v3.3.2, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="debug (v1.9.1, rbenv: 3.3.0) [gem]" level="application" />
-    <orderEntry type="library" scope="PROVIDED" name="debugbar (v0.4.3, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="docx (v0.3.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="dotenv (v3.1.8, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="dotenv-rails (v3.1.8, rbenv: 3.3.0) [gem]" level="application" />
