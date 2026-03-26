@@ -785,6 +785,7 @@ SQL
         pat = f.respond_to?(:patente_considerada) ? f.patente_considerada : f.CertActivoNro
         uf  = uf_from_pesos(f.monto_checklist.to_d, @uf)
 
+=begin
         puts "   • chk=#{f.CertChkLstId.to_s.ljust(6)}  "\
                "pat=#{pat.ljust(10)}  "\
                "orig=#{f.CertChkLstFch}  fac=#{f.CertChkLstFchFac}  "\
@@ -795,6 +796,7 @@ SQL
                "AT=#{f.CertActivoATrabId.to_s.ljust(4)}  "\
                "$=#{sprintf('%.2f', f.monto_checklist)}  "\
                "(#{uf.to_f} UF)"
+=end
 
 
 
@@ -821,6 +823,7 @@ SQL
 
         }
       end
+=begin
       puts "   -- DESGLOSE EMPRESA #{empresa_peq} --"
       des.each do |d|
         puts "      AT=#{d[:atrab]}  Pla=#{d[:pla]}  Tipo=#{d[:tipo]}  "\
@@ -828,6 +831,7 @@ SQL
                "Patentes: #{d[:pats].join(', ')}"
       end
       puts
+=end
     end
     #    puts "========================================================================"
 
@@ -928,6 +932,7 @@ SQL
                                                }
     @movilidad_total_count = mandante_month_count.values.sum
 
+=begin
 
     puts "@empresa_day_count                = #{@empresa_day_count.inspect}"
     puts "@empresa_month_count              = #{@empresa_month_count.inspect}"
@@ -935,6 +940,7 @@ SQL
     puts "@movilidad_month_by_empresa_count = #{@movilidad_month_by_empresa_count.inspect}"
     puts "@movilidad_daily_count            = #{@movilidad_daily_count.inspect}"
     puts "@movilidad_total_count            = #{@movilidad_total_count}"
+=end
 
 
     @movilidad_day_company      = mandante_day
@@ -1188,7 +1194,7 @@ SQL
 
     @count_month = @vertical_total_count + @evaluacion_total_count + @movilidad_total_count
 
-    puts("count_month=#{@count_month} ")
+    #puts("count_month=#{@count_month} ")
 
     vertical_facturacions_by_day = daily_sums(@facturacions, :fecha_venta)
     vertical_counts_by_day = vertical_daily_counts(@facturacions, :fecha_venta)
@@ -1266,7 +1272,7 @@ SQL
                                      @otros_month_by_empresa)
 
 
-    puts("month_by_empresa=#{@month_by_empresa.inspect} ")
+    #puts("month_by_empresa=#{@month_by_empresa.inspect} ")
     prune_company_duplicates!(@month_by_empresa)
     prune_company_duplicates!(@month_by_empresa_count)
 
@@ -1327,7 +1333,7 @@ SQL
       @otros_day_company_count
     )
 
-    puts("evaluation_day_company_count=#{@evaluation_day_company_count.inspect} ")
+    #puts("evaluation_day_company_count=#{@evaluation_day_company_count.inspect} ")
     @evaluation_month_by_empresa_count =
       @evaluation_day_company_count.transform_values { |per_day| per_day.values.sum }
 
@@ -1362,7 +1368,7 @@ end
 
 
 
-    puts("day_company_count=#{@day_company_count.inspect} ")
+    #puts("day_company_count=#{@day_company_count.inspect} ")
 
     @module_months = {
       "Transporte Vertical"        => @vertical_month_by_empresa,
@@ -1405,7 +1411,7 @@ end
     end
 
 
-     puts("@module_months_count=#{@module_months_count.inspect} ")
+    #puts("@module_months_count=#{@module_months_count.inspect} ")
 
 
     @month_by_empresa_count = merge_counts_hashes(
@@ -1447,7 +1453,7 @@ end
     end
 
 
-      puts("month_by_empresa_count=#{@month_by_empresa_count.inspect} ")
+    #puts("month_by_empresa_count=#{@month_by_empresa_count.inspect} ")
     end
   end
 
