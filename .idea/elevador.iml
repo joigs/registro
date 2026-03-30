@@ -42,9 +42,6 @@
     <orderEntry type="library" scope="PROVIDED" name="activesupport (v7.1.3, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="acts_as_paranoid (v0.9.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="addressable (v2.8.6, rbenv: 3.3.0) [gem]" level="application" />
-    <orderEntry type="library" scope="PROVIDED" name="anycable-core (v1.6.3, rbenv: 3.3.0) [gem]" level="application" />
-    <orderEntry type="library" scope="PROVIDED" name="anycable-rails-core (v1.6.1, rbenv: 3.3.0) [gem]" level="application" />
-    <orderEntry type="library" scope="PROVIDED" name="anyway_config (v2.8.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="bcrypt (v3.1.20, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="bigdecimal (v3.1.6, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="bindex (v0.8.1, rbenv: 3.3.0) [gem]" level="application" />
@@ -71,7 +68,6 @@
     <orderEntry type="library" scope="PROVIDED" name="globalid (v1.2.1, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="google-cloud-env (v2.3.1, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="google-logging-utils (v0.2.0, rbenv: 3.3.0) [gem]" level="application" />
-    <orderEntry type="library" scope="PROVIDED" name="google-protobuf (v4.33.5, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="googleauth (v1.15.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="httparty (v0.22.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="i18n (v1.14.1, rbenv: 3.3.0) [gem]" level="application" />
@@ -120,13 +116,13 @@
     <orderEntry type="library" scope="PROVIDED" name="rake (v13.1.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="ransack (v4.1.1, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="rdoc (v6.6.2, rbenv: 3.3.0) [gem]" level="application" />
+    <orderEntry type="library" scope="PROVIDED" name="redis (v5.4.1, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="redis-client (v0.26.1, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="regexp_parser (v2.9.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="reline (v0.4.2, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="requestjs-rails (v0.0.11, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="rexml (v3.2.6, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="roo (v2.10.1, rbenv: 3.3.0) [gem]" level="application" />
-    <orderEntry type="library" scope="PROVIDED" name="ruby-next-core (v1.2.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="rubyzip (v1.3.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="selenium-webdriver (v4.16.0, rbenv: 3.3.0) [gem]" level="application" />
     <orderEntry type="library" scope="PROVIDED" name="sidekiq (v7.3.9, rbenv: 3.3.0) [gem]" level="application" />

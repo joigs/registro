@@ -1,9 +1,10 @@
 development:
-  adapter: postgresql
-  channel_prefix: ventas_development
+  adapter: async
+
 test:
   adapter: test
 
 production:
-  adapter: postgresql
+  adapter: redis
+  url: redis://127.0.0.1:6379/1
   channel_prefix: ventas_production
