@@ -124,6 +124,8 @@ Rails.application.routes.draw do
 
 
 
+    get '/descargar_acums', to: 'temporal_reports#descargar_acums'
+    get '/descargar_activos', to: 'temporal_reports#descargar_activos'
 
   end
 

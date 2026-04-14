@@ -39,3 +39,5 @@
 ascensor/
 config/firebase/*.json
 bin/dist
+/app/controllers/temporal_reports_controller.rb
+

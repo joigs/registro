@@ -1,3 +1,2 @@
 web: bin/rails server -p 3002
 css: bin/rails tailwindcss:watch
-ws: bin/anycable-go --port 8080
