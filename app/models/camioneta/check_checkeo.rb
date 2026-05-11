@@ -5,7 +5,7 @@ module Camioneta
     belongs_to :check_patente, class_name: "Camioneta::CheckPatente"
 
     has_many :check_checkeo_usuarios, foreign_key: "check_checkeo_id", dependent: :destroy
-    has_many :check_usuarios, through: :check_checkeo_usuarios
+    has_many :app_users, through: :check_checkeo_usuarios, class_name: "Pausa::AppUser"
 
     enum extintor: {
       extintor_si: 0,
@@ -72,13 +72,13 @@ module Camioneta
     def asociado?(usuario_o_id)
       usuario_id =
         case usuario_o_id
-        when Camioneta::CheckUsuario then usuario_o_id.id
+        when Pausa::AppUser then usuario_o_id.id
         else usuario_o_id
         end
 
       return false if usuario_id.blank?
 
-      check_checkeo_usuarios.exists?(check_usuario_id: usuario_id)
+      check_checkeo_usuarios.exists?(app_user_id: usuario_id)
     end
 
     def campos_obligatorios_completos?

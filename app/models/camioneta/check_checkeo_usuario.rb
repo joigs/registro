@@ -2,8 +2,8 @@ module Camioneta
   class CheckCheckeoUsuario < ApplicationRecord
     self.table_name = "check_checkeo_usuarios"
 
-    belongs_to :check_usuario, class_name: 'Camioneta::CheckUsuario'
-    belongs_to :check_checkeo, class_name: 'Camioneta::CheckCheckeo'
+    belongs_to :app_user, class_name: "Pausa::AppUser"
+    belongs_to :check_checkeo, class_name: "Camioneta::CheckCheckeo"
 
     enum estado_eliminacion: {
       sin_solicitud: 0,
