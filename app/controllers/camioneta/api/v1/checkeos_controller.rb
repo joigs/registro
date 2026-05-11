@@ -84,7 +84,11 @@ module Camioneta
           return render_forbidden unless @checkeo.asociado?(@current_usuario)
 
           relacion_actual = @checkeo.check_checkeo_usuarios.find_by!(app_user_id: @current_usuario.id)
+          estado_previo_aprobado = relacion_actual.aprueba_eliminar?
+
           relacion_actual.update!(estado_eliminacion: :aprueba_eliminar)
+
+          @checkeo.check_checkeo_usuarios.reload
 
           if @checkeo.listos_para_eliminar?
             broadcast_checkeo_eliminado(@checkeo)
@@ -98,12 +102,14 @@ module Camioneta
             return render json: { deleted: true }, status: :ok
           end
 
-          @checkeo.check_checkeo_usuarios.where.not(app_user_id: @current_usuario.id).find_each do |relacion|
-            enviar_notificacion(
-              relacion.app_user_id,
-              2,
-              "#{@current_usuario.nombre} solicita eliminar la inspección de la patente #{@checkeo.check_patente.codigo} (Fecha: #{@checkeo.fecha_chequeo})."
-            )
+          unless estado_previo_aprobado
+            @checkeo.check_checkeo_usuarios.where.not(app_user_id: @current_usuario.id).find_each do |relacion|
+              enviar_notificacion(
+                relacion.app_user_id,
+                2,
+                "#{@current_usuario.nombre} solicita eliminar la inspección de la patente #{@checkeo.check_patente.codigo} (Fecha: #{@checkeo.fecha_chequeo})."
+              )
+            end
           end
 
           broadcast_eliminacion_estado(@checkeo)
@@ -115,6 +121,8 @@ module Camioneta
 
           relacion_actual = @checkeo.check_checkeo_usuarios.find_by!(app_user_id: @current_usuario.id)
           relacion_actual.update!(estado_eliminacion: :sin_solicitud)
+
+          @checkeo.check_checkeo_usuarios.reload
 
           @checkeo.check_checkeo_usuarios.where.not(app_user_id: @current_usuario.id).find_each do |relacion|
             enviar_notificacion(
@@ -134,6 +142,8 @@ module Camioneta
           aprueba = ActiveModel::Type::Boolean.new.cast(params[:aprueba])
           relacion = @checkeo.check_checkeo_usuarios.find_by!(app_user_id: @current_usuario.id)
           relacion.update!(estado_eliminacion: aprueba ? :aprueba_eliminar : :rechaza_eliminar)
+
+          @checkeo.check_checkeo_usuarios.reload
 
           if @checkeo.listos_para_eliminar?
             broadcast_checkeo_eliminado(@checkeo)
