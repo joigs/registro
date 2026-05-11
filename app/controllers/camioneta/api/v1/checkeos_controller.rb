@@ -2,6 +2,12 @@ module Camioneta
   module Api
     module V1
       class CheckeosController < ApplicationController
+        ESTADO_ELIMINACION_MAP = {
+          "sin_solicitud" => 0,
+          "aprueba_eliminar" => 1,
+          "rechaza_eliminar" => 2
+        }.freeze
+
         before_action :require_login
         before_action :set_checkeo, only: [
           :show,
@@ -197,7 +203,7 @@ module Camioneta
             methods: [:conforme]
           ).merge(
             puede_editar: checkeo.asociado?(@current_usuario),
-            estado_eliminacion_propio: relacion ? Camioneta::CheckCheckeoUsuario.estado_eliminaciones[relacion.estado_eliminacion] : 0,
+            estado_eliminacion_propio: relacion ? ESTADO_ELIMINACION_MAP[relacion.estado_eliminacion] || 0 : 0,
             eliminacion_confirmados: checkeo.check_checkeo_usuarios.select(&:aprueba_eliminar?).count,
             eliminacion_total: checkeo.check_checkeo_usuarios.count
           )
