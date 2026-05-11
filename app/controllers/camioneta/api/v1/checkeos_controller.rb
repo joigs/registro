@@ -197,7 +197,7 @@ module Camioneta
             methods: [:conforme]
           ).merge(
             puede_editar: checkeo.asociado?(@current_usuario),
-            estado_eliminacion_propio: relacion ? relacion[:estado_eliminacion] : 0,
+            estado_eliminacion_propio: relacion ? Camioneta::CheckCheckeoUsuario.estado_eliminaciones[relacion.estado_eliminacion] : 0,
             eliminacion_confirmados: checkeo.check_checkeo_usuarios.select(&:aprueba_eliminar?).count,
             eliminacion_total: checkeo.check_checkeo_usuarios.count
           )

@@ -11,7 +11,7 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
-  create_table "app_banners", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "app_banners", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "kind", null: false
     t.text "message", null: false
     t.string "link_url"
@@ -26,7 +26,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["kind"], name: "index_app_banners_on_kind"
   end
 
-  create_table "app_daily_logs", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "app_daily_logs", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.date "fecha", null: false
     t.datetime "morning_at"
@@ -39,7 +39,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["app_user_id"], name: "index_app_daily_logs_on_app_user_id"
   end
 
-  create_table "app_pause_windows", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "app_pause_windows", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "moment", null: false
     t.integer "hour", default: 11, null: false
     t.integer "minute", default: 0, null: false
@@ -49,7 +49,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["moment"], name: "index_app_pause_windows_on_moment", unique: true
   end
 
-  create_table "app_reminders", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "app_reminders", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.date "fecha"
     t.string "moment"
@@ -61,7 +61,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["app_user_id"], name: "index_app_reminders_on_app_user_id"
   end
 
-  create_table "app_users", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "app_users", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "nombre", null: false
     t.string "rut", null: false
     t.string "correo", null: false
@@ -83,7 +83,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["rut"], name: "index_app_users_on_rut", unique: true
   end
 
-  create_table "check_checkeo_usuarios", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "check_checkeo_usuarios", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.bigint "check_checkeo_id", null: false
     t.integer "estado_eliminacion", default: 0, null: false
@@ -93,7 +93,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["check_checkeo_id"], name: "index_check_checkeo_usuarios_on_check_checkeo_id"
   end
 
-  create_table "check_checkeos", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "check_checkeos", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "check_patente_id", null: false
     t.date "fecha_chequeo", null: false
     t.boolean "completado"
@@ -132,7 +132,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["check_patente_id"], name: "index_check_checkeos_on_check_patente_id"
   end
 
-  create_table "check_logs_ocultos", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "check_logs_ocultos", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.integer "usuario_id_accion", null: false
     t.string "usuario_nombre", null: false
     t.string "accion_realizada", null: false
@@ -141,7 +141,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.datetime "updated_at", null: false
   end
 
-  create_table "check_notificaciones", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "check_notificaciones", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.bigint "app_user_id", null: false
     t.integer "tipo_notificacion", default: 0, null: false
     t.boolean "leida", default: false, null: false
@@ -151,14 +151,14 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["app_user_id"], name: "index_check_notificaciones_on_app_user_id"
   end
 
-  create_table "check_patentes", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "check_patentes", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "codigo", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["codigo"], name: "index_check_patentes_on_codigo", unique: true
   end
 
-  create_table "ivas", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "ivas", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.integer "year"
     t.integer "month"
     t.decimal "valor", precision: 10, scale: 2
@@ -167,7 +167,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["year", "month"], name: "index_ivas_on_year_and_month", unique: true
   end
 
-  create_table "mobility_adjustments", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "mobility_adjustments", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "empresa"
     t.string "mandante_rut"
     t.string "mandante_nombre"
@@ -179,7 +179,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.datetime "updated_at", null: false
   end
 
-  create_table "pausa_app_holidays", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "pausa_app_holidays", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.date "fecha", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
