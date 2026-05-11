@@ -8,6 +8,7 @@ module Camioneta
           patentes = Camioneta::CheckPatente.order(created_at: :desc)
           render json: patentes, status: :ok
         end
+
         def show
           patente = Camioneta::CheckPatente.find(params[:id])
 
@@ -29,20 +30,23 @@ module Camioneta
 
           checkeos = patente.check_checkeos
                             .where(fecha_chequeo: fecha_inicio..fecha_fin)
-                            .includes(:check_usuarios)
+                            .includes(:app_users)
 
           ultima = patente.check_checkeos
                           .order(fecha_chequeo: :desc)
-                          .includes(:check_usuarios)
+                          .includes(:app_users)
                           .first
+
+          app_user_include = { app_users: { only: [:id, :rut, :nombre] } }
 
           render json: {
             patente: patente,
             fecha_servidor: Time.current.to_date,
-            checkeos: checkeos.as_json(include: :check_usuarios),
-            ultima_inspeccion: ultima&.as_json(include: :check_usuarios)
+            checkeos: checkeos.as_json(include: app_user_include),
+            ultima_inspeccion: ultima&.as_json(include: app_user_include)
           }, status: :ok
         end
+
         def create
           patente = CheckPatente.new(patente_params)
           if patente.save
@@ -54,14 +58,12 @@ module Camioneta
 
         def destroy
           patente = CheckPatente.find(params[:id])
-
           CheckLogOculto.create!(
             usuario_id_accion: @current_usuario.id,
             usuario_nombre: @current_usuario.nombre,
             accion_realizada: "Eliminacion de Patente",
             patente_afectada: patente.codigo
           )
-
           patente.destroy
           head :no_content
         end

@@ -6,8 +6,6 @@ module Camioneta
 
     validates :codigo, presence: true, uniqueness: true
 
-
-
     def self.limpiar_huerfanas
       patentes_sin_chequeos = left_outer_joins(:check_checkeos).where(check_checkeos: { id: nil })
 

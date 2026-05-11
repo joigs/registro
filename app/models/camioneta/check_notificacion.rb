@@ -2,8 +2,8 @@ module Camioneta
   class CheckNotificacion < ApplicationRecord
     self.table_name = "check_notificaciones"
 
-    belongs_to :check_usuario, class_name: 'Camioneta::CheckUsuario'
-    belongs_to :check_checkeo, class_name: 'Camioneta::CheckCheckeo', optional: true
+    belongs_to :app_user, class_name: "Pausa::AppUser"
+    belongs_to :check_checkeo, class_name: "Camioneta::CheckCheckeo", optional: true
 
     enum tipo_notificacion: {
       mensaje_error: 0,
@@ -18,7 +18,7 @@ module Camioneta
 
     def limitar_a_50_por_tipo
       notificaciones_activas = CheckNotificacion.where(
-        check_usuario_id: check_usuario_id,
+        app_user_id: app_user_id,
         tipo_notificacion: tipo_notificacion,
         leida: false
       ).order(created_at: :desc)
@@ -30,11 +30,12 @@ module Camioneta
     end
 
     def enviar_push_notification
-      return unless check_usuario&.push_token.present?
+      token = app_user&.expo_push_token_camioneta
+      return unless token.present?
 
       begin
         Notifier::Fcm.send_notification(
-          check_usuario.push_token,
+          token,
           title: "Aviso de Inspección",
           body: self.mensaje
         )
