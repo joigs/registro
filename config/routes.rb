@@ -94,6 +94,8 @@ Rails.application.routes.draw do
             end
           end
 
+          resources :banners, only: [:index]
+
           resources :logs_ocultos, only: [:create]
         end
       end

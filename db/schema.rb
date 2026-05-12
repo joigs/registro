@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_12_194955) do
   create_table "app_banners", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "kind", null: false
     t.text "message", null: false
@@ -81,6 +81,20 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_11_003349) do
     t.index ["expo_push_token_camioneta"], name: "index_app_users_on_expo_push_token_camioneta"
     t.index ["password_digest"], name: "index_app_users_on_password_digest"
     t.index ["rut"], name: "index_app_users_on_rut", unique: true
+  end
+
+  create_table "camioneta_app_banners", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.string "kind", null: false
+    t.text "message", null: false
+    t.string "link_url"
+    t.string "link_label"
+    t.boolean "enabled", default: true, null: false
+    t.integer "version", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["enabled"], name: "index_camioneta_app_banners_on_enabled"
+    t.index ["kind"], name: "index_camioneta_app_banners_on_kind"
+    t.index ["version"], name: "index_camioneta_app_banners_on_version"
   end
 
   create_table "check_checkeo_usuarios", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
