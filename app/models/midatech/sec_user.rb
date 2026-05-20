@@ -1,9 +1,6 @@
 # app/models/midatech/sec_user.rb
 module Midatech
-  class SecUser < SecondaryBase
-    self.table_name = "SecUser"
-    self.primary_key = "SecUserId"
-
+  class SecUser < ::SecondaryModels::SecUserExternal
     has_many :sec_user_roles,
              foreign_key: "SecUserId",
              class_name: "Midatech::SecUserRole"
@@ -24,5 +21,3 @@ module Midatech
     end
   end
 end
-
-
