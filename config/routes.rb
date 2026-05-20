@@ -66,6 +66,47 @@ Rails.application.routes.draw do
 
     end
 
+    scope :fotos_melon, module: :fotos_melon, as: :fotos_melon do
+      namespace :api, defaults: { format: :json } do
+        namespace :v1 do
+          post   "login",              to: "sessions#create"
+          post   "roles_disponibles",  to: "sessions#roles_disponibles"
+          delete "logout",             to: "sessions#destroy"
+          get    "me",                 to: "sessions#me"
+
+          resources :patentes, only: [:index, :show, :create, :update, :destroy] do
+            member do
+              get :descargar
+            end
+
+            resources :fechas, only: [:index, :create]
+          end
+
+          resources :fechas, only: [:show, :update, :destroy] do
+            member do
+              get :descargar
+            end
+
+            resources :fotos, only: [:index, :create]
+          end
+
+          resources :fotos, only: [:show, :update, :destroy] do
+            member do
+              get  :descargar
+              post :mover
+            end
+            collection do
+              post :preparar_zip
+            end
+          end
+
+          get "fotos/zip/:token",
+              to: "fotos#descargar_zip_por_token",
+              as: :foto_zip_por_token,
+              constraints: { token: /[A-Za-z0-9_\-]+/ }
+        end
+      end
+    end
     scope :camioneta, module: :camioneta, as: :camioneta do
       namespace :api, defaults: { format: :json } do
         namespace :v1 do

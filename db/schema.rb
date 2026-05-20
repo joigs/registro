@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_12_194955) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_20_211128) do
   create_table "app_banners", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "kind", null: false
     t.text "message", null: false
@@ -172,6 +172,70 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_12_194955) do
     t.index ["codigo"], name: "index_check_patentes_on_codigo", unique: true
   end
 
+  create_table "fotos_melon_descargas", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.string "token", null: false
+    t.text "ids_json", null: false
+    t.bigint "sec_user_id", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "used_at"
+    t.integer "hits", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_fotos_melon_descargas_on_expires_at"
+    t.index ["token"], name: "index_fotos_melon_descargas_on_token", unique: true
+  end
+
+  create_table "fotos_melon_fechas", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.bigint "patente_id", null: false
+    t.date "fecha", null: false
+    t.string "nombre_personalizado"
+    t.bigint "creado_por_id", null: false
+    t.string "creado_por_nombre"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["patente_id", "fecha"], name: "index_fotos_melon_fechas_on_patente_id_and_fecha", unique: true
+    t.index ["patente_id"], name: "index_fotos_melon_fechas_on_patente_id"
+  end
+
+  create_table "fotos_melon_fotos", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.bigint "fecha_carpeta_id", null: false
+    t.string "nombre", null: false
+    t.bigint "subido_por_id", null: false
+    t.string "subido_por_nombre"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["fecha_carpeta_id"], name: "index_fotos_melon_fotos_on_fecha_carpeta_id"
+    t.index ["subido_por_id"], name: "index_fotos_melon_fotos_on_subido_por_id"
+  end
+
+  create_table "fotos_melon_patentes", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.string "nombre", null: false
+    t.bigint "creado_por_id", null: false
+    t.string "creado_por_nombre"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["creado_por_id"], name: "index_fotos_melon_patentes_on_creado_por_id"
+    t.index ["nombre"], name: "index_fotos_melon_patentes_on_nombre", unique: true
+  end
+
+  create_table "fotos_melon_sesiones", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
+    t.string "token", null: false
+    t.bigint "sec_user_id", null: false
+    t.string "sec_user_mail"
+    t.string "sec_user_name"
+    t.string "rol", null: false
+    t.datetime "expires_at"
+    t.datetime "last_seen_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "closed_at"
+    t.index ["closed_at"], name: "index_fotos_melon_sesiones_on_closed_at"
+    t.index ["expires_at"], name: "index_fotos_melon_sesiones_on_expires_at"
+    t.index ["last_seen_at"], name: "index_fotos_melon_sesiones_on_last_seen_at"
+    t.index ["sec_user_id"], name: "index_fotos_melon_sesiones_on_sec_user_id"
+    t.index ["token"], name: "index_fotos_melon_sesiones_on_token", unique: true
+  end
+
   create_table "ivas", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.integer "year"
     t.integer "month"
@@ -214,4 +278,6 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_12_194955) do
 
   add_foreign_key "app_daily_logs", "app_users"
   add_foreign_key "app_reminders", "app_users"
+  add_foreign_key "fotos_melon_fechas", "fotos_melon_patentes", column: "patente_id"
+  add_foreign_key "fotos_melon_fotos", "fotos_melon_fechas", column: "fecha_carpeta_id"
 end
