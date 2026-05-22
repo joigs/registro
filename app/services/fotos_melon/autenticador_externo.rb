@@ -1,29 +1,56 @@
 module FotosMelon
-  # Encapsula la lógica de login contra la base externa midatech.
-  # Si el día de mañana las contraseñas se encriptan o si se cambia el origen
-  # de los usuarios, solo este archivo y SecUser#authenticate_password cambian.
   class AutenticadorExterno
-    Resultado = Struct.new(:ok, :sec_user, :error, keyword_init: true)
+    ERR_CREDENCIALES_INCOMPLETAS = "credenciales_incompletas".freeze
+    ERR_USUARIO_NO_EXISTE        = "usuario_no_existe".freeze
+    ERR_PASSWORD_INCORRECTO      = "password_incorrecto".freeze
+    ERR_DB_EXTERNA               = "db_externa".freeze
+
+    Resultado = Struct.new(:ok, :sec_user, :error, :codigo, keyword_init: true)
 
     def self.autenticar(mail:, password:)
-      return Resultado.new(ok: false, error: "Credenciales incompletas") if mail.blank? || password.blank?
+      if mail.blank? || password.blank?
+        return Resultado.new(
+          ok: false,
+          error: "Debes ingresar correo y contraseña",
+          codigo: ERR_CREDENCIALES_INCOMPLETAS
+        )
+      end
 
-      user = ::Midatech::SecUser.find_by("LOWER(SecUserMail) = ?", mail.to_s.downcase.strip)
-      return Resultado.new(ok: false, error: "Usuario o contraseña incorrectos") unless user
-      return Resultado.new(ok: false, error: "Usuario o contraseña incorrectos") unless user.authenticate_password(password)
+      user = begin
+               ::Midatech::SecUser.find_by("LOWER(SecUserMail) = ?", mail.to_s.downcase.strip)
+             rescue StandardError => e
+               Rails.logger.error("[FotosMelon::AutenticadorExterno] Error buscando usuario: #{e.class}: #{e.message}")
+               return Resultado.new(
+                 ok: false,
+                 error: "No se pudo conectar con el servidor de usuarios. Intenta de nuevo en unos segundos.",
+                 codigo: ERR_DB_EXTERNA
+               )
+             end
+
+      unless user
+        return Resultado.new(
+          ok: false,
+          error: "No existe ningún usuario con ese correo",
+          codigo: ERR_USUARIO_NO_EXISTE
+        )
+      end
+
+      unless user.authenticate_password(password)
+        return Resultado.new(
+          ok: false,
+          error: "Contraseña incorrecta",
+          codigo: ERR_PASSWORD_INCORRECTO
+        )
+      end
 
       Resultado.new(ok: true, sec_user: user)
     end
 
-    # Devuelve los roles reales del usuario en la DB externa.
-    # Si está vacío o ninguno coincide con Administrador/Inspector,
-    # el controller decidirá qué hacer (en dev: permitir elegir manual).
     def self.roles_validos_de(sec_user)
       roles = Array(sec_user.roles).map(&:to_s)
       roles.select { |r| [::Midatech::SecRole::ROL_ADMINISTRADOR, ::Midatech::SecRole::ROL_INSPECTOR].include?(r) }
     end
 
-    # Mapea el nombre del rol externo al rol interno normalizado.
     def self.rol_interno_para(nombre_rol_externo)
       case nombre_rol_externo.to_s.downcase
       when "administrador" then Sesion::ROL_ADMINISTRADOR

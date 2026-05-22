@@ -11,7 +11,15 @@ module FotosMelon
 
           resultado = FotosMelon::AutenticadorExterno.autenticar(mail: mail, password: password)
           unless resultado.ok
-            return render json: { error: resultado.error }, status: :unauthorized
+            status = case resultado.codigo
+                     when FotosMelon::AutenticadorExterno::ERR_CREDENCIALES_INCOMPLETAS
+                       :bad_request
+                     when FotosMelon::AutenticadorExterno::ERR_DB_EXTERNA
+                       :service_unavailable
+                     else
+                       :unauthorized
+                     end
+            return render json: { error: resultado.error, codigo: resultado.codigo }, status: status
           end
 
           sec_user = resultado.sec_user
