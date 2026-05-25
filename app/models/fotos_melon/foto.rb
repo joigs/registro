@@ -8,14 +8,6 @@ module FotosMelon
     validates :nombre, presence: true
     validates :subido_por_id, presence: true
 
-    def url_visualizar
-      return nil unless imagen.attached?
-      Rails.application.routes.url_helpers.rails_blob_url(
-        imagen, host: ENV.fetch("APP_HOST", "http://localhost:3000"),
-        disposition: "inline"
-      )
-    end
-
     def tamano_bytes
       return 0 unless imagen.attached?
       imagen.byte_size
