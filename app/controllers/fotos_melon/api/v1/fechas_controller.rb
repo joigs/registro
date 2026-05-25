@@ -98,7 +98,6 @@ module FotosMelon
               {
                 id: foto.id,
                 nombre: foto.nombre,
-                url: foto.url_visualizar,
                 subido_por: { id: foto.subido_por_id, nombre: foto.subido_por_nombre },
                 subido_en: fmt_fecha(foto.created_at),
                 tamano: foto.tamano_bytes
