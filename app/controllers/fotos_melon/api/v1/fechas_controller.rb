@@ -58,17 +58,43 @@ module FotosMelon
         end
 
         def descargar
-          entries = @fecha.fotos.includes(imagen_attachment: :blob).filter_map do |foto|
-            next unless foto.imagen.attached?
-            { nombre_en_zip: foto.nombre_descarga, blob: foto.imagen.blob }
-          end
+          fotos = @fecha.fotos.includes(imagen_attachment: :blob).to_a
+          attached = fotos.select { |f| f.imagen.attached? }
 
-          if entries.empty?
+          if attached.empty?
             return render json: { error: "Carpeta vacía" }, status: :not_found
           end
 
+          require "zip"
+          tmpfile = Tempfile.new(["carpeta_", ".zip"], binmode: true)
+          tmpfile.close
+
+          nombres_usados = Hash.new(0)
+          service = ActiveStorage::Blob.service
+
+          ::Zip::File.open(tmpfile.path, Zip::File::CREATE) do |zip|
+            attached.each do |foto|
+              blob = foto.imagen.blob
+              ruta = service.path_for(blob.key)
+              next unless File.exist?(ruta)
+
+              base = foto.nombre_descarga
+              nombres_usados[base] += 1
+              final = nombres_usados[base] == 1 ? base : numerar(base, nombres_usados[base])
+              zip.add(final, ruta)
+            end
+          end
+
           carpeta = @fecha.nombre_personalizado.presence || @fecha.fecha.strftime("%d-%m-%Y")
-          stream_zip("#{@fecha.patente.nombre}_#{carpeta}.zip", entries)
+          filename = "#{@fecha.patente.nombre}_#{carpeta}.zip"
+
+          send_file tmpfile.path,
+                    type: "application/zip",
+                    disposition: "attachment",
+                    filename: filename
+
+          path_para_borrar = tmpfile.path
+          ::DeleteTempFileJob.set(wait: 5.minutes).perform_later(path_para_borrar) rescue nil
         end
 
         private
@@ -79,6 +105,12 @@ module FotosMelon
 
         def set_fecha
           @fecha = FotosMelon::FechaCarpeta.includes(:patente).find(params[:id])
+        end
+
+        def numerar(nombre, n)
+          ext = File.extname(nombre)
+          base = File.basename(nombre, ext)
+          "#{base} (#{n})#{ext}"
         end
 
         def serializar_fecha(fc, detalle: false)
@@ -94,15 +126,8 @@ module FotosMelon
             cantidad_fotos: fc.fotos.size
           }
           if detalle
-            base[:fotos] = fc.fotos.order(:created_at).map do |foto|
-              {
-                id: foto.id,
-                nombre: foto.nombre,
-                subido_por: { id: foto.subido_por_id, nombre: foto.subido_por_nombre },
-                subido_en: fmt_fecha(foto.created_at),
-                tamano: foto.tamano_bytes
-              }
-            end
+            fotos_completas = fc.fotos.includes(imagen_attachment: :blob).order(:created_at)
+            base[:fotos] = fotos_completas.map { |foto| serializar_foto(foto) }
           end
           base
         end
@@ -117,16 +142,6 @@ module FotosMelon
           end
         rescue ArgumentError
           nil
-        end
-
-        def stream_zip(filename, entries)
-          response.headers["Content-Type"] = "application/zip"
-          response.headers["Content-Disposition"] = %(attachment; filename="#{filename}")
-          response.headers["X-Accel-Buffering"] = "no"
-          response.headers["Cache-Control"] = "no-cache"
-          FotosMelon::ZipStreamer.stream_to_io(entries, response.stream)
-        ensure
-          response.stream.close
         end
       end
     end

@@ -2,8 +2,6 @@ module FotosMelon
   module Api
     module V1
       class ApplicationController < ActionController::API
-        # NO incluimos ActionController::Live. Para descargas usamos send_file,
-        # que delega al servidor web (Passenger / Puma) y funciona con :local.
 
         before_action :set_default_format
 
@@ -53,6 +51,22 @@ module FotosMelon
         def fmt_fecha_hora(t)
           return nil if t.blank?
           t.in_time_zone.strftime("%d/%m/%Y %H:%M")
+        end
+
+        def serializar_foto(foto)
+          {
+            id: foto.id,
+            nombre: foto.nombre,
+            fecha_carpeta_id: foto.fecha_carpeta_id,
+            url: url_ver_foto(foto.id),
+            tamano: foto.respond_to?(:tamano_bytes) ? foto.tamano_bytes : 0,
+            subido_por: { id: foto.subido_por_id, nombre: foto.subido_por_nombre },
+            subido_en: fmt_fecha(foto.created_at)
+          }
+        end
+
+        def url_ver_foto(foto_id)
+          "#{request.base_url}/ventas/fotos_melon/api/v1/fotos/#{foto_id}/ver"
         end
 
         def render_not_found(_e)

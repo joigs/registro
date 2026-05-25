@@ -148,9 +148,6 @@ module FotosMelon
           }
         end
 
-        # GET /fotos/zip/:token — construye el ZIP en un Tempfile y lo envía con send_file.
-        # No usa ActionController::Live. Para volúmenes muy grandes, el ZIP queda en
-        # disco temporal del servidor y el FS limpia /tmp.
         def descargar_zip_por_token
           descarga = FotosMelon::Descarga.find_by(token: params[:token])
           unless descarga && descarga.vigente?
@@ -193,21 +190,15 @@ module FotosMelon
                     type: "application/zip",
                     disposition: "attachment",
                     filename: filename
-          # Programar borrado del tmp tras un tiempo prudente
           path_para_borrar = tmpfile.path
           ::DeleteTempFileJob.set(wait: 5.minutes).perform_later(path_para_borrar) rescue nil
         end
-
         private
 
         def numerar(nombre, n)
           ext = File.extname(nombre)
           base = File.basename(nombre, ext)
           "#{base} (#{n})#{ext}"
-        end
-
-        def url_ver_foto(foto_id)
-          "#{request.base_url}/ventas/fotos_melon/api/v1/fotos/#{foto_id}/ver"
         end
 
         def url_zip_por_token(token)
@@ -220,18 +211,6 @@ module FotosMelon
 
         def set_foto
           @foto = FotosMelon::Foto.includes(:fecha_carpeta, imagen_attachment: :blob).find(params[:id])
-        end
-
-        def serializar_foto(foto)
-          {
-            id: foto.id,
-            nombre: foto.nombre,
-            fecha_carpeta_id: foto.fecha_carpeta_id,
-            url: url_ver_foto(foto.id),
-            tamano: foto.tamano_bytes,
-            subido_por: { id: foto.subido_por_id, nombre: foto.subido_por_nombre },
-            subido_en: fmt_fecha(foto.created_at)
-          }
         end
       end
     end
