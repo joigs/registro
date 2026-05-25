@@ -7,6 +7,23 @@ module FotosMelon
         before_action :set_fecha, only: [:index, :create]
         before_action :set_foto, only: [:show, :update, :mover, :destroy, :descargar]
 
+
+        def ver
+          unless @foto.imagen.attached?
+            return render json: { error: "Foto sin archivo" }, status: :not_found
+          end
+          blob = @foto.imagen.blob
+          response.headers["Content-Type"] = blob.content_type.presence || "application/octet-stream"
+          response.headers["Content-Disposition"] = %(inline; filename="#{@foto.nombre_descarga}")
+          response.headers["Cache-Control"] = "private, max-age=3600"
+          blob.download { |chunk| response.stream.write(chunk) }
+        rescue IOError, Errno::EPIPE
+          nil
+        ensure
+          response.stream.close
+        end
+
+        
         def index
           fotos = @fecha.fotos.includes(imagen_attachment: :blob).order(:created_at)
           render json: fotos.map { |f| serializar_foto(f) }
@@ -59,6 +76,9 @@ module FotosMelon
           render json: serializar_foto(@foto)
         end
 
+
+
+        
         def mover
           destino = FotosMelon::FechaCarpeta.find(params.require(:fecha_carpeta_id))
           @foto.update!(fecha_carpeta: destino)
