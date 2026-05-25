@@ -93,6 +93,7 @@ Rails.application.routes.draw do
           resources :fotos, only: [:show, :update, :destroy] do
             member do
               get  :descargar
+              get  :ver
               post :mover
             end
             collection do
