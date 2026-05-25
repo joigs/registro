@@ -5,32 +5,15 @@ module FotosMelon
         before_action :require_login, except: [:descargar_zip_por_token]
         before_action :require_admin, only: [:update, :mover, :destroy]
         before_action :set_fecha, only: [:index, :create]
-        before_action :set_foto, only: [:show, :update, :mover, :destroy, :descargar]
+        before_action :set_foto, only: [:show, :update, :mover, :destroy, :descargar, :ver]
 
-
-        def ver
-          unless @foto.imagen.attached?
-            return render json: { error: "Foto sin archivo" }, status: :not_found
-          end
-          blob = @foto.imagen.blob
-          response.headers["Content-Type"] = blob.content_type.presence || "application/octet-stream"
-          response.headers["Content-Disposition"] = %(inline; filename="#{@foto.nombre_descarga}")
-          response.headers["Cache-Control"] = "private, max-age=3600"
-          blob.download { |chunk| response.stream.write(chunk) }
-        rescue IOError, Errno::EPIPE
-          nil
-        ensure
-          response.stream.close
-        end
-
-        
         def index
           fotos = @fecha.fotos.includes(imagen_attachment: :blob).order(:created_at)
           render json: fotos.map { |f| serializar_foto(f) }
         end
 
         def show
-          render json: serializar_foto(@foto, detalle: true)
+          render json: serializar_foto(@foto)
         end
 
         def create
@@ -76,9 +59,6 @@ module FotosMelon
           render json: serializar_foto(@foto)
         end
 
-
-
-        
         def mover
           destino = FotosMelon::FechaCarpeta.find(params.require(:fecha_carpeta_id))
           @foto.update!(fecha_carpeta: destino)
@@ -94,11 +74,27 @@ module FotosMelon
           head :no_content
         end
 
+        def ver
+          unless @foto.imagen.attached?
+            return render json: { error: "Foto sin archivo" }, status: :not_found
+          end
+          blob = @foto.imagen.blob
+          response.headers["Content-Type"] = blob.content_type.presence || "application/octet-stream"
+          response.headers["Content-Disposition"] = %(inline; filename="#{@foto.nombre_descarga}")
+          response.headers["Content-Length"] = blob.byte_size.to_s
+          response.headers["X-Accel-Buffering"] = "no"
+          response.headers["Cache-Control"] = "private, max-age=3600"
+          blob.download { |chunk| response.stream.write(chunk) }
+        rescue IOError, Errno::EPIPE
+          nil
+        ensure
+          response.stream.close
+        end
+
         def descargar
           unless @foto.imagen.attached?
             return render json: { error: "Foto sin archivo" }, status: :not_found
           end
-
           blob = @foto.imagen.blob
           response.headers["Content-Type"] = blob.content_type.presence || "application/octet-stream"
           response.headers["Content-Disposition"] = %(attachment; filename="#{@foto.nombre_descarga}")
@@ -134,7 +130,7 @@ module FotosMelon
 
           render json: {
             token: descarga.token,
-            url: api_v1_url_zip_por_token(descarga.token),
+            url: url_zip_por_token(descarga.token),
             expires_at: fmt_fecha_hora(descarga.expires_at),
             total_fotos: existentes_count
           }
@@ -184,8 +180,12 @@ module FotosMelon
           "#{base} (#{n})#{ext}"
         end
 
-        def api_v1_url_zip_por_token(token)
-          "#{request.base_url}#{request.script_name}/ventas/fotos_melon/api/v1/fotos/zip/#{token}"
+        def url_ver_foto(foto_id)
+          "#{request.base_url}/ventas/fotos_melon/api/v1/fotos/#{foto_id}/ver"
+        end
+
+        def url_zip_por_token(token)
+          "#{request.base_url}/ventas/fotos_melon/api/v1/fotos/zip/#{token}"
         end
 
         def set_fecha
@@ -196,12 +196,12 @@ module FotosMelon
           @foto = FotosMelon::Foto.includes(:fecha_carpeta, imagen_attachment: :blob).find(params[:id])
         end
 
-        def serializar_foto(foto, _detalle: false)
+        def serializar_foto(foto)
           {
             id: foto.id,
             nombre: foto.nombre,
             fecha_carpeta_id: foto.fecha_carpeta_id,
-            url: foto.url_visualizar,
+            url: url_ver_foto(foto.id),
             tamano: foto.tamano_bytes,
             subido_por: { id: foto.subido_por_id, nombre: foto.subido_por_nombre },
             subido_en: fmt_fecha(foto.created_at)
