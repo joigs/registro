@@ -2,6 +2,9 @@ module FotosMelon
   module Api
     module V1
       class FotosController < ApplicationController
+        # OJO: quitamos `include ActionController::Live` del ApplicationController
+        # para estas acciones, o usamos send_file directamente que no lo requiere.
+
         before_action :require_login, except: [:descargar_zip_por_token]
         before_action :require_admin, only: [:update, :mover, :destroy]
         before_action :set_fecha, only: [:index, :create]
@@ -74,38 +77,47 @@ module FotosMelon
           head :no_content
         end
 
+        # GET /fotos/:id/ver — sirve la imagen INLINE para previsualizar.
+        # Usa send_file: Rails y el servidor web (Passenger/Puma) se encargan
+        # del streaming. Para Active Storage :local, esto es lo correcto.
         def ver
           unless @foto.imagen.attached?
             return render json: { error: "Foto sin archivo" }, status: :not_found
           end
+
           blob = @foto.imagen.blob
-          response.headers["Content-Type"] = blob.content_type.presence || "application/octet-stream"
-          response.headers["Content-Disposition"] = %(inline; filename="#{@foto.nombre_descarga}")
-          response.headers["Content-Length"] = blob.byte_size.to_s
-          response.headers["X-Accel-Buffering"] = "no"
-          response.headers["Cache-Control"] = "private, max-age=3600"
-          blob.download { |chunk| response.stream.write(chunk) }
-        rescue IOError, Errno::EPIPE
-          nil
-        ensure
-          response.stream.close
+          service = ActiveStorage::Blob.service
+          ruta = service.path_for(blob.key)
+
+          unless File.exist?(ruta)
+            Rails.logger.error("[FotosMelon] Archivo no encontrado en disco: #{ruta}")
+            return render json: { error: "Archivo no encontrado en disco" }, status: :not_found
+          end
+
+          send_file ruta,
+                    type: blob.content_type.presence || "application/octet-stream",
+                    disposition: "inline",
+                    filename: @foto.nombre_descarga
         end
 
+        # GET /fotos/:id/descargar — fuerza descarga con nombre correcto.
         def descargar
           unless @foto.imagen.attached?
             return render json: { error: "Foto sin archivo" }, status: :not_found
           end
+
           blob = @foto.imagen.blob
-          response.headers["Content-Type"] = blob.content_type.presence || "application/octet-stream"
-          response.headers["Content-Disposition"] = %(attachment; filename="#{@foto.nombre_descarga}")
-          response.headers["Content-Length"] = blob.byte_size.to_s
-          response.headers["X-Accel-Buffering"] = "no"
-          response.headers["Cache-Control"] = "no-cache"
-          blob.download { |chunk| response.stream.write(chunk) }
-        rescue IOError, Errno::EPIPE
-          nil
-        ensure
-          response.stream.close
+          service = ActiveStorage::Blob.service
+          ruta = service.path_for(blob.key)
+
+          unless File.exist?(ruta)
+            return render json: { error: "Archivo no encontrado en disco" }, status: :not_found
+          end
+
+          send_file ruta,
+                    type: blob.content_type.presence || "application/octet-stream",
+                    disposition: "attachment",
+                    filename: @foto.nombre_descarga
         end
 
         def preparar_zip
@@ -136,6 +148,9 @@ module FotosMelon
           }
         end
 
+        # GET /fotos/zip/:token — construye el ZIP en un Tempfile y lo envía con send_file.
+        # No usa ActionController::Live. Para volúmenes muy grandes, el ZIP queda en
+        # disco temporal del servidor y el FS limpia /tmp.
         def descargar_zip_por_token
           descarga = FotosMelon::Descarga.find_by(token: params[:token])
           unless descarga && descarga.vigente?
@@ -145,31 +160,42 @@ module FotosMelon
           fotos = FotosMelon::Foto.where(id: descarga.ids)
                                   .includes(:fecha_carpeta, imagen_attachment: :blob)
 
-          nombres = Hash.new(0)
-          entries = fotos.filter_map do |foto|
-            next unless foto.imagen.attached?
-            base = foto.nombre_descarga
-            nombres[base] += 1
-            final = nombres[base] == 1 ? base : numerar(base, nombres[base])
-            { nombre_en_zip: final, blob: foto.imagen.blob }
+          if fotos.empty?
+            return render json: { error: "Sin fotos" }, status: :not_found
           end
 
-          if entries.empty?
-            return render json: { error: "Las fotos no tienen archivos" }, status: :not_found
+          require "zip"
+          tmpfile = Tempfile.new(["fotos_melon_", ".zip"], binmode: true)
+          tmpfile.close  # rubyzip lo abrirá
+
+          nombres_usados = Hash.new(0)
+          service = ActiveStorage::Blob.service
+
+          ::Zip::File.open(tmpfile.path, Zip::File::CREATE) do |zip|
+            fotos.each do |foto|
+              next unless foto.imagen.attached?
+              blob = foto.imagen.blob
+              ruta = service.path_for(blob.key)
+              next unless File.exist?(ruta)
+
+              base = foto.nombre_descarga
+              nombres_usados[base] += 1
+              final = nombres_usados[base] == 1 ? base : numerar(base, nombres_usados[base])
+
+              zip.add(final, ruta)
+            end
           end
 
           descarga.registrar_uso!
 
           filename = "fotos_melon_#{Time.current.strftime('%Y%m%d_%H%M%S')}.zip"
-          response.headers["Content-Type"] = "application/zip"
-          response.headers["Content-Disposition"] = %(attachment; filename="#{filename}")
-          response.headers["X-Accel-Buffering"] = "no"
-          response.headers["Cache-Control"] = "no-cache"
-          FotosMelon::ZipStreamer.stream_to_io(entries, response.stream)
-        rescue IOError, Errno::EPIPE
-          nil
-        ensure
-          response.stream.close if response.committed?
+          send_file tmpfile.path,
+                    type: "application/zip",
+                    disposition: "attachment",
+                    filename: filename
+          # Programar borrado del tmp tras un tiempo prudente
+          path_para_borrar = tmpfile.path
+          ::DeleteTempFileJob.set(wait: 5.minutes).perform_later(path_para_borrar) rescue nil
         end
 
         private
