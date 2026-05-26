@@ -22,30 +22,41 @@ module FotosMelon
             return render json: { error: resultado.error, codigo: resultado.codigo }, status: status
           end
 
-          sec_user = resultado.sec_user
+          sec_user        = resultado.sec_user
           roles_externos  = FotosMelon::AutenticadorExterno.roles_validos_de(sec_user)
           permitir_manual = ENV["FOTOS_MELON_PERMITIR_ROL_MANUAL"].to_s == "true"
 
           rol_elegido =
-            if roles_externos.size == 1
+            if rol_manual.present?
+              validar_rol_manual(rol_manual, roles_externos, permitir_manual)
+            elsif roles_externos.empty?
+              if permitir_manual
+                pedir_eleccion(["Administrador", "Inspector"])
+              else
+                render json: { error: "Usuario sin rol autorizado", codigo: "sin_rol" },
+                       status: :forbidden
+                return
+              end
+            elsif tiene_administrador?(roles_externos)
+              FotosMelon::Sesion::ROL_ADMINISTRADOR
+            elsif roles_externos.size == 1
               FotosMelon::AutenticadorExterno.rol_interno_para(roles_externos.first)
-            elsif roles_externos.size > 1
-              rol_interno_o_error(rol_manual, roles_externos)
-            elsif permitir_manual
-              rol_interno_o_error(rol_manual, ["Administrador", "Inspector"])
             else
-              return render json: { error: "Usuario sin rol autorizado" }, status: :forbidden
+              # Varios roles válidos no-admin (raro): pedir elección.
+              pedir_eleccion(roles_externos)
             end
 
           return if performed?
-          return render json: { error: "Rol inválido" }, status: :forbidden unless rol_elegido
+          unless rol_elegido
+            return render json: { error: "Rol inválido", codigo: "rol_invalido" }, status: :forbidden
+          end
 
           sesion = FotosMelon::Sesion.create!(
             sec_user_id:   sec_user.SecUserId,
             sec_user_mail: sec_user.SecUserMail,
             sec_user_name: sec_user.SecUserName,
-            rol:           rol_elegido,
-            )
+            rol:           rol_elegido
+          )
 
           render json: {
             token: sesion.token,
@@ -89,19 +100,33 @@ module FotosMelon
 
         private
 
-        def rol_interno_o_error(rol_manual, roles_externos)
-          unless rol_manual
-            render json: {
-              error: "Debes elegir un rol",
-              roles_disponibles: roles_externos
-            }, status: :unprocessable_entity
-            return nil
-          end
+        def tiene_administrador?(roles_externos)
+          roles_externos.any? { |r| r.to_s.casecmp("administrador").zero? }
+        end
 
-          permitidos = roles_externos.map { |r| FotosMelon::AutenticadorExterno.rol_interno_para(r) }.compact
+        def pedir_eleccion(roles_externos)
+          render json: {
+            error: "Debes elegir un rol",
+            codigo: "debe_elegir_rol",
+            roles_disponibles: roles_externos
+          }, status: :unprocessable_entity
+          nil
+        end
+
+        def validar_rol_manual(rol_manual, roles_externos, permitir_manual)
+          permitidos =
+            if roles_externos.any?
+              roles_externos.map { |r| FotosMelon::AutenticadorExterno.rol_interno_para(r) }.compact
+            elsif permitir_manual
+              [FotosMelon::Sesion::ROL_ADMINISTRADOR, FotosMelon::Sesion::ROL_INSPECTOR]
+            else
+              []
+            end
+
           unless permitidos.include?(rol_manual)
             render json: {
               error: "Rol no permitido para este usuario",
+              codigo: "rol_no_permitido",
               roles_disponibles: roles_externos
             }, status: :forbidden
             return nil
