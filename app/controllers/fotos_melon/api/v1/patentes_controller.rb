@@ -9,11 +9,12 @@ module FotosMelon
         def index
           q = FotosMelon::Patente.all
           q = q.where("LOWER(nombre) LIKE ?", "%#{params[:q].to_s.downcase}%") if params[:q].present?
-          q = q.order(:nombre)
-
+          q = q.left_joins(:fechas)
+               .select("fotos_melon_patentes.*, MAX(fotos_melon_fechas.fecha) AS ultima_fecha")
+               .group("fotos_melon_patentes.id")
+               .order(Arel.sql("MAX(fotos_melon_fechas.fecha) IS NULL, MAX(fotos_melon_fechas.fecha) DESC, fotos_melon_patentes.nombre ASC"))
           render json: q.map { |p| serializar_patente(p) }
         end
-
         # GET /patentes/:id
         def show
           render json: serializar_patente(@patente, detalle: true)
