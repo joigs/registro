@@ -107,6 +107,37 @@ Rails.application.routes.draw do
               constraints: { token: /[A-Za-z0-9_\-]+/ }
         end
       end
+
+      namespace :admin do
+        get "service-worker.js", to: "service_worker#service_worker", defaults: { format: :js }
+        get "manifest.json",     to: "service_worker#manifest",       defaults: { format: :json }
+
+        get  "login",  to: "sessions#new",     as: :login
+        post "login",  to: "sessions#create"
+        delete "logout", to: "sessions#destroy", as: :logout
+
+        root to: "patentes#index", as: :root
+
+        resources :patentes do
+          resources :fechas, only: [:create, :index]
+        end
+
+        resources :fechas, only: [:show, :update, :destroy] do
+          member { get :descargar }
+          resources :fotos, only: [:create]
+        end
+
+        resources :fotos, only: [:show, :update, :destroy] do
+          member do
+            get  :ver
+            get  :descargar
+            post :mover
+          end
+          collection { post :descargar_zip }
+        end
+      end
+
+
     end
     scope :camioneta, module: :camioneta, as: :camioneta do
       namespace :api, defaults: { format: :json } do

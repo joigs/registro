@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A84FF" />
+  <title><%= content_for?(:title) ? yield(:title) : "Fotos Melón Admin" %></title>
+
+  <link rel="manifest" href="<%= main_app.fotos_melon_admin_manifest_path(format: :json) %>" />
+  <link rel="apple-touch-icon" href="/ventas/fotos_melon/admin/icon-180.png" />
+
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+
+  <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+  <%= javascript_importmap_tags %>
+</head>
+<body class="bg-fm-bg text-fm-text min-h-screen antialiased"
+      data-controller="fotos-melon--admin--sw">
+
+<header class="bg-white border-b border-fm-border sticky top-0 z-30">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+    <%= link_to fotos_melon_admin_root_path,
+                class: "flex items-center gap-2 text-fm-text font-semibold tracking-tight no-underline hover:opacity-80" do %>
+      <div class="w-9 h-9 rounded-full bg-fm-accent-soft border-2 border-fm-accent flex items-center justify-center">
+        <svg viewBox="0 0 24 24" class="w-5 h-5 text-fm-accent" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="9" cy="9" r="2" />
+          <path d="M21 15l-5-5L5 21" />
+        </svg>
+      </div>
+      <span>Fotos Melón <span class="font-normal text-fm-text-muted">· Admin</span></span>
+    <% end %>
+
+    <% if current_sesion %>
+      <div class="ml-auto flex items-center gap-3 text-sm text-fm-text-muted">
+        <span class="hidden sm:inline"><%= current_sesion.sec_user_name %></span>
+        <%= button_to fotos_melon_admin_logout_path,
+                      method: :delete,
+                      class: "px-3 py-1.5 rounded-full bg-fm-bg-subtle hover:bg-fm-border-strong text-fm-text border border-fm-border transition" do %>
+          Salir
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</header>
+
+<% if flash.any? %>
+  <div class="max-w-6xl mx-auto px-4 pt-4 space-y-2">
+    <% flash.each do |tipo, msg| %>
+      <% color = tipo.to_s == "alert" ? "danger" : "success" %>
+      <div class="px-4 py-3 rounded-xl border <%= color == 'danger' ? 'bg-red-50 text-red-800 border-red-200' : 'bg-green-50 text-green-800 border-green-200' %>">
+        <%= msg %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
+<main class="max-w-6xl mx-auto px-4 py-6">
+  <%= yield %>
+</main>
+
+</body>
+</html>
