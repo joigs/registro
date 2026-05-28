@@ -101,9 +101,7 @@
   <% end %>
 
   <%= form_with url: "#", method: :delete, data: { "fotos-melon--admin--galeria-target": "formEliminar" }, class: "hidden" do %><% end %>
-  <%= form_with url: "#", method: :patch, data: { "fotos-melon--admin--galeria-target": "formRenombrar" }, class: "hidden" do %>
-    <input type="text" name="nombre" data-fotos-melon--admin--galeria-target="formRenombrarInput" />
-  <% end %>
+
 
   <%= form_with url: "#", method: :post, data: { "fotos-melon--admin--galeria-target": "formMover" }, class: "hidden" do %>
     <input type="hidden" name="fecha_carpeta_id" data-fotos-melon--admin--galeria-target="formMoverDestino" />
