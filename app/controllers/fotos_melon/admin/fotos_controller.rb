@@ -2,7 +2,7 @@ module FotosMelon
   module Admin
     class FotosController < BaseController
       before_action :set_fecha, only: [:create]
-      before_action :set_foto, only: [:show, :update, :destroy, :ver, :descargar, :mover]
+      before_action :set_foto, only: [:update, :destroy, :ver, :descargar, :mover]
 
       def create
         archivos = Array(params[:imagenes]).reject(&:blank?)

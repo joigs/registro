@@ -1,6 +1,6 @@
 <% content_for :title, "#{@fecha.nombre_mostrado} · #{@fecha.patente.nombre}" %>
 
-<div data-controller="fotos-melon--admin--galeria fotos-melon--admin--modal fotos-melon--admin--uploader" class="space-y-5">
+<div data-controller="fotos-melon--admin--galeria fotos-melon--admin--modal fotos-melon--admin--upload" class="space-y-5">
   <div class="flex items-center gap-3">
     <a href="<%= fotos_melon_admin_patente_path(@fecha.patente) %>" class="w-9 h-9 rounded-full bg-fm-bg-subtle border border-fm-border flex items-center justify-center hover:bg-fm-border-strong no-underline">
       <svg viewBox="0 0 24 24" class="w-5 h-5 text-fm-text" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -13,7 +13,7 @@
   </div>
 
   <div class="flex flex-wrap gap-2" data-fotos-melon--admin--galeria-target="barraNormal">
-    <button type="button" data-action="fotos-melon--admin--uploader#abrir"
+    <button type="button" data-action="fotos-melon--admin--upload#abrir"
             class="bg-fm-accent hover:bg-fm-accent-deep text-white font-semibold px-5 py-2.5 rounded-full transition">Subir fotos</button>
     <% if @fotos.any? %>
       <a href="<%= descargar_fotos_melon_admin_fecha_path(@fecha) %>"
@@ -36,11 +36,10 @@
   </div>
 
   <%= form_with url: fotos_melon_admin_fecha_fotos_path(@fecha), method: :post, multipart: true,
-                data: { "fotos-melon--admin--uploader-target": "form" } do %>
+                data: { "fotos-melon--admin--upload-target": "form" }, class: "hidden" do %>
     <input type="file" name="imagenes[]" accept="image/*" multiple
-           data-fotos-melon--admin--uploader-target="input"
-           data-action="change->fotos-melon--admin--uploader#enviar"
-           style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" />
+           data-fotos-melon--admin--upload-target="input"
+           data-action="change->fotos-melon--admin--upload#enviar" />
   <% end %>
 
   <% if @fotos.empty? %>
@@ -86,7 +85,8 @@
     <div class="absolute bottom-4 inset-x-0 flex justify-center gap-2 px-4" data-action="click->stop">
       <a data-fotos-melon--admin--galeria-target="lightboxDescargar"
          class="px-4 py-2 rounded-full bg-fm-accent text-white font-semibold text-sm no-underline">Descargar</a>
-
+      <button type="button" data-action="fotos-melon--admin--galeria#renombrarActual"
+              class="px-4 py-2 rounded-full bg-white text-fm-text font-semibold text-sm">Renombrar</button>
       <button type="button" data-action="fotos-melon--admin--galeria#eliminarActual"
               class="px-4 py-2 rounded-full bg-fm-danger text-white font-semibold text-sm">Eliminar</button>
     </div>
@@ -100,8 +100,8 @@
   <% end %>
 
   <%= form_with url: "#", method: :delete, data: { "fotos-melon--admin--galeria-target": "formEliminar" }, class: "hidden" do %><% end %>
-  <%= form_with url: descargar_zip_fotos_melon_admin_fotos_path, method: :post, data: { "fotos-melon--admin--galeria-target": "formZip" }, class: "hidden" do %>
-    <div data-fotos-melon--admin--galeria-target="formZipIds"></div>
+  <%= form_with url: "#", method: :patch, data: { "fotos-melon--admin--galeria-target": "formRenombrar" }, class: "hidden" do %>
+    <input type="text" name="nombre" data-fotos-melon--admin--galeria-target="formRenombrarInput" />
   <% end %>
 
   <%= form_with url: "#", method: :post, data: { "fotos-melon--admin--galeria-target": "formMover" }, class: "hidden" do %>
@@ -109,7 +109,7 @@
   <% end %>
 
 
-  <div data-fotos-melon--admin--uploader-target="overlay" class="fixed inset-0 z-50 bg-black/40 hidden items-center justify-center">
+  <div data-fotos-melon--admin--upload-target="overlay" class="fixed inset-0 z-50 bg-black/40 hidden items-center justify-center">
     <div class="bg-white rounded-2xl p-8 text-center max-w-sm mx-4">
       <div class="w-12 h-12 mx-auto mb-4 border-4 border-fm-accent border-t-transparent rounded-full animate-spin"></div>
       <p class="font-semibold">Subiendo fotos...</p>

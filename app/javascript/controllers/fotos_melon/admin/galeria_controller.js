@@ -13,34 +13,32 @@ export default class extends Controller {
         this.sel = new Set();
         this.cfg = JSON.parse(this.datosTarget.textContent);
         this.actualId = null;
+        this._handlerTeclado = this.manejarTeclado.bind(this);
         this._iniciarPolling();
     }
 
     disconnect() {
         if (this._pollTimer) clearInterval(this._pollTimer);
+        window.removeEventListener("keydown", this._handlerTeclado);
     }
 
-    // ---------- Auto-refresh ----------
     _iniciarPolling() {
-        this._pollTimer = setInterval(() => this._chequearCambios(), 8000);
+        this._pollTimer = setInterval(() => this._chequearCambios(), 15000);
     }
 
     async _chequearCambios() {
         try {
             const res = await fetch(this.cfg.fechasUrlBase + "x", { method: "HEAD" }).catch(() => null);
-        } catch (e) { /* ignore */ }
-        // Polling real: pedimos el JSON de fechas de la patente actual y comparamos cantidad.
+        } catch (e) { }
         try {
             const url = `/ventas/fotos_melon/admin/fechas/${this.cfg.fechaActualId}.json`;
-            // No hay endpoint show.json; usamos un fetch al propio HTML y contamos. Más simple: recargar si el server cambió.
-        } catch (e) { /* ignore */ }
+        } catch (e) { }
     }
 
     refrescar() {
         window.location.reload();
     }
 
-    // ---------- Selección ----------
     clickItem(event) {
         const li = event.currentTarget;
         const id = parseInt(li.dataset.fotoId, 10);
@@ -88,20 +86,46 @@ export default class extends Controller {
         this.refrescarBarra();
     }
 
-    // ---------- Lightbox ----------
     abrirLightbox(id) {
         this.actualId = id;
         this.lightboxImgTarget.src = this.cfg.verUrlBase + id + "/ver";
         this.lightboxDescargarTarget.href = this.cfg.verUrlBase + id + "/descargar";
         this.lightboxTarget.classList.remove("hidden");
         this.lightboxTarget.classList.add("flex");
+        window.addEventListener("keydown", this._handlerTeclado);
     }
 
     cerrarLightbox(event) {
         if (event && event.target !== event.currentTarget && !event.target.closest("button")) return;
         this.lightboxTarget.classList.add("hidden");
         this.lightboxTarget.classList.remove("flex");
+        window.removeEventListener("keydown", this._handlerTeclado);
         this.actualId = null;
+    }
+
+    manejarTeclado(event) {
+        if (!this.actualId) return;
+
+        if (event.key === "Escape") {
+            this.cerrarLightbox();
+            return;
+        }
+
+        if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+            const ids = this.itemTargets.map((li) => parseInt(li.dataset.fotoId, 10));
+            const index = ids.indexOf(this.actualId);
+
+            if (index === -1) return;
+
+            let nuevoIndex;
+            if (event.key === "ArrowRight") {
+                nuevoIndex = (index + 1) % ids.length;
+            } else {
+                nuevoIndex = (index - 1 + ids.length) % ids.length;
+            }
+
+            this.abrirLightbox(ids[nuevoIndex]);
+        }
     }
 
     eliminarActual() {
@@ -122,7 +146,6 @@ export default class extends Controller {
         f.requestSubmit();
     }
 
-    // ---------- Descargar seleccionadas ----------
     descargarSeleccionadas() {
         if (this.sel.size === 0) return;
         this.formZipIdsTarget.innerHTML = "";
@@ -134,7 +157,6 @@ export default class extends Controller {
         this.formZipTarget.requestSubmit();
     }
 
-    // ---------- Eliminar múltiples ----------
     abrirEliminar() {
         if (this.sel.size === 0) return;
         if (!confirm(`¿Eliminar ${this.sel.size} foto(s)? No se puede deshacer.`)) return;
@@ -153,7 +175,6 @@ export default class extends Controller {
         window.location.reload();
     }
 
-    // ---------- Mover ----------
     abrirMover() {
         if (this.sel.size === 0) return;
         const lista = this.moverListaTarget;
