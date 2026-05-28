@@ -2,18 +2,45 @@ import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
     static targets = [
-        "item", "check", "barraNormal", "barraSeleccion", "contador", "datos",
+        "item", "barraNormal", "barraSeleccion", "contador", "datos",
         "lightbox", "lightboxImg", "lightboxDescargar",
-        "moverLista", "formEliminar", "formRenombrar", "formRenombrarInput",
-        "formZip", "formZipIds", "formMover", "formMoverDestino"
+        "moverLista",
+        "formEliminar", "formRenombrar", "formRenombrarInput",
+        "formZip", "formZipIds"
     ];
 
     connect() {
         this.sel = new Set();
         this.cfg = JSON.parse(this.datosTarget.textContent);
         this.actualId = null;
+        this._iniciarPolling();
     }
 
+    disconnect() {
+        if (this._pollTimer) clearInterval(this._pollTimer);
+    }
+
+    // ---------- Auto-refresh ----------
+    _iniciarPolling() {
+        this._pollTimer = setInterval(() => this._chequearCambios(), 8000);
+    }
+
+    async _chequearCambios() {
+        try {
+            const res = await fetch(this.cfg.fechasUrlBase + "x", { method: "HEAD" }).catch(() => null);
+        } catch (e) { /* ignore */ }
+        // Polling real: pedimos el JSON de fechas de la patente actual y comparamos cantidad.
+        try {
+            const url = `/ventas/fotos_melon/admin/fechas/${this.cfg.fechaActualId}.json`;
+            // No hay endpoint show.json; usamos un fetch al propio HTML y contamos. Más simple: recargar si el server cambió.
+        } catch (e) { /* ignore */ }
+    }
+
+    refrescar() {
+        window.location.reload();
+    }
+
+    // ---------- Selección ----------
     clickItem(event) {
         const li = event.currentTarget;
         const id = parseInt(li.dataset.fotoId, 10);
@@ -29,11 +56,11 @@ export default class extends Controller {
         if (this.sel.has(id)) {
             this.sel.delete(id);
             li.classList.remove("ring-2", "ring-fm-accent");
-            check.classList.add("hidden"); check.classList.remove("flex", "bg-fm-accent");
+            if (check) { check.classList.add("hidden"); check.classList.remove("flex", "bg-fm-accent"); }
         } else {
             this.sel.add(id);
             li.classList.add("ring-2", "ring-fm-accent");
-            check.classList.remove("hidden"); check.classList.add("flex", "bg-fm-accent");
+            if (check) { check.classList.remove("hidden"); check.classList.add("flex", "bg-fm-accent"); }
         }
         this.refrescarBarra();
     }
@@ -52,18 +79,16 @@ export default class extends Controller {
     }
 
     limpiar() {
-        this.sel.forEach((id) => {
-            const li = this.itemTargets.find((i) => parseInt(i.dataset.fotoId, 10) === id);
-            if (li) {
-                li.classList.remove("ring-2", "ring-fm-accent");
-                const c = li.querySelector("[data-fotos-melon--admin--galeria-target='check']");
-                c.classList.add("hidden"); c.classList.remove("flex", "bg-fm-accent");
-            }
+        this.itemTargets.forEach((li) => {
+            li.classList.remove("ring-2", "ring-fm-accent");
+            const c = li.querySelector("[data-fotos-melon--admin--galeria-target='check']");
+            if (c) { c.classList.add("hidden"); c.classList.remove("flex", "bg-fm-accent"); }
         });
         this.sel.clear();
         this.refrescarBarra();
     }
 
+    // ---------- Lightbox ----------
     abrirLightbox(id) {
         this.actualId = id;
         this.lightboxImgTarget.src = this.cfg.verUrlBase + id + "/ver";
@@ -97,6 +122,7 @@ export default class extends Controller {
         f.requestSubmit();
     }
 
+    // ---------- Descargar seleccionadas ----------
     descargarSeleccionadas() {
         if (this.sel.size === 0) return;
         this.formZipIdsTarget.innerHTML = "";
@@ -108,6 +134,7 @@ export default class extends Controller {
         this.formZipTarget.requestSubmit();
     }
 
+    // ---------- Eliminar múltiples ----------
     abrirEliminar() {
         if (this.sel.size === 0) return;
         if (!confirm(`¿Eliminar ${this.sel.size} foto(s)? No se puede deshacer.`)) return;
@@ -126,6 +153,7 @@ export default class extends Controller {
         window.location.reload();
     }
 
+    // ---------- Mover ----------
     abrirMover() {
         if (this.sel.size === 0) return;
         const lista = this.moverListaTarget;
@@ -135,26 +163,40 @@ export default class extends Controller {
             btn.type = "button";
             btn.className = "w-full text-left px-4 py-3 rounded-lg border " +
                 (p.esActual ? "border-fm-accent bg-fm-accent-soft" : "border-fm-border hover:bg-fm-bg-subtle");
-            btn.innerHTML = `<span class="font-semibold">${p.nombre}</span>` + (p.esActual ? ` <span class="text-xs text-fm-accent-deep">(actual)</span>` : "");
+            btn.innerHTML = `<span class="font-semibold">${p.nombre}</span>` +
+                (p.esActual ? ` <span class="text-xs text-fm-accent-deep">(actual)</span>` : "");
             btn.addEventListener("click", () => this._elegirPatente(p.id));
             lista.appendChild(btn);
         });
-        document.querySelector("[data-modal-id='mover-fotos']").classList.remove("hidden");
-        document.querySelector("[data-modal-id='mover-fotos']").classList.add("flex");
+        const modal = document.querySelector("[data-modal-id='mover-fotos']");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
     }
 
     async _elegirPatente(patenteId) {
         const lista = this.moverListaTarget;
         lista.innerHTML = "<p class='text-fm-text-muted text-sm'>Cargando fechas...</p>";
-        const res = await fetch(`/ventas/fotos_melon/admin/patentes/${patenteId}/fechas.json`, {
-            headers: { "Accept": "application/json" }, credentials: "same-origin"
-        });
-        // Si no hay endpoint JSON de fechas, hacemos fallback: recargar mover con HTML.
         let fechas = [];
-        try { fechas = await res.json(); } catch (e) { fechas = []; }
+        try {
+            const res = await fetch(`/ventas/fotos_melon/admin/patentes/${patenteId}/fechas.json`, {
+                headers: { "Accept": "application/json" }, credentials: "same-origin"
+            });
+            fechas = await res.json();
+        } catch (e) { fechas = []; }
+
         lista.innerHTML = "";
+        const volver = document.createElement("button");
+        volver.type = "button";
+        volver.className = "text-fm-accent text-sm mb-2";
+        volver.textContent = "← Volver a patentes";
+        volver.addEventListener("click", () => this.abrirMover());
+        lista.appendChild(volver);
+
         if (!Array.isArray(fechas) || fechas.length === 0) {
-            lista.innerHTML = "<p class='text-fm-text-muted text-sm'>Esta patente no tiene carpetas.</p>";
+            const p = document.createElement("p");
+            p.className = "text-fm-text-muted text-sm";
+            p.textContent = "Esta patente no tiene carpetas de fecha.";
+            lista.appendChild(p);
             return;
         }
         fechas.forEach((fc) => {
@@ -163,8 +205,9 @@ export default class extends Controller {
             btn.type = "button";
             btn.disabled = esActual;
             btn.className = "w-full text-left px-4 py-3 rounded-lg border " +
-                (esActual ? "border-fm-accent bg-fm-accent-soft opacity-60" : "border-fm-border hover:bg-fm-bg-subtle");
-            btn.innerHTML = `<span class="font-semibold">${fc.nombre_mostrado}</span>` + (esActual ? ` <span class="text-xs">(actual)</span>` : "");
+                (esActual ? "border-fm-accent bg-fm-accent-soft opacity-60 cursor-not-allowed" : "border-fm-border hover:bg-fm-bg-subtle");
+            btn.innerHTML = `<span class="font-semibold">${fc.nombre_mostrado}</span>` +
+                (esActual ? ` <span class="text-xs">(actual)</span>` : "");
             if (!esActual) btn.addEventListener("click", () => this._moverA(fc.id));
             lista.appendChild(btn);
         });

@@ -9,8 +9,7 @@
       <h1 class="text-2xl font-bold tracking-tight"><%= @fecha.nombre_mostrado %></h1>
       <p class="text-sm text-fm-text-muted"><%= @fecha.patente.nombre %></p>
     </div>
-    <button type="button" data-action="fotos-melon--admin--modal#open" data-modal-id="renombrar-fecha"
-            class="px-4 py-2 rounded-full border border-fm-border hover:bg-fm-bg-subtle text-sm">Renombrar</button>
+
   </div>
 
   <div class="flex flex-wrap gap-2" data-fotos-melon--admin--galeria-target="barraNormal">
@@ -37,15 +36,16 @@
   </div>
 
   <%= form_with url: fotos_melon_admin_fecha_fotos_path(@fecha), method: :post, multipart: true,
-                data: { "fotos-melon--admin--uploader-target": "form" }, class: "hidden" do %>
+                data: { "fotos-melon--admin--uploader-target": "form" } do %>
     <input type="file" name="imagenes[]" accept="image/*" multiple
            data-fotos-melon--admin--uploader-target="input"
-           data-action="change->fotos-melon--admin--uploader#enviar" />
+           data-action="change->fotos-melon--admin--uploader#enviar"
+           style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" />
   <% end %>
 
   <% if @fotos.empty? %>
     <div class="bg-white border border-fm-border rounded-2xl p-12 text-center">
-      <p class="text-fm-text-muted">Aún no hay fotos. Sube las primeras desde tu computador.</p>
+      <p class="text-fm-text-muted">Sin fotos.</p>
     </div>
   <% else %>
     <ul class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -86,8 +86,7 @@
     <div class="absolute bottom-4 inset-x-0 flex justify-center gap-2 px-4" data-action="click->stop">
       <a data-fotos-melon--admin--galeria-target="lightboxDescargar"
          class="px-4 py-2 rounded-full bg-fm-accent text-white font-semibold text-sm no-underline">Descargar</a>
-      <button type="button" data-action="fotos-melon--admin--galeria#renombrarActual"
-              class="px-4 py-2 rounded-full bg-white text-fm-text font-semibold text-sm">Renombrar</button>
+
       <button type="button" data-action="fotos-melon--admin--galeria#eliminarActual"
               class="px-4 py-2 rounded-full bg-fm-danger text-white font-semibold text-sm">Eliminar</button>
     </div>
@@ -101,29 +100,14 @@
   <% end %>
 
   <%= form_with url: "#", method: :delete, data: { "fotos-melon--admin--galeria-target": "formEliminar" }, class: "hidden" do %><% end %>
-
+  <%= form_with url: descargar_zip_fotos_melon_admin_fotos_path, method: :post, data: { "fotos-melon--admin--galeria-target": "formZip" }, class: "hidden" do %>
+    <div data-fotos-melon--admin--galeria-target="formZipIds"></div>
+  <% end %>
 
   <%= form_with url: "#", method: :post, data: { "fotos-melon--admin--galeria-target": "formMover" }, class: "hidden" do %>
     <input type="hidden" name="fecha_carpeta_id" data-fotos-melon--admin--galeria-target="formMoverDestino" />
   <% end %>
 
-  <%= render "fotos_melon/admin/shared/modal", id: "renombrar-fecha", titulo: "Renombrar carpeta" do %>
-    <%= form_with url: fotos_melon_admin_fecha_path(@fecha), method: :patch, local: true, class: "space-y-4" do %>
-      <div>
-        <label class="block text-xs uppercase text-fm-text-muted font-medium mb-1">Nuevo nombre</label>
-        <input type="text" name="nombre_personalizado" value="<%= @fecha.nombre_personalizado %>" placeholder="Ej: Inspección final"
-               class="w-full px-4 py-3 rounded-lg border border-fm-border focus:outline-none focus:ring-2 focus:ring-fm-accent-ring focus:border-fm-accent" />
-      </div>
-      <div>
-        <label class="block text-xs uppercase text-fm-text-muted font-medium mb-1">Para confirmar, escribe "<%= @fecha.nombre_mostrado %>"</label>
-        <input type="text" name="confirmacion_nombre" autocomplete="off" class="w-full px-4 py-3 rounded-lg border border-fm-border focus:outline-none focus:ring-2 focus:ring-fm-accent-ring focus:border-fm-accent" />
-      </div>
-      <div class="flex justify-end gap-2">
-        <button type="button" data-action="fotos-melon--admin--modal#close" class="px-4 py-2.5 rounded-full border border-fm-border hover:bg-fm-bg-subtle">Cancelar</button>
-        <button type="submit" class="px-5 py-2.5 rounded-full bg-fm-accent hover:bg-fm-accent-deep text-white font-semibold">Guardar</button>
-      </div>
-    <% end %>
-  <% end %>
 
   <div data-fotos-melon--admin--uploader-target="overlay" class="fixed inset-0 z-50 bg-black/40 hidden items-center justify-center">
     <div class="bg-white rounded-2xl p-8 text-center max-w-sm mx-4">

@@ -3,11 +3,14 @@ module FotosMelon
     class PatentesController < BaseController
       before_action :set_patente, only: [:show, :update, :destroy]
 
+
       def index
-        @patentes = FotosMelon::Patente.order(:nombre)
-        if params[:q].present?
-          @patentes = @patentes.where("nombre LIKE ?", "%#{params[:q].to_s.upcase}%")
-        end
+        @patentes = FotosMelon::Patente.all
+        @patentes = @patentes.where("LOWER(nombre) LIKE ?", "%#{params[:q].to_s.downcase}%") if params[:q].present?
+        @patentes = @patentes.left_joins(:fechas)
+             .select("fotos_melon_patentes.*, MAX(fotos_melon_fechas.fecha) AS ultima_fecha")
+             .group("fotos_melon_patentes.id")
+             .order(Arel.sql("MAX(fotos_melon_fechas.fecha) IS NULL, MAX(fotos_melon_fechas.fecha) DESC, fotos_melon_patentes.nombre ASC"))
       end
 
       def show
