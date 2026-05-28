@@ -1,0 +1,83 @@
+<% content_for :title, "#{@patente.nombre} · Fotos Melón Admin" %>
+
+<div data-controller="fotos-melon--admin--modal" class="space-y-5">
+  <div class="flex items-center gap-3">
+    <a href="<%= fotos_melon_admin_root_path %>" class="w-9 h-9 rounded-full bg-fm-bg-subtle border border-fm-border flex items-center justify-center hover:bg-fm-border-strong no-underline">
+      <svg viewBox="0 0 24 24" class="w-5 h-5 text-fm-text" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <h1 class="text-2xl font-bold tracking-tight flex-1"><%= @patente.nombre %></h1>
+    <button type="button" data-action="fotos-melon--admin--modal#open" data-modal-id="renombrar-patente"
+            class="px-4 py-2 rounded-full border border-fm-border hover:bg-fm-bg-subtle text-sm">Renombrar</button>
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    <button type="button" data-action="fotos-melon--admin--modal#open" data-modal-id="crear-fecha"
+            class="bg-fm-accent hover:bg-fm-accent-deep text-white font-semibold px-5 py-2.5 rounded-full transition">Nueva fecha</button>
+  </div>
+
+  <% if @fechas.empty? %>
+    <div class="bg-white border border-fm-border rounded-2xl p-12 text-center">
+      <p class="text-fm-text-muted">Sin carpetas de fecha. Crea la primera para subir fotos.</p>
+    </div>
+  <% else %>
+    <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <% @fechas.each do |fc| %>
+        <li class="group bg-white border border-fm-border rounded-xl hover:border-fm-accent hover:shadow-sm transition">
+          <div class="flex items-center gap-3 p-4">
+            <a href="<%= fotos_melon_admin_fecha_path(fc) %>" class="flex items-center gap-3 flex-1 no-underline text-fm-text">
+              <div class="w-11 h-11 rounded-lg bg-fm-bg-subtle flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" class="w-5 h-5 text-fm-text-muted" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div>
+                <div class="font-semibold"><%= fc.nombre_mostrado %></div>
+                <div class="text-xs text-fm-text-muted"><%= fc.fotos.size == 1 ? "1 foto" : "#{fc.fotos.size} fotos" %></div>
+              </div>
+            </a>
+            <button type="button" data-action="fotos-melon--admin--modal#open" data-modal-id="eliminar-fecha-<%= fc.id %>"
+                    class="opacity-0 group-hover:opacity-100 transition text-fm-danger p-2 rounded-lg hover:bg-fm-danger-soft" title="Eliminar">
+              <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            </button>
+          </div>
+          <%= render "fotos_melon/admin/shared/confirmacion_triple",
+                     modal_id: "eliminar-fecha-#{fc.id}",
+                     titulo: "Eliminar carpeta",
+                     objeto: "la carpeta #{fc.nombre_mostrado} y todas sus fotos",
+                     texto_confirmacion: @patente.nombre,
+                     url: fotos_melon_admin_fecha_path(fc),
+                     metodo: :delete %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <%= render "fotos_melon/admin/shared/modal", id: "crear-fecha", titulo: "Nueva carpeta de fecha" do %>
+    <%= form_with url: fotos_melon_admin_patente_fechas_path(@patente), method: :post, local: true, class: "space-y-4" do %>
+      <div>
+        <label class="block text-xs uppercase text-fm-text-muted font-medium mb-1">Fecha</label>
+        <input type="date" name="fecha" value="<%= Date.current.strftime('%Y-%m-%d') %>" max="<%= Date.current.strftime('%Y-%m-%d') %>"
+               class="w-full px-4 py-3 rounded-lg border border-fm-border focus:outline-none focus:ring-2 focus:ring-fm-accent-ring focus:border-fm-accent cursor-pointer" />
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" data-action="fotos-melon--admin--modal#close" class="px-4 py-2.5 rounded-full border border-fm-border hover:bg-fm-bg-subtle">Cancelar</button>
+        <button type="submit" class="px-5 py-2.5 rounded-full bg-fm-accent hover:bg-fm-accent-deep text-white font-semibold">Crear</button>
+      </div>
+    <% end %>
+  <% end %>
+
+  <%= render "fotos_melon/admin/shared/modal", id: "renombrar-patente", titulo: "Renombrar patente" do %>
+    <%= form_with url: fotos_melon_admin_patente_path(@patente), method: :patch, local: true, class: "space-y-4" do %>
+      <div>
+        <label class="block text-xs uppercase text-fm-text-muted font-medium mb-1">Nuevo nombre</label>
+        <input type="text" name="nombre" value="<%= @patente.nombre %>" class="w-full px-4 py-3 rounded-lg border border-fm-border uppercase focus:outline-none focus:ring-2 focus:ring-fm-accent-ring focus:border-fm-accent" />
+      </div>
+      <div>
+        <label class="block text-xs uppercase text-fm-text-muted font-medium mb-1">Para confirmar, escribe "<%= @patente.nombre %>"</label>
+        <input type="text" name="confirmacion_nombre" autocomplete="off" class="w-full px-4 py-3 rounded-lg border border-fm-border uppercase focus:outline-none focus:ring-2 focus:ring-fm-accent-ring focus:border-fm-accent" />
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" data-action="fotos-melon--admin--modal#close" class="px-4 py-2.5 rounded-full border border-fm-border hover:bg-fm-bg-subtle">Cancelar</button>
+        <button type="submit" class="px-5 py-2.5 rounded-full bg-fm-accent hover:bg-fm-accent-deep text-white font-semibold">Guardar</button>
+      </div>
+    <% end %>
+  <% end %>
+</div>

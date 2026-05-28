@@ -1,0 +1,36 @@
+<div data-fotos-melon--admin--modal-target="modal" data-modal-id="<%= modal_id %>"
+     class="fixed inset-0 z-50 bg-black/45 hidden items-center justify-center p-4"
+     data-action="click->fotos-melon--admin--modal#backdrop">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md" data-modal-card
+       data-controller="fotos-melon--admin--confirmacion"
+       data-fotos-melon--admin--confirmacion-texto-value="<%= texto_confirmacion %>">
+    <div class="p-6 space-y-4">
+      <h3 class="text-xl font-bold"><%= titulo %></h3>
+      <div class="bg-fm-danger-soft border-l-4 border-fm-danger px-4 py-3 rounded">
+        <p class="text-fm-danger font-semibold text-sm">Vas a eliminar <%= objeto %>. Esta acción no se puede deshacer.</p>
+      </div>
+
+      <p data-fotos-melon--admin--confirmacion-target="paso" class="text-fm-text-muted">¿Estás seguro? (paso 1 de 3)</p>
+
+      <div data-fotos-melon--admin--confirmacion-target="inputWrap" class="hidden">
+        <label class="block text-xs uppercase text-fm-text-muted font-medium mb-1">Escribe "<%= texto_confirmacion %>"</label>
+        <input type="text" autocomplete="off"
+               data-fotos-melon--admin--confirmacion-target="input"
+               class="w-full px-4 py-3 rounded-lg border border-fm-border focus:outline-none focus:ring-2 focus:ring-fm-accent-ring uppercase" />
+        <p data-fotos-melon--admin--confirmacion-target="error" class="text-fm-danger text-sm mt-1 hidden">Texto incorrecto.</p>
+      </div>
+
+      <%= form_with url: url, method: metodo, local: true,
+                    data: { "fotos-melon--admin--confirmacion-target": "form" }, class: "hidden" do %>
+        <input type="hidden" name="confirmacion_nombre" data-fotos-melon--admin--confirmacion-target="hidden" />
+      <% end %>
+
+      <div class="flex justify-end gap-2">
+        <button type="button" data-action="fotos-melon--admin--modal#close" class="px-4 py-2.5 rounded-full border border-fm-border hover:bg-fm-bg-subtle">Cancelar</button>
+        <button type="button" data-action="fotos-melon--admin--confirmacion#avanzar"
+                data-fotos-melon--admin--confirmacion-target="boton"
+                class="px-5 py-2.5 rounded-full bg-fm-danger hover:opacity-90 text-white font-semibold">Continuar</button>
+      </div>
+    </div>
+  </div>
+</div>

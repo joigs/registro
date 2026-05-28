@@ -6,11 +6,12 @@
   <meta name="theme-color" content="#0A84FF" />
   <title>Iniciar sesión · Fotos Melón Admin</title>
 
-  <link rel="manifest" href="<%= main_app.fotos_melon_admin_manifest_path(format: :json) %>" />
+  <link rel="manifest" href="/ventas/fotos_melon/admin/manifest.json" />
 
   <%= csrf_meta_tags %>
   <%= csp_meta_tag %>
 
+  <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
   <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
   <%= javascript_importmap_tags %>
 </head>

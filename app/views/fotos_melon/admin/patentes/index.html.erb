@@ -1,0 +1,66 @@
+<% content_for :title, "Patentes · Fotos Melón Admin" %>
+
+<div data-controller="fotos-melon--admin--modal" class="space-y-5">
+  <div class="flex flex-wrap items-center gap-3 justify-between">
+    <h1 class="text-2xl font-bold tracking-tight">Patentes</h1>
+    <button type="button" data-action="fotos-melon--admin--modal#open" data-modal-id="crear-patente"
+            class="bg-fm-accent hover:bg-fm-accent-deep text-white font-semibold px-5 py-2.5 rounded-full transition">
+      Nueva patente
+    </button>
+  </div>
+
+  <%= form_with url: fotos_melon_admin_root_path, method: :get, local: true, class: "flex gap-2" do %>
+    <input type="text" name="q" value="<%= params[:q] %>" placeholder="Buscar patente..."
+           autocomplete="off"
+           class="flex-1 px-4 py-2.5 rounded-lg border border-fm-border bg-white focus:outline-none focus:ring-2 focus:ring-fm-accent-ring focus:border-fm-accent uppercase" />
+    <button type="submit" class="px-4 py-2.5 rounded-full bg-fm-bg-subtle border border-fm-border hover:bg-fm-border-strong transition">Buscar</button>
+  <% end %>
+
+  <% if @patentes.empty? %>
+    <div class="bg-white border border-fm-border rounded-2xl p-12 text-center">
+      <p class="text-fm-text-muted"><%= params[:q].present? ? "Sin resultados." : "Aún no hay patentes registradas." %></p>
+    </div>
+  <% else %>
+    <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <% @patentes.each do |p| %>
+        <li class="group bg-white border border-fm-border rounded-xl hover:border-fm-accent hover:shadow-sm transition">
+          <div class="flex items-center gap-3 p-4">
+            <a href="<%= fotos_melon_admin_patente_path(p) %>" class="flex items-center gap-3 flex-1 no-underline text-fm-text">
+              <div class="w-11 h-11 rounded-lg bg-fm-accent-soft flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" class="w-5 h-5 text-fm-accent" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+              </div>
+              <span class="font-semibold text-lg"><%= p.nombre %></span>
+            </a>
+            <button type="button" data-action="fotos-melon--admin--modal#open"
+                    data-modal-id="eliminar-patente-<%= p.id %>"
+                    class="opacity-0 group-hover:opacity-100 transition text-fm-danger p-2 rounded-lg hover:bg-fm-danger-soft" title="Eliminar">
+              <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </div>
+
+          <%= render "fotos_melon/admin/shared/confirmacion_triple",
+                     modal_id: "eliminar-patente-#{p.id}",
+                     titulo: "Eliminar patente",
+                     objeto: "la patente #{p.nombre} y TODAS sus carpetas y fotos",
+                     texto_confirmacion: p.nombre,
+                     url: fotos_melon_admin_patente_path(p),
+                     metodo: :delete %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <%= render "fotos_melon/admin/shared/modal", id: "crear-patente", titulo: "Nueva patente" do %>
+    <%= form_with url: fotos_melon_admin_patentes_path, method: :post, local: true, class: "space-y-4" do %>
+      <div>
+        <label class="block text-xs uppercase text-fm-text-muted font-medium mb-1">Patente</label>
+        <input type="text" name="nombre" autofocus autocomplete="off"
+               class="w-full px-4 py-3 rounded-lg border border-fm-border focus:outline-none focus:ring-2 focus:ring-fm-accent-ring focus:border-fm-accent uppercase" />
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" data-action="fotos-melon--admin--modal#close" class="px-4 py-2.5 rounded-full border border-fm-border hover:bg-fm-bg-subtle">Cancelar</button>
+        <button type="submit" class="px-5 py-2.5 rounded-full bg-fm-accent hover:bg-fm-accent-deep text-white font-semibold">Crear</button>
+      </div>
+    <% end %>
+  <% end %>
+</div>

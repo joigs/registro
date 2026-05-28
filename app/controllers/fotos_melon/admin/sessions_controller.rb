@@ -1,6 +1,9 @@
 module FotosMelon
   module Admin
     class SessionsController < ::ApplicationController
+      skip_before_action :protect_pages, raise: false
+      skip_before_action :set_current_user, raise: false
+
       include FotosMelon::AdminAuthentication
 
       layout "fotos_melon/admin/auth"
