@@ -7,6 +7,10 @@ module FotosMelon
 
     validates :nombre, presence: true
     validates :subido_por_id, presence: true
+    validates :upload_uuid,
+              uniqueness: { scope: :fecha_carpeta_id, allow_nil: true },
+              length: { maximum: 64 },
+              allow_nil: true
 
     def tamano_bytes
       return 0 unless imagen.attached?
