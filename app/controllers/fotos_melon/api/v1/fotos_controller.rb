@@ -23,39 +23,75 @@ module FotosMelon
           if archivos.blank?
             return render json: { error: "No se enviaron imágenes" }, status: :bad_request
           end
-
+        
+          uuids = Array(params[:upload_uuid]).flatten.map(&:to_s)
+        
           creadas = []
           errores = []
-
-          archivos.each do |archivo|
+          reusadas = []
+        
+          archivos.each_with_index do |archivo, idx|
             next unless archivo.respond_to?(:original_filename)
-
+        
+            uuid = uuids[idx].presence
+        
+            if uuid
+              existente = @fecha.fotos.find_by(upload_uuid: uuid)
+              if existente
+                reusadas << serializar_foto(existente)
+                archivo.tempfile.close rescue nil
+                next
+              end
+            end
+        
             foto = @fecha.fotos.new(
               nombre: File.basename(archivo.original_filename, File.extname(archivo.original_filename)),
               subido_por_id: @current_user_id,
-              subido_por_nombre: @current_user_name
+              subido_por_nombre: @current_user_name,
+              upload_uuid: uuid
             )
             foto.imagen.attach(
               io: archivo.tempfile,
               filename: archivo.original_filename,
               content_type: archivo.content_type
             )
-
+        
             if foto.save
               creadas << serializar_foto(foto)
             else
-              errores << { archivo: archivo.original_filename, error: foto.errors.full_messages.join(", ") }
+              if uuid && (existente = @fecha.fotos.find_by(upload_uuid: uuid))
+                reusadas << serializar_foto(existente)
+              else
+                errores << { archivo: archivo.original_filename, error: foto.errors.full_messages.join(", ") }
+              end
             end
-
+        
             archivo.tempfile.close rescue nil
           end
-
-          GC.start if creadas.size > 5
-
-          status = errores.empty? ? :created : :multi_status
-          render json: { fotos: creadas, errores: errores }, status: status
+        
+          GC.start if (creadas.size + reusadas.size) > 5
+        
+          status =
+            if errores.any? then :multi_status
+            elsif creadas.empty? && reusadas.any? then :ok  
+            else :created
+            end
+        
+          render json: {
+            fotos: creadas + reusadas,
+            creadas_count: creadas.size,
+            reusadas_count: reusadas.size,
+            errores: errores
+          }, status: status
+        rescue ActionController::BadRequest, EOFError, Rack::Multipart::EmptyContentError => e
+          Rails.logger.warn("[FotosMelon] body multipart inválido: #{e.class}: #{e.message}")
+          render json: {
+            error: "La subida se cortó antes de completarse",
+            codigo: "body_truncado"
+          }, status: :bad_request
         end
-
+        
+              
         def update
           @foto.update!(nombre: params.require(:nombre))
           render json: serializar_foto(@foto)
