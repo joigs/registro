@@ -5,23 +5,76 @@ module FotosMelon
       before_action :set_foto, only: [:update, :destroy, :ver, :descargar, :mover]
 
       def create
-        archivos = Array(params[:imagenes]).reject(&:blank?)
-        if archivos.empty?
-          redirect_to fotos_melon_admin_fecha_path(@fecha), alert: "No seleccionaste fotos." and return
+        archivos = Array(params[:imagenes]).presence || Array(params[:imagen]).presence
+        if archivos.blank?
+          return render json: { error: "No se enviaron imágenes" }, status: :bad_request
         end
-        creadas = 0
-        archivos.each do |archivo|
+
+        uuids = Array(params[:upload_uuid]).flatten.map(&:to_s)
+
+        creadas = []
+        errores = []
+        reusadas = []
+
+        archivos.each_with_index do |archivo, idx|
           next unless archivo.respond_to?(:original_filename)
+
+          uuid = uuids[idx].presence
+
+          if uuid
+            existente = @fecha.fotos.find_by(upload_uuid: uuid)
+            if existente
+              reusadas << serializar_foto(existente)
+              archivo.tempfile.close rescue nil
+              next
+            end
+          end
+
           foto = @fecha.fotos.new(
             nombre: File.basename(archivo.original_filename, File.extname(archivo.original_filename)),
-            subido_por_id: current_sesion.sec_user_id,
-            subido_por_nombre: current_sesion.sec_user_name
+            subido_por_id: @current_user_id,
+            subido_por_nombre: @current_user_name,
+            upload_uuid: uuid
           )
-          foto.imagen.attach(io: archivo.tempfile, filename: archivo.original_filename, content_type: archivo.content_type)
-          creadas += 1 if foto.save
+          foto.imagen.attach(
+            io: archivo.tempfile,
+            filename: archivo.original_filename,
+            content_type: archivo.content_type
+          )
+
+          if foto.save
+            creadas << serializar_foto(foto)
+          else
+            if uuid && (existente = @fecha.fotos.find_by(upload_uuid: uuid))
+              reusadas << serializar_foto(existente)
+            else
+              errores << { archivo: archivo.original_filename, error: foto.errors.full_messages.join(", ") }
+            end
+          end
+
+          archivo.tempfile.close rescue nil
         end
-        redirect_to fotos_melon_admin_fecha_path(@fecha),
-                    notice: "#{creadas} #{creadas == 1 ? 'foto subida' : 'fotos subidas'}."
+
+        GC.start if (creadas.size + reusadas.size) > 5
+
+        status =
+          if errores.any? then :multi_status
+          elsif creadas.empty? && reusadas.any? then :ok
+          else :created
+          end
+
+        render json: {
+          fotos: creadas + reusadas,
+          creadas_count: creadas.size,
+          reusadas_count: reusadas.size,
+          errores: errores
+        }, status: status
+      rescue ActionController::BadRequest, EOFError, Rack::Multipart::EmptyContentError => e
+        Rails.logger.warn("[FotosMelon] body multipart inválido: #{e.class}: #{e.message}")
+        render json: {
+          error: "La subida se cortó antes de completarse",
+          codigo: "body_truncado"
+        }, status: :bad_request
       end
 
       def update

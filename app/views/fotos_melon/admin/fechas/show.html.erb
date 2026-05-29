@@ -35,6 +35,7 @@
             class="px-3 py-2 rounded-full bg-white border border-fm-border text-sm">Cancelar</button>
   </div>
 
+
   <%= form_with url: fotos_melon_admin_fecha_fotos_path(@fecha), method: :post, multipart: true,
                 data: { "fotos-melon--admin--upload-target": "form" }, class: "hidden" do %>
     <input type="file" name="imagenes[]" accept="image/*" multiple
@@ -77,12 +78,18 @@
   </script>
 
   <div data-fotos-melon--admin--galeria-target="lightbox"
-       class="fixed inset-0 z-50 bg-black/92 hidden items-center justify-center"
+       class="fixed inset-0 z-50 bg-black hidden items-center justify-center"
        data-action="click->fotos-melon--admin--galeria#cerrarLightbox">
     <button type="button" data-action="fotos-melon--admin--galeria#cerrarLightbox"
             class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 text-white flex items-center justify-center text-2xl">&times;</button>
-    <img data-fotos-melon--admin--galeria-target="lightboxImg" class="max-w-[92vw] max-h-[80vh] object-contain" />
-    <div class="absolute bottom-4 inset-x-0 flex justify-center gap-2 px-4" data-action="click->stop">
+    <img data-fotos-melon--admin--galeria-target="lightboxImg"
+         class="max-w-[92vw] max-h-[80vh] object-contain"
+         style="transition: transform 0.12s ease; transform-origin: center;" />
+
+
+    <div class="absolute bottom-4 inset-x-0 flex justify-center gap-2 px-4"
+         data-action="click->stop"
+         data-fotos-melon--admin--galeria-target="lightboxBotones">
       <a data-fotos-melon--admin--galeria-target="lightboxDescargar"
          class="px-4 py-2 rounded-full bg-fm-accent text-white font-semibold text-sm no-underline">Descargar</a>
       <button type="button" data-action="fotos-melon--admin--galeria#renombrarActual"

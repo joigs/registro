@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus";
 export default class extends Controller {
     static targets = [
         "item", "barraNormal", "barraSeleccion", "contador", "datos",
-        "lightbox", "lightboxImg", "lightboxDescargar",
+        "lightbox", "lightboxImg", "lightboxDescargar", "lightboxBotones",
         "moverLista",
         "formEliminar", "formRenombrar", "formRenombrarInput",
         "formZip", "formZipIds"
@@ -13,13 +13,29 @@ export default class extends Controller {
         this.sel = new Set();
         this.cfg = JSON.parse(this.datosTarget.textContent);
         this.actualId = null;
+        this._zoom = 1;
+        this._panX = 0;
+        this._panY = 0;
+        this._dragging = false;
+        this._dragStartX = 0;
+        this._dragStartY = 0;
+        this._panStartX = 0;
+        this._panStartY = 0;
+        // bound handlers
         this._handlerTeclado = this.manejarTeclado.bind(this);
+        this._handlerWheel = this._manejarWheel.bind(this);
+        this._handlerMouseDown = this._onMouseDown.bind(this);
+        this._handlerMouseMove = this._onMouseMove.bind(this);
+        this._handlerMouseUp = this._onMouseUp.bind(this);
         this._iniciarPolling();
     }
 
     disconnect() {
         if (this._pollTimer) clearInterval(this._pollTimer);
         window.removeEventListener("keydown", this._handlerTeclado);
+        window.removeEventListener("wheel", this._handlerWheel);
+        window.removeEventListener("mousemove", this._handlerMouseMove);
+        window.removeEventListener("mouseup", this._handlerMouseUp);
     }
 
     _iniciarPolling() {
@@ -86,22 +102,141 @@ export default class extends Controller {
         this.refrescarBarra();
     }
 
+
     abrirLightbox(id) {
         this.actualId = id;
+        this._resetZoomPan();
         this.lightboxImgTarget.src = this.cfg.verUrlBase + id + "/ver";
         this.lightboxDescargarTarget.href = this.cfg.verUrlBase + id + "/descargar";
         this.lightboxTarget.classList.remove("hidden");
         this.lightboxTarget.classList.add("flex");
+        document.body.style.overflow = "hidden";
         window.addEventListener("keydown", this._handlerTeclado);
+        window.addEventListener("wheel", this._handlerWheel, { passive: false });
+        this.lightboxImgTarget.addEventListener("mousedown", this._handlerMouseDown);
     }
 
     cerrarLightbox(event) {
         if (event && event.target !== event.currentTarget && !event.target.closest("button")) return;
         this.lightboxTarget.classList.add("hidden");
         this.lightboxTarget.classList.remove("flex");
+        document.body.style.overflow = "";
         window.removeEventListener("keydown", this._handlerTeclado);
+        window.removeEventListener("wheel", this._handlerWheel);
+        window.removeEventListener("mousemove", this._handlerMouseMove);
+        window.removeEventListener("mouseup", this._handlerMouseUp);
+        this.lightboxImgTarget.removeEventListener("mousedown", this._handlerMouseDown);
+        this._resetZoomPan();
         this.actualId = null;
     }
+
+    _resetZoomPan() {
+        this._zoom = 1;
+        this._panX = 0;
+        this._panY = 0;
+        this._dragging = false;
+        this._applyTransform();
+        this.lightboxImgTarget.style.cursor = "default";
+        this._setBotonesVisible(true);
+    }
+
+    _applyTransform() {
+        this.lightboxImgTarget.style.transform =
+            `translate(${this._panX}px, ${this._panY}px) scale(${this._zoom})`;
+    }
+
+    _clampPan() {
+        const img = this.lightboxImgTarget;
+        // Natural (unscaled) size of the image
+        const naturalW = img.offsetWidth;
+        const naturalH = img.offsetHeight;
+        const extraX = (naturalW * (this._zoom - 1)) / 2;
+        const extraY = (naturalH * (this._zoom - 1)) / 2;
+        const MARGIN = 60;
+        const maxX = extraX + MARGIN;
+        const maxY = extraY + MARGIN;
+        this._panX = Math.max(-maxX, Math.min(maxX, this._panX));
+        this._panY = Math.max(-maxY, Math.min(maxY, this._panY));
+    }
+
+    _setBotonesVisible(visible) {
+        if (!this.hasLightboxBotonesTarget) return;
+        this.lightboxBotonesTarget.style.opacity = visible ? "1" : "0";
+        this.lightboxBotonesTarget.style.pointerEvents = visible ? "auto" : "none";
+        this.lightboxBotonesTarget.style.transition = "opacity 0.2s ease";
+    }
+
+
+    _manejarWheel(event) {
+        if (!this.actualId) return;
+        event.preventDefault();
+
+        const STEP = 0.15;
+        const MIN = 1;
+        const MAX = 5;
+
+        const img = this.lightboxImgTarget;
+        const rect = img.getBoundingClientRect();
+
+        const mouseX = event.clientX - (rect.left + rect.width / 2);
+        const mouseY = event.clientY - (rect.top + rect.height / 2);
+
+        const prevZoom = this._zoom;
+        if (event.deltaY < 0) {
+            this._zoom = Math.min(MAX, this._zoom + STEP);
+        } else {
+            this._zoom = Math.max(MIN, this._zoom - STEP);
+        }
+
+        if (prevZoom !== this._zoom) {
+            const zoomRatio = this._zoom / prevZoom;
+            this._panX = mouseX + (this._panX - mouseX) * zoomRatio;
+            this._panY = mouseY + (this._panY - mouseY) * zoomRatio;
+        }
+
+        if (this._zoom === MIN) {
+            this._panX = 0;
+            this._panY = 0;
+        }
+
+        this._clampPan();
+        this._applyTransform();
+
+        const zoomed = this._zoom > 1;
+        img.style.cursor = zoomed ? "grab" : "default";
+        this._setBotonesVisible(!zoomed);
+    }
+
+
+    _onMouseDown(event) {
+        if (this._zoom <= 1) return;
+        event.preventDefault();
+        this._dragging = true;
+        this._dragStartX = event.clientX;
+        this._dragStartY = event.clientY;
+        this._panStartX = this._panX;
+        this._panStartY = this._panY;
+        this.lightboxImgTarget.style.cursor = "grabbing";
+        window.addEventListener("mousemove", this._handlerMouseMove);
+        window.addEventListener("mouseup", this._handlerMouseUp);
+    }
+
+    _onMouseMove(event) {
+        if (!this._dragging) return;
+        this._panX = this._panStartX + (event.clientX - this._dragStartX);
+        this._panY = this._panStartY + (event.clientY - this._dragStartY);
+        this._clampPan();
+        this._applyTransform();
+    }
+
+    _onMouseUp() {
+        if (!this._dragging) return;
+        this._dragging = false;
+        this.lightboxImgTarget.style.cursor = this._zoom > 1 ? "grab" : "default";
+        window.removeEventListener("mousemove", this._handlerMouseMove);
+        window.removeEventListener("mouseup", this._handlerMouseUp);
+    }
+
 
     manejarTeclado(event) {
         if (!this.actualId) return;
@@ -127,6 +262,7 @@ export default class extends Controller {
             this.abrirLightbox(ids[nuevoIndex]);
         }
     }
+
 
     eliminarActual() {
         if (!this.actualId) return;

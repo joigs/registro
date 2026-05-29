@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_22_194320) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_28_201823) do
   create_table "active_storage_attachments", charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -232,6 +232,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_22_194320) do
     t.string "subido_por_nombre"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "upload_uuid", limit: 64
+    t.index ["fecha_carpeta_id", "upload_uuid"], name: "idx_fotos_melon_fotos_upload_uuid_por_fecha", unique: true
     t.index ["fecha_carpeta_id"], name: "index_fotos_melon_fotos_on_fecha_carpeta_id"
     t.index ["subido_por_id"], name: "index_fotos_melon_fotos_on_subido_por_id"
   end
