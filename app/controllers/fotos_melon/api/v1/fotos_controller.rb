@@ -2,8 +2,7 @@ module FotosMelon
   module Api
     module V1
       class FotosController < ApplicationController
-        # OJO: quitamos `include ActionController::Live` del ApplicationController
-        # para estas acciones, o usamos send_file directamente que no lo requiere.
+  
 
         before_action :require_login, except: [:descargar_zip_por_token]
         before_action :require_admin, only: [:update, :mover, :destroy]
@@ -77,9 +76,6 @@ module FotosMelon
           head :no_content
         end
 
-        # GET /fotos/:id/ver — sirve la imagen INLINE para previsualizar.
-        # Usa send_file: Rails y el servidor web (Passenger/Puma) se encargan
-        # del streaming. Para Active Storage :local, esto es lo correcto.
         def ver
           unless @foto.imagen.attached?
             return render json: { error: "Foto sin archivo" }, status: :not_found
