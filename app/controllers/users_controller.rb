@@ -12,7 +12,7 @@ class UsersController < ApplicationController
 
   def show
     @user = User.find_by!(username: params[:username])
-    @approved_id = 5
+    @approved_id = 4
     if Current.user&.id == @approved_id
       meses = meses_disponibles
       @opciones_meses = meses.map do |fecha|
