@@ -12,7 +12,7 @@ class UsersController < ApplicationController
 
   def show
     @user = User.find_by!(username: params[:username])
-    @approved_id = 1
+    @approved_id = 4
     if Current.user&.id == @approved_id
       meses = meses_disponibles
       @opciones_meses = meses.map do |fecha|
@@ -59,7 +59,7 @@ class UsersController < ApplicationController
 
   def actualizar_fac
     @user = User.find_by!(username: params[:username])
-    head :forbidden and return unless Current.user&.id == 1
+    head :forbidden and return unless Current.user&.id == 4
 
     meses = meses_disponibles
     mes_seleccionado = parse_mes(params[:mes], meses) || meses.first
@@ -88,7 +88,7 @@ class UsersController < ApplicationController
 
   def actualizar_fch_factura
     @user = User.find_by!(username: params[:username])
-    head :forbidden and return unless Current.user&.id == 1
+    head :forbidden and return unless Current.user&.id == 4
 
     fecha = parse_fecha(params[:cer_man_fch_factura])
     if fecha.nil?
