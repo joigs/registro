@@ -189,8 +189,11 @@ Rails.application.routes.draw do
 
 
 
-    resources :users, only: :show, path: '/user', param: :username, as: 'perfil'
-
+    resources :users, only: :show, path: '/user', param: :username, as: 'perfil' do
+      member do
+        post :actualizar_fac
+      end
+    end
 
     resources :records, only: [:index], path: '/records' do
 
