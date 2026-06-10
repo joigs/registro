@@ -36,7 +36,9 @@ class UsersController < ApplicationController
        CertChkLst.CertActivoId,
        CertChkLst.CertChkLstFch,
        CertChkLst.CertChkLstFchFac,
-       CertActivo.CerManRut"
+       CertActivo.CerManRut,
+       CertActivo.CertActivoNro"
+
       ).order("CertChkLst.CertChkLstFchFac DESC")
 
       if params[:preview].present?
