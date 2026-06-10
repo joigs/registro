@@ -192,6 +192,7 @@ Rails.application.routes.draw do
     resources :users, only: :show, path: '/user', param: :username, as: 'perfil' do
       member do
         post :actualizar_fac
+        post :actualizar_fch_factura
       end
     end
 

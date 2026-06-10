@@ -12,7 +12,7 @@ class UsersController < ApplicationController
 
   def show
     @user = User.find_by!(username: params[:username])
-    @approved_id = 4
+    @approved_id = 1
     if Current.user&.id == @approved_id
       meses = meses_disponibles
       @opciones_meses = meses.map do |fecha|
@@ -40,6 +40,12 @@ class UsersController < ApplicationController
        CertActivo.CertActivoNro"
 
       ).order("CertChkLst.CertChkLstFchFac DESC")
+
+
+      @cer_mans = SecondaryModels::CerManExternal
+                    .where(CerManRut: CER_MAN_RUTS_PERMITIDOS)
+                    .select("CerManRut, CerManFchFactura")
+                    .order("CerManRut")
 
       if params[:preview].present?
         @aviso_cantidad = scope.count
@@ -80,10 +86,36 @@ class UsersController < ApplicationController
                     "CertChkLstFchFac quedó en #{nueva_fecha.strftime('%d/%m/%Y')}."
   end
 
+  def actualizar_fch_factura
+    @user = User.find_by!(username: params[:username])
+    head :forbidden and return unless Current.user&.id == 1
 
+    fecha = parse_fecha(params[:cer_man_fch_factura])
+    if fecha.nil?
+      redirect_back fallback_location: perfil_path(username: @user.username),
+                    alert: "Fecha inválida."
+      return
+    end
 
+    actualizados =
+      SecondaryWrite::CerManWritable
+        .where(CerManRut: CER_MAN_RUTS_PERMITIDOS)
+        .update_all(CerManFchFactura: fecha)
+
+    redirect_back fallback_location: perfil_path(username: @user.username),
+                  notice: "CerManFchFactura quedó en #{fecha.strftime('%d/%m/%Y')} para #{actualizados} CerMan."
+  end
 
   private
+
+  def parse_fecha(valor)
+    return nil if valor.blank?
+    Date.iso8601(valor)
+  rescue ArgumentError
+    nil
+  end
+
+
 
   def meses_disponibles
     inicio = Date.new(2025, 12, 1)
