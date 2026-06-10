@@ -24,7 +24,7 @@
 
 
 
-  <% if Current.user&.id == 1 %>
+  <% if Current.user&.id == @approved_id %>
     <div class="mt-6 space-y-4">
       <%= form_with url: request.path, method: :get do %>
         <label for="mes" class="block text-sm font-medium text-white mb-2">Filtrar por mes</label>

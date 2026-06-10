@@ -12,8 +12,8 @@ class UsersController < ApplicationController
 
   def show
     @user = User.find_by!(username: params[:username])
-
-    if Current.user&.id == 5
+    @approved_id = 5
+    if Current.user&.id == @approved_id
       meses = meses_disponibles
       @opciones_meses = meses.map do |fecha|
         ["#{MESES_ES[fecha.month - 1]} - #{fecha.year}", fecha.strftime("%Y-%m")]
