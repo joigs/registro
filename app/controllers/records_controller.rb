@@ -422,14 +422,11 @@ SQL
       if cmpc_cnt_month_raw["Transporte de personal CMPC"]
         cmpc_cnt_month[cmpc_rut] = cmpc_cnt_month_raw["Transporte de personal CMPC"]
       end
-
-      @evaluation_month_company = merge_nested_monthly_anual(
-        eval_emp_month,
-        otros_emp_month,
-        ald_emp_month,
-        oxy_emp_month,
-        cmpc_emp_month,
-        year: @year
+      @evaluation_month_company = rollup_uf_to_mandante_monthly_anual(
+        merge_nested_monthly_anual(
+          eval_emp_month, otros_emp_month, ald_emp_month, oxy_emp_month, cmpc_emp_month, year: @year
+        ),
+        @year
       )
 
       @evaluation_month_company_count = merge_nested_count_monthly_anual(
@@ -1263,13 +1260,13 @@ SQL
     @oxy_month_by_empresa = { oxy_rut => @oxy_total_uf }
     @cmpc_month_by_empresa = { cmpc_rut => @cmpc_total_uf }
 
-    @month_by_empresa = merge_hashes(@vertical_month_by_empresa,
+    @month_by_empresa = rollup_uf_to_mandante(merge_hashes(@vertical_month_by_empresa,
                                      @evaluacion_month_by_empresa,
                                      @movilidad_month_by_empresa,
                                      @oxy_month_by_empresa,
                                      @cmpc_month_by_empresa,
                                      @ald_month_by_empresa,
-                                     @otros_month_by_empresa)
+                                     @otros_month_by_empresa))
 
 
     #puts("month_by_empresa=#{@month_by_empresa.inspect} ")
@@ -2016,6 +2013,15 @@ end
   end
 
 
+  def rollup_uf_to_mandante(map)
+    Hash.new(BigDecimal("0")).tap do |rolled|
+      (map || {}).each do |k, v|
+        key = @emp_to_mandante.key?(k) ? Array(@emp_to_mandante[k]).first : k
+        rolled[key] += v.to_d
+      end
+    end
+  end
+
 
 
   #Funciones anuales
@@ -2650,7 +2656,16 @@ end
     end
   end
 
-
+  def rollup_uf_to_mandante_monthly_anual(map, year)
+    Hash.new { |h, k| h[k] = Hash.new(BigDecimal("0")) }.tap do |rolled|
+      map.each do |k, sub|
+        key = @emp_to_mandante.key?(k) ? Array(@emp_to_mandante[k]).first : k
+        months_range_for_year(year).each do |m|
+          rolled[key][m] += sub[m].to_d
+        end
+      end
+    end
+  end
   def _norm_name(s)
     require "i18n" unless defined?(I18n)
     I18n.transliterate(s.to_s).gsub(/[\s\.]/, "").downcase
