@@ -1,6 +1,7 @@
 class UsersController < ApplicationController
   CER_MAN_RUTS_PERMITIDOS = %w[
     85805200
+    24364110
   ].freeze
 
 
