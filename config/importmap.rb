@@ -12,7 +12,6 @@ pin_all_from "app/javascript/custom", under: "custom"
 pin "flowbite", to: "https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.turbo.min.js"
 pin "@popperjs/core", to: "@popperjs--core.js" # @2.11.8
 pin "flowbite-datepicker" # @1.3.0
-pin "sweetalert2" # @11.14.0
 pin "flatpickr", to: "https://cdn.jsdelivr.net/npm/flatpickr"
 pin "flatpickr/es", to: "https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"
 pin "@anycable/turbo-stream", to: "@anycable--turbo-stream.js" # @0.8.1
@@ -20,3 +19,5 @@ pin "@anycable/web", to: "@anycable--web.js" # @1.1.1
 pin "@hotwired/turbo", to: "@hotwired--turbo.js" # @8.0.23
 pin "@anycable/core", to: "@anycable--core.js" # @1.1.6
 pin "nanoevents" # @9.1.0
+pin "sweetalert2",
+    to: "sweetalert2-neutral.js" # @11.22.2-neutral
