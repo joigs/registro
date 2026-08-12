@@ -52,7 +52,7 @@ class UsersController < ApplicationController
 
       @cer_mans = SecondaryModels::CerManExternal
                     .where(CerManRut: CER_MAN_RUTS_PERMITIDOS)
-                    .select("CerManRut, CerManFchFactura")
+                    .select("CerManRut, CerManFchFactura, CerManNombre")
                     .order("CerManRut")
 
       if params[:preview].present?

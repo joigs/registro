@@ -7,6 +7,7 @@
     <list default="true" id="d1cedfe0-07c8-4a63-8640-6217741376ec" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/controllers/users_controller.rb" beforeDir="false" afterPath="$PROJECT_DIR$/app/controllers/users_controller.rb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/views/users/show.html.erb" beforeDir="false" afterPath="$PROJECT_DIR$/app/views/users/show.html.erb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -364,7 +365,7 @@
       <workItem from="1783368798899" duration="45000" />
       <workItem from="1785428427603" duration="77000" />
       <workItem from="1785763877456" duration="657000" />
-      <workItem from="1786550668833" duration="858000" />
+      <workItem from="1786550668833" duration="1205000" />
     </task>
     <servers />
   </component>
