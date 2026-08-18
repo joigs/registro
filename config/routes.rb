@@ -11,6 +11,12 @@ Rails.application.routes.draw do
     root 'home#index', as: 'home'
 
 
+    namespace :api, defaults: { format: :json } do
+      namespace :v1 do
+        resources :mandantes, only: [:index]
+      end
+    end
+
 
     scope :pausa, module: :pausa, as: :pausa do
       get "manifest.json",     to: "service_worker#manifest",      defaults: { format: :json }
