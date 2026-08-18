@@ -15,6 +15,14 @@ class RecordsController < ApplicationController
     "EVALUACION_API_URL",
     "https://ventas.chcert.cl/evaluacion/api/v1/facturacions"
   ).freeze
+
+  EVAL_INFORMES_URL = ENV.fetch(
+    "EVALUACION_INFORMES_API_URL",
+    "https://ventas.chcert.cl/evaluacion/api/v1/informes"
+  ).freeze
+
+  INFORMES_EMPRESA_LABEL = "Informes Técnicos".freeze
+
   EVAL_KEY = ENV.fetch("EVALUACION_API_KEY", "")
 
   MANDANTE_NAME_OVERRIDES = {
@@ -283,7 +291,7 @@ SQL
 
 
         end
-
+        apply_informes_to_movilidad_year_month!(mm)
         @empresas_por_mandante = Hash.new { |h,k| h[k] = [] }
         @emp_to_mandante.each { |empresa, (mand_rut, _)| @empresas_por_mandante[mand_rut] << empresa }
 
@@ -881,6 +889,9 @@ SQL
 
 
     end
+
+    apply_informes_to_movilidad_month!(year: @year, month: @month)
+
     @empresas_por_mandante = Hash.new { |h,k| h[k] = [] }
     @emp_to_mandante.each do |empresa, (mand_rut, _mand_nom)|
       @empresas_por_mandante[mand_rut] << empresa
@@ -2022,7 +2033,114 @@ end
     end
   end
 
+  def fetch_informes(year:, month:)
+    resp = api_get(EVAL_INFORMES_URL, EVAL_KEY, { year: year, month: month })
+    return [] unless resp.code == 200
 
+    body = JSON.parse(resp.body) rescue nil
+    arr  = body.is_a?(Hash) ? body["informes"] : body
+    parse_informes(arr)
+  rescue JSON::ParserError => e
+    Rails.logger.error("[INFORMES] respuesta inválida: #{e.message}")
+    []
+  end
+
+  def parse_informes(arr)
+    ensure_array(arr).select { |e| e.is_a?(Hash) }.map do |i|
+      fecha_str = i["fecha"] || i[:fecha]
+      fecha     = fecha_str && (Date.parse(fecha_str.to_s) rescue nil)
+
+      OpenStruct.new(
+        id:              i["id"] || i[:id],
+        fecha:           fecha,
+        month:           (i["month"] || i[:month] || fecha&.month).to_i,
+        year:            (i["year"]  || i[:year]  || fecha&.year).to_i,
+        mandante_rut:    (i["mandante_rut"]    || i[:mandante_rut]).to_s.strip,
+        mandante_nombre: (i["mandante_nombre"] || i[:mandante_nombre]).to_s.strip,
+        n_informes:      (i["n_informes"] || i[:n_informes]).to_i,
+        total:           to_decimal(i["total"] || i[:total])
+      )
+    end
+  end
+
+  def informes_anual_by_month(year)
+    @informes_anual_by_month ||=
+      fetch_informes(year: year, month: "all")
+        .select { |i| i.year.to_i == year.to_i && (1..12).cover?(i.month.to_i) }
+        .group_by { |i| i.month.to_i }
+  end
+
+  def informes_empresa_key(mand_nom, mand_rut)
+    etiqueta = mand_nom.presence || mand_rut.to_s
+    "#{INFORMES_EMPRESA_LABEL} – #{etiqueta}"
+  end
+
+  def cerman_mandante_for(rut)
+    @cerman_mandante_cache ||= {}
+    key = rut.to_s.strip
+    return @cerman_mandante_cache[key] if @cerman_mandante_cache.key?(key)
+
+    lookup = key.match?(/\A\d+\z/) ? key.to_i : key
+
+    row = SecondaryModels::CerManExternal
+            .where(CerManRut: lookup)
+            .pluck(:CerManRut, :CerManNombre, :CerManRutN, :CerManRazonSocial)
+            .first
+
+    @cerman_mandante_cache[key] =
+      if row
+        rut_key = row[2].to_s.strip.presence || row[0].to_s.strip
+        nombre  = row[3].to_s.strip.presence || row[1].to_s.strip
+        [map_mandante_rut(rut_key), nombre]
+      else
+        [map_mandante_rut(key), nil]
+      end
+  end
+
+  def apply_informes_to_movilidad_month!(year:, month:)
+    lista = fetch_informes(year: year, month: month)
+              .select { |i| i.year.to_i == year.to_i && i.month.to_i == month.to_i }
+    return if lista.empty?
+
+    lista.group_by { |i| i.mandante_rut }.each do |rut, informes|
+      mand_rut, nombre_db = cerman_mandante_for(rut)
+      mand_nom = nombre_db.presence || informes.first.mandante_nombre.presence || mand_rut.to_s
+      emp      = informes_empresa_key(mand_nom, mand_rut)
+
+      informes.each do |inf|
+        day = inf.fecha&.day
+        next unless day
+
+        uf  = to_decimal(inf.total)
+        cnt = inf.n_informes.to_i
+
+        @empresa_day[emp][day]       += uf
+        @empresa_month[emp]           = @empresa_month[emp].to_d + uf
+        @empresa_day_count[emp][day] += cnt
+        @empresa_month_count[emp]     = @empresa_month_count[emp].to_i + cnt
+      end
+
+      @emp_to_mandante[emp] = [mand_rut, mand_nom]
+    end
+  end
+
+  def apply_informes_to_movilidad_year_month!(mm)
+    lista = (informes_anual_by_month(@year)[mm.to_i] || [])
+    return if lista.empty?
+
+    lista.group_by { |i| i.mandante_rut }.each do |rut, informes|
+      mand_rut, nombre_db = cerman_mandante_for(rut)
+      mand_nom = nombre_db.presence || informes.first.mandante_nombre.presence || mand_rut.to_s
+      emp      = informes_empresa_key(mand_nom, mand_rut)
+
+      uf  = informes.sum(BigDecimal("0")) { |i| to_decimal(i.total) }
+      cnt = informes.sum { |i| i.n_informes.to_i }
+
+      @empresa_month[emp]       = @empresa_month[emp].to_d + uf
+      @empresa_month_count[emp] = @empresa_month_count[emp].to_i + cnt
+      @emp_to_mandante[emp]     = [mand_rut, mand_nom]
+    end
+  end
 
   #Funciones anuales
   #Funciones anuales
