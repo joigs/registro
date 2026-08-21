@@ -32,8 +32,7 @@ class RecordsController < ApplicationController
     "90222000" => "91440000"
   }.freeze
 
-  PLANTA_MANDANTE_RUT    = "91440000".freeze
-  PLANTA_MANDANTE_NOMBRE = "Forestal Mininco S.A.".freeze
+  PLANTA_SPLIT_RUTS = %w[30222000].freeze
 
   UF_SCALE_INTERNAL  = 12
   UF_SCALE_DISPLAY   = 4
@@ -289,7 +288,7 @@ SQL
 
 
           ref       = filas_dia.first
-          mand_rut  = map_mandante_rut((ref))
+          mand_rut  = map_mandante_rut(safe_mandante_rut(ref))
           mand_nom  = safe_mandante_name(ref, mand_rut)
           @emp_to_mandante[empresa] = [mand_rut, mand_nom]
 
@@ -354,7 +353,7 @@ SQL
         key =
           if   norm[name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
-          elsif norm[name].include?("forestalmininco")
+          elsif norm[name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)
             "Planta Acreditación Vehículos Forestal"
           else
             "Otros"
@@ -384,7 +383,7 @@ SQL
         key =
           if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
-          elsif norm[raw_name].include?("forestalmininco")
+          elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)
             "Planta Acreditación Vehículos Forestal"
           else
             "Otros"
@@ -884,7 +883,7 @@ SQL
 
 
       ref       = filas_dia.first
-      mand_rut  = map_mandante_rut((ref))
+      mand_rut  = map_mandante_rut(safe_mandante_rut(ref))
       mand_nom  = safe_mandante_name(ref, mand_rut)
       @emp_to_mandante[empresa] = [mand_rut, mand_nom]
 
@@ -978,7 +977,7 @@ SQL
       key =
         if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
           "Forestal Arauco SA"
-        elsif norm[raw_name].include?("forestalmininco")
+        elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)
           "Planta Acreditación Vehículos Forestal"
         else
           "Otros"
@@ -1014,7 +1013,7 @@ SQL
       key =
         if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
           "Forestal Arauco SA"
-        elsif norm[raw_name].include?("forestalmininco")
+        elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)
           "Planta Acreditación Vehículos Forestal"
         else
           "Otros"
@@ -2804,21 +2803,6 @@ end
   end
 
 
-  def prune_company_duplicates!(company_hash)
-    return unless company_hash.is_a?(Hash)
-
-    mand_names_by_rut = (@mandante_names || {}).reject { |_rut, n| _norm_name(n).blank? }
-    norm_index = mand_names_by_rut.transform_values { |n| _norm_name(n) }.invert
-
-    company_hash.keys.each do |comp_key|
-      comp_norm = _norm_name(comp_key)
-      next if comp_norm.blank?            
-      match_rut = norm_index[comp_norm]
-      next unless match_rut
-      next if (@empresas_por_mandante || {})[match_rut].to_a.include?(comp_key)
-      company_hash.delete(comp_key)
-    end
-  end
 
 
   def prune_company_duplicates!(company_hash)
@@ -2838,23 +2822,14 @@ end
   end
 
 
-  def planta_cerman_row?(ref)
-    return false unless ref.CerManRut.to_s.strip == PLANTA_MANDANTE_RUT
-    n = _norm_name(ref.CerManNombre)
-    n.start_with?("planta") && n.include?("forestal")
-  end
 
   def safe_mandante_rut(ref)
-    return PLANTA_MANDANTE_RUT if planta_cerman_row?(ref)
-
     rut = ref.CerManRutN.to_s.strip
     rut = ref.CerManRut.to_s.strip if rut.blank?
     rut.presence || "Rut desconocido"
   end
 
   def safe_mandante_name(ref, rut)
-    return PLANTA_MANDANTE_NOMBRE if planta_cerman_row?(ref)
-
     nom = ref.CerManRazonSocial.to_s.strip
     nom = ref.CerManNombre.to_s.strip if nom.blank?
     nom.presence || rut
