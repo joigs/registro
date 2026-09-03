@@ -7,6 +7,8 @@
     <list default="true" id="d1cedfe0-07c8-4a63-8640-6217741376ec" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/controllers/records_controller.rb" beforeDir="false" afterPath="$PROJECT_DIR$/app/controllers/records_controller.rb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/views/records/index.html.erb" beforeDir="false" afterPath="$PROJECT_DIR$/app/views/records/index.html.erb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/importmap.rb" beforeDir="false" afterPath="$PROJECT_DIR$/config/importmap.rb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,7 +64,7 @@
     "RunOnceActivity.ruby.rubocop.migration.global.runOnSaveToExternalFormatter": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.lang.ruby.rbs.tools.collection.workspace.sync.RbsCollectionUpdateProjectActivity#LAST_UPDATE_TIMESTAMP": "1787081835030",
+    "com.intellij.lang.ruby.rbs.tools.collection.workspace.sync.RbsCollectionUpdateProjectActivity#LAST_UPDATE_TIMESTAMP": "1788454108789",
     "git-widget-placeholder": "background",
     "last_opened_file_path": "/home/joigs/codes/RoR/registro/app/models/fotos_melon",
     "node.js.detected.package.eslint": "true",
@@ -366,7 +368,8 @@
       <workItem from="1785763877456" duration="657000" />
       <workItem from="1786550668833" duration="2510000" />
       <workItem from="1786654817967" duration="660000" />
-      <workItem from="1787081776391" duration="6148000" />
+      <workItem from="1787081776391" duration="7153000" />
+      <workItem from="1788454046297" duration="3731000" />
     </task>
     <servers />
   </component>
