@@ -80,6 +80,8 @@ class RecordsController < ApplicationController
       end
 
 
+
+
       #puts("evaluacions_anual: #{@evaluacions.inspect}")
       #puts("current_oxies_anual: #{@current_oxies.inspect}")
       #puts("current_cmpcs_anual: #{@current_cmpcs.inspect}")
@@ -263,6 +265,7 @@ SQL
         end
 
         rows_ok = per_padre_rows.values + individual_children
+
 
         @empresa_month_count = Hash.new(0)
         @empresa_month       = Hash.new(BigDecimal("0"))
@@ -544,6 +547,10 @@ SQL
 
     @month = (params[:month] || Date.current.month).to_i
     @days_in_month = Date.civil(@year, @month, -1).day
+
+    @date_from, @date_to = selected_month_dates(@year, @month)
+    @selected_days = (@date_from.day..@date_to.day)
+
     meta_resp = HTTParty.get(VERTICAL_URL, headers: { "X-API-KEY" => VERTICAL_KEY },
                              query:   { meta: 1 })
     @filter_options =
@@ -588,6 +595,51 @@ SQL
       @current_cmpc = nil
       @current_ald = nil
       @otros = []
+    end
+
+
+
+    @facturacions.select! do |f|
+      date_in_selected_range?(f.fecha_venta)
+    end
+
+    @convenios.select! do |c|
+      date_in_selected_range?(c.fecha_venta)
+    end
+
+    @evaluacions.select! do |e|
+      date_in_selected_range?(e.fecha_inspeccion)
+    end
+
+    @otros.select! do |o|
+      date_in_selected_range?(o.fecha)
+    end
+
+    if @current_oxy
+      @current_oxy.oxy_records.select! do |r|
+        date_in_selected_range?(r.fecha)
+      end
+
+      @current_oxy.arrastre = 0 unless @selected_days.cover?(1)
+
+      @current_oxy.total_uf =
+        to_decimal(@current_oxy.suma) *
+        (@current_oxy.oxy_records.size + @current_oxy.arrastre.to_i)
+    end
+
+    if @current_cmpc
+      @current_cmpc.cmpc_records.select! do |r|
+        date_in_selected_range?(r.fecha)
+      end
+
+      @current_cmpc.total_uf =
+        @current_cmpc.cmpc_records.sum(BigDecimal("0")) do |r|
+          to_decimal(r.suma)
+        end
+    end
+
+    if @current_ald && !@selected_days.cover?(@days_in_month)
+      @current_ald = nil
     end
 
     require "set"
@@ -739,7 +791,9 @@ SQL
 
     rows_ok = per_padre_rows.values + individual_children
 
-
+    rows_ok.select! do |row|
+      date_in_selected_range?(row.CertChkLstFchFac)
+    end
     rows_ok
       .group_by { |r| [r.CerManRut, r.CerManNombre] }
       .each do |(rut, nombre), registros|
@@ -1032,20 +1086,6 @@ SQL
     @movil_split_total_count            = grp_month_count.values.sum
 
 
-    @facturacions.select! do |f|
-      date = (f.fecha_venta && Date.parse(f.fecha_venta) rescue nil)
-      date && date.year == @year && date.month == @month
-    end
-
-    @convenios.select do |c|
-      date = (c.fecha_venta && Date.parse(c.fecha_venta) rescue nil)
-      date && date.year == @year && date.month == @month
-    end
-
-    @evaluacions.select! do |e|
-      date = (e.fecha_inspeccion && Date.parse(e.fecha_inspeccion) rescue nil)
-      date && date.year == @year && date.month == @month
-    end
 
     if @current_oxy && !(@current_oxy.year == @year && @current_oxy.month == @month)
       @current_oxy = nil
@@ -2102,7 +2142,13 @@ end
 
   def apply_informes_to_movilidad_month!(year:, month:)
     lista = fetch_informes(year: year, month: month)
-              .select { |i| i.year.to_i == year.to_i && i.month.to_i == month.to_i }
+              .select do |i|
+      i.year.to_i == year.to_i &&
+        i.month.to_i == month.to_i &&
+        i.fecha.present? &&
+        date_in_selected_range?(i.fecha)
+    end
+
     return if lista.empty?
 
     lista.group_by { |i| i.mandante_rut }.each do |rut, informes|
@@ -2144,6 +2190,58 @@ end
       @emp_to_mandante[emp]     = [mand_rut, mand_nom]
     end
   end
+
+
+
+  def selected_month_dates(year, month)
+    first_day = Date.new(year.to_i, month.to_i, 1)
+    last_day  = first_day.end_of_month
+
+    default_to =
+      if first_day.year == Date.current.year &&
+         first_day.month == Date.current.month
+        Date.current
+      else
+        last_day
+      end
+
+    from = parse_date_param(params[:date_from]) || first_day
+    to   = parse_date_param(params[:date_to])   || default_to
+
+    from = first_day unless from.between?(first_day, last_day)
+    to   = default_to unless to.between?(first_day, last_day)
+
+    from, to = to, from if from > to
+
+    [from, to]
+  end
+
+  def parse_date_param(value)
+    return nil if value.blank?
+
+    Date.iso8601(value.to_s)
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def date_in_selected_range?(value)
+    return false if value.blank?
+
+    date =
+      if value.respond_to?(:to_date)
+        value.to_date
+      else
+        Date.parse(value.to_s)
+      end
+
+    date.between?(@date_from, @date_to)
+  rescue ArgumentError, TypeError
+    false
+  end
+
+
+
+
 
   #Funciones anuales
   #Funciones anuales
@@ -2734,6 +2832,7 @@ end
   def apply_mobility_db_adjustments_for_month!(year:, month:)
     MobilityAdjustment.in_month(year, month).find_each do |adj|
       next if adj.fecha.nil? || adj.empresa.blank?
+      next unless date_in_selected_range?(adj.fecha)
 
       emp = adj.empresa.to_s
       d   = adj.fecha.day
@@ -2748,6 +2847,7 @@ end
       if adj.mandante_rut.present? || adj.mandante_nombre.present?
         mrut = adj.mandante_rut.presence || adj.mandante_nombre.to_s
         mnom = adj.mandante_nombre.presence || adj.mandante_rut.to_s
+
         @emp_to_mandante[emp] = [mrut, mnom]
         (@mandante_names ||= {})[mrut] ||= mnom
       end
