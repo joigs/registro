@@ -356,7 +356,7 @@ SQL
         key =
           if   norm[name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
-          elsif norm[name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s) || norm[name].include?("CMPC")
+          elsif norm[name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s) || norm[name].include?("CMPC") || rut.to_s == "1"
             "Planta Acreditación Vehículos Forestal"
           else
             "Otros"
