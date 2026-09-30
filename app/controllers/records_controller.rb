@@ -33,8 +33,7 @@ class RecordsController < ApplicationController
   }.freeze
 
   PLANTA_SPLIT_RUTS = %w[30222000].freeze
-  PLANTA2_SPLIT_RUTS = %w[90222000].freeze
-
+  PLANTA_SPLIT_RUTS = %w[90222000].freeze
 
   UF_SCALE_INTERNAL  = 12
   UF_SCALE_DISPLAY   = 4
@@ -358,7 +357,7 @@ SQL
         key =
           if   norm[name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
-          elsif norm[name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s) || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
+          elsif norm[name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
             "Planta Acreditación Vehículos Forestal"
           else
             "Otros"
@@ -388,7 +387,7 @@ SQL
         key =
           if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
-          elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s) || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
+          elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
             "Planta Acreditación Vehículos Forestal"
           else
             "Otros"
@@ -1033,7 +1032,7 @@ SQL
       key =
         if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
           "Forestal Arauco SA"
-        elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s) || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
+        elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
           "Planta Acreditación Vehículos Forestal"
         else
           "Otros"
