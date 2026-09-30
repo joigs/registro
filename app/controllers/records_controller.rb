@@ -357,7 +357,7 @@ SQL
         key =
           if   norm[name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
-          elsif norm[name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s) || norm[name].include?("Transporte de personal CMPC")
+          elsif norm[name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
             "Planta Acreditación Vehículos Forestal"
           else
             "Otros"
@@ -387,7 +387,7 @@ SQL
         key =
           if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
             "Forestal Arauco SA"
-          elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s) || norm[raw_name].include?("Transporte de personal CMPC")
+          elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
             "Planta Acreditación Vehículos Forestal"
           else
             "Otros"
@@ -1032,7 +1032,7 @@ SQL
       key =
         if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
           "Forestal Arauco SA"
-        elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s) || norm[name].include?("Transporte de personal CMPC")
+        elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
           "Planta Acreditación Vehículos Forestal"
         else
           "Otros"
@@ -1068,7 +1068,7 @@ SQL
       key =
         if   norm[raw_name].include?("forestalarauco") || rut == "85805200"
           "Forestal Arauco SA"
-        elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s) || norm[raw_name].include?("Transporte de personal CMPC")
+        elsif norm[raw_name].include?("forestalmininco") || PLANTA_SPLIT_RUTS.include?(rut.to_s)  || PLANTA2_SPLIT_RUTS.include?(rut.to_s)
           "Planta Acreditación Vehículos Forestal"
         else
           "Otros"
