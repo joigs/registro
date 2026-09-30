@@ -33,7 +33,7 @@ class RecordsController < ApplicationController
   }.freeze
 
   PLANTA_SPLIT_RUTS = %w[30222000].freeze
-  PLANTA_SPLIT_RUTS = %w[90222000].freeze
+  PLANTA2_SPLIT_RUTS = %w[90222000].freeze
 
   UF_SCALE_INTERNAL  = 12
   UF_SCALE_DISPLAY   = 4
